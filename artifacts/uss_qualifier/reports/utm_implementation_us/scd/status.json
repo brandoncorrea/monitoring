@@ -1,0 +1,20 @@
+{
+  "test_run_information": {
+    "test_run_id": "c20a72a2fb795c944621fcd1c178289dcc5a4db7d270c8f9e461f27ba7553a91",
+    "start_time": "2024-08-05 18:24:58 UTC",
+    "end_time": "2024-08-05 18:25:41 UTC",
+    "baseline": "110728aeaf7f400ca4aac87aba78581cfcde8b42b8f971d14fd9aaf332d81c29",
+    "environment": "d3820056d6cfb28cf94772c4c7ee29c90934c27430ba0fe4a7329107b9a237c9"
+  },
+  "participant_verifications": {
+    "uss1": {
+      "status": "Incomplete",
+      "system_version": "brandoncorrea/monitoring/v0.0.0-cac1298"
+    },
+    "uss2": {
+      "status": "Pass",
+      "system_version": "brandoncorrea/monitoring/v0.0.0-cac1298"
+    }
+  },
+  "artifact_configuration": "scd"
+}
