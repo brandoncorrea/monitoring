@@ -1,34 +1,37 @@
-import arrow
 import datetime
 from datetime import timedelta
-from typing import List, Optional
 
+import arrow
 import flask
-from implicitdict import StringBasedDateTime
 import s2sphere
+from implicitdict import StringBasedDateTime
 from uas_standards.astm.f3411.v19.api import (
+    OPERATIONS,
     ErrorResponse,
-    RIDRecentAircraftPosition,
-    RIDFlight,
     GetFlightDetailsResponse,
     GetFlightsResponse,
     OperationID,
-    OPERATIONS,
     RIDAircraftPosition,
     RIDAircraftState,
+    RIDFlight,
     RIDFlightDetails,
+    RIDRecentAircraftPosition,
 )
 from uas_standards.astm.f3411.v19.constants import (
-    Scope,
-    NetMaxNearRealTimeDataPeriodSeconds,
     NetMaxDisplayAreaDiagonalKm,
+    NetMaxNearRealTimeDataPeriodSeconds,
+    Scope,
 )
 from uas_standards.interuss.automated_testing.rid.v1 import injection
 
-from monitoring.monitorlib import geo
-from monitoring.monitorlib.rid_automated_testing.injection_api import TestFlight
-from monitoring.mock_uss import webapp
+from monitoring.mock_uss.app import webapp
 from monitoring.mock_uss.auth import requires_scope
+from monitoring.mock_uss.logging import query_type
+from monitoring.monitorlib import geo
+from monitoring.monitorlib.fetch import QueryType
+from monitoring.monitorlib.rid import RIDVersion
+from monitoring.monitorlib.rid_automated_testing.injection_api import TestFlight
+
 from . import behavior
 from .database import db
 
@@ -53,7 +56,7 @@ def _get_report(
     t_request: datetime.datetime,
     view: s2sphere.LatLngRect,
     include_recent_positions: bool,
-) -> Optional[RIDFlight]:
+) -> RIDFlight | None:
     details = flight.get_details(t_request)
     if not details:
         return None
@@ -70,12 +73,12 @@ def _get_report(
     recent_states.sort(key=lambda p: p.timestamp)
     result = RIDFlight(
         id=details.id,
-        aircraft_type="NotDeclared",  # TODO: Include aircraft_type in TestFlight API
+        aircraft_type=flight.get_aircraft_type(RIDVersion.f3411_19),
         current_state=_make_state(recent_states[-1]),
         simulated=True,
     )
     if include_recent_positions:
-        recent_positions: List[RIDRecentAircraftPosition] = []
+        recent_positions: list[RIDRecentAircraftPosition] = []
         for recent_state in recent_states:
             recent_positions.append(
                 RIDRecentAircraftPosition(
@@ -93,18 +96,8 @@ def rid_v19_operation(op_id: OperationID):
     return webapp.route("/mock/ridsp" + path, methods=[op.verb])
 
 
-@rid_v19_operation(OperationID.PostIdentificationServiceArea)
-@requires_scope(Scope.Write)
-def ridsp_notify_isa_v19(id: str):
-    return (
-        flask.jsonify(
-            {"message": "mock_ridsp never solicits subscription notifications"}
-        ),
-        400,
-    )
-
-
 @rid_v19_operation(OperationID.SearchFlights)
+@query_type(QueryType.F3411v19USSSearchFlights)
 @requires_scope(Scope.Read)
 def ridsp_flights_v19():
     if "view" not in flask.request.args:
@@ -116,7 +109,7 @@ def ridsp_flights_v19():
         view = geo.make_latlng_rect(flask.request.args["view"])
     except ValueError as e:
         return (
-            flask.jsonify(ErrorResponse(message="Error parsing view: {}".format(e))),
+            flask.jsonify(ErrorResponse(message=f"Error parsing view: {e}")),
             400,
         )
 
@@ -126,9 +119,7 @@ def ridsp_flights_v19():
 
     diagonal = geo.get_latlngrect_diagonal_km(view)
     if diagonal > NetMaxDisplayAreaDiagonalKm:
-        msg = "Requested diagonal of {} km exceeds limit of {} km".format(
-            diagonal, NetMaxDisplayAreaDiagonalKm
-        )
+        msg = f"Requested diagonal of {diagonal} km exceeds limit of {NetMaxDisplayAreaDiagonalKm} km"
         return flask.jsonify(ErrorResponse(message=msg)), 413
 
     now = arrow.utcnow().datetime
@@ -151,6 +142,7 @@ def ridsp_flights_v19():
 
 
 @rid_v19_operation(OperationID.GetFlightDetails)
+@query_type(QueryType.F3411v19USSGetFlightDetails)
 @requires_scope(Scope.Read)
 def ridsp_flight_details_v19(id: str):
     now = arrow.utcnow().datetime
@@ -166,6 +158,6 @@ def ridsp_flight_details_v19(id: str):
                     200,
                 )
     return (
-        flask.jsonify(ErrorResponse(message="Flight {} not found".format(id))),
+        flask.jsonify(ErrorResponse(message=f"Flight {id} not found")),
         404,
     )

@@ -1,9 +1,13 @@
 import json
-from typing import List, Dict, Optional
 
-from implicitdict import ImplicitDict, StringBasedDateTime, StringBasedTimeDelta
+from implicitdict import (
+    ImplicitDict,
+    Optional,
+    StringBasedDateTime,
+    StringBasedTimeDelta,
+)
+
 from monitoring.monitorlib.errors import stacktrace_string
-
 from monitoring.monitorlib.multiprocessing import SynchronizedValue
 
 
@@ -32,23 +36,28 @@ class TaskError(ImplicitDict):
 class Database(ImplicitDict):
     """Simple in-memory pseudo-database tracking the state of the mock system"""
 
-    one_time_tasks: List[str]
+    one_time_tasks: list[str]
     """Names of one-time tasks that a process has already initiated"""
 
-    task_errors: List[TaskError]
+    task_errors: list[TaskError]
     """Information about task errors encountered while running"""
 
     stopping: bool = False
     """True only when the mock_uss should be stopping"""
 
-    periodic_tasks: Dict[str, PeriodicTaskStatus]
+    periodic_tasks: dict[str, PeriodicTaskStatus]
     """Tasks to perform periodically, by name"""
 
     most_recent_periodic_check: Optional[StringBasedDateTime]
     """Timestamp of most recent time periodic task loop iterated"""
 
 
-db = SynchronizedValue(
-    Database(one_time_tasks=[], task_errors=[], periodic_tasks={}),
+db = SynchronizedValue[Database](
+    Database(
+        one_time_tasks=[],
+        task_errors=[],
+        periodic_tasks={},
+        flight_planning_notifications=[],
+    ),
     decoder=lambda b: ImplicitDict.parse(json.loads(b.decode("utf-8")), Database),
 )

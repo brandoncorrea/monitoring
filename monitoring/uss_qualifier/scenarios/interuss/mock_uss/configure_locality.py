@@ -1,10 +1,7 @@
-from typing import List
-
 from monitoring.monitorlib.locality import LocalityCode
-from monitoring.uss_qualifier.common_data_definitions import Severity
 from monitoring.uss_qualifier.resources.interuss.mock_uss.client import (
-    MockUSSsResource,
     MockUSSClient,
+    MockUSSsResource,
 )
 from monitoring.uss_qualifier.resources.interuss.mock_uss.locality import (
     LocalityResource,
@@ -18,14 +15,14 @@ from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
 
 class ConfigureLocality(TestScenario):
-    mock_uss_instances: List[MockUSSClient]
+    mock_uss_instances: list[MockUSSClient]
     locality_code: LocalityCode
-    to_unconfigure: List[MockUSSLocalityConfiguration]
+    to_unconfigure: list[MockUSSLocalityConfiguration]
 
     def __init__(
         self, mock_uss_instances: MockUSSsResource, locality: LocalityResource
     ):
-        super(ConfigureLocality, self).__init__()
+        super().__init__()
         self.mock_uss_instances = mock_uss_instances.mock_uss_instances
         self.locality_code = locality.locality_code
         self.to_unconfigure = []
@@ -44,13 +41,11 @@ class ConfigureLocality(TestScenario):
                 if query.status_code != 200:
                     check.record_failed(
                         f"Get current locality returned {query.status_code}",
-                        Severity.High,
                         query_timestamps=[query.request.initiated_at.datetime],
                     )
                 elif locality_code is None:
                     check.record_failed(
-                        f"Missing current locality code",
-                        Severity.High,
+                        "Missing current locality code",
                         "Query to get current locality value did not produce a valid locality code",
                         query_timestamps=[query.request.initiated_at.datetime],
                     )
@@ -68,7 +63,6 @@ class ConfigureLocality(TestScenario):
                 if query.status_code != 200:
                     check.record_failed(
                         f"Set locality returned {query.status_code}",
-                        Severity.High,
                         query_timestamps=[query.request.initiated_at.datetime],
                     )
             self.to_unconfigure.append(

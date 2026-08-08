@@ -18,8 +18,8 @@ cd monitoring || exit 1
 make image
 )
 
-CORE_SERVICE_CONTAINER="local_infra-dss-1"
-OAUTH_CONTAINER="local_infra-oauth-1"
+CORE_SERVICE_CONTAINER="local_infra_1-1-dss-1"
+OAUTH_CONTAINER="local_infra_1-1-oauth-1"
 declare -a localhost_containers=("$CORE_SERVICE_CONTAINER" "$OAUTH_CONTAINER")
 
 for container_name in "${localhost_containers[@]}"; do
@@ -34,17 +34,17 @@ done
 OUTPUT_DIR="monitoring/prober/output"
 mkdir -p "$OUTPUT_DIR"
 
-if ! docker run \
+if ! docker run --rm \
 	-u "$(id -u):$(id -g)" \
 	--network interop_ecosystem_network \
 	-v "$(pwd)/$OUTPUT_DIR:/app/$OUTPUT_DIR" \
 	-w /app/monitoring/prober \
 	interuss/monitoring \
-	pytest \
+	uv run pytest \
 	"${1:-.}" \
 	-rsx \
 	--junitxml="/app/$OUTPUT_DIR/e2e_test_result" \
-	--dss-endpoint http://dss.uss1.localutm \
+	--dss-endpoint http://dss1.uss1.localutm \
 	--rid-auth "DummyOAuth(http://oauth.authority.localutm:8085/token,sub=fake_uss)" \
 	--rid-v2-auth "DummyOAuth(http://oauth.authority.localutm:8085/token,sub=fake_uss)" \
 	--scd-auth1 "DummyOAuth(http://oauth.authority.localutm:8085/token,sub=fake_uss)" \

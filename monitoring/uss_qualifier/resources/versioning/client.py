@@ -1,13 +1,13 @@
-from typing import Optional, List
-
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
 from uas_standards.interuss.automated_testing.versioning.constants import Scope
 
 from monitoring.monitorlib.clients.versioning.client import VersioningClient
 from monitoring.monitorlib.clients.versioning.client_interuss import (
     InterUSSVersioningClient,
 )
-from monitoring.monitorlib.infrastructure import UTMClientSession
+from monitoring.monitorlib.infrastructure import (
+    utm_client_session_factory,
+)
 from monitoring.monitorlib.inspection import fullname
 from monitoring.uss_qualifier.reports.report import ParticipantID
 from monitoring.uss_qualifier.resources.communications import AuthAdapterResource
@@ -28,17 +28,19 @@ class VersionProviderSpecification(ImplicitDict):
 
 
 class VersionProvidersSpecification(ImplicitDict):
-    instances: List[VersionProviderSpecification]
+    instances: list[VersionProviderSpecification]
 
 
 class VersionProvidersResource(Resource[VersionProvidersSpecification]):
-    version_providers: List[VersioningClient]
+    version_providers: list[VersioningClient]
 
     def __init__(
         self,
         specification: VersionProvidersSpecification,
+        resource_origin: str,
         auth_adapter: AuthAdapterResource,
     ):
+        super().__init__(specification, resource_origin)
         auth_adapter.assert_scopes_available(
             {
                 Scope.ReadSystemVersions: "read and record the version of each system under test",
@@ -48,7 +50,7 @@ class VersionProvidersResource(Resource[VersionProvidersSpecification]):
         self.version_providers = []
         for instance in specification.instances:
             if "interuss" in instance and instance.interuss:
-                session = UTMClientSession(
+                session = utm_client_session_factory.get_session(
                     prefix_url=instance.interuss.base_url,
                     auth_adapter=auth_adapter.adapter,
                 )

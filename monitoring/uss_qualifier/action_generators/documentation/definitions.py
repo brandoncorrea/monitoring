@@ -1,11 +1,8 @@
-from typing import Optional
+from implicitdict import ImplicitDict, Optional
 
-from implicitdict import ImplicitDict
 from monitoring.uss_qualifier.action_generators.definitions import GeneratorTypeName
-from monitoring.uss_qualifier.fileio import FileReference
 from monitoring.uss_qualifier.scenarios.definitions import TestScenarioTypeName
 from monitoring.uss_qualifier.suites.definitions import (
-    ActionType,
     TestSuiteDefinition,
     TestSuiteTypeName,
 )
@@ -36,9 +33,3 @@ class PotentialGeneratedAction(ImplicitDict):
     test_scenario: Optional[PotentialTestScenarioAction]
     test_suite: Optional[PotentialTestSuiteAction]
     action_generator: Optional[PotentialActionGeneratorAction]
-
-    def get_action_type(self) -> ActionType:
-        matches = [v for v in ActionType if v in self and self[v]]
-        if len(matches) != 1:
-            ActionType.raise_invalid_action_declaration()
-        return ActionType(matches[0])

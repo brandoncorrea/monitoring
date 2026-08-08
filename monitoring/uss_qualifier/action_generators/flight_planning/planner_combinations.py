@@ -1,6 +1,6 @@
-from typing import Dict, List, Iterator, Optional
+from collections.abc import Iterator
 
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
 
 from monitoring.monitorlib.inspection import fullname
 from monitoring.uss_qualifier.action_generators.documentation.definitions import (
@@ -16,17 +16,11 @@ from monitoring.uss_qualifier.resources.flight_planning.flight_planners import (
     FlightPlannerCombinationSelectorSpecification,
 )
 from monitoring.uss_qualifier.resources.resource import (
-    ResourceType,
     MissingResourceError,
+    ResourceType,
 )
-
-from monitoring.uss_qualifier.suites.definitions import (
-    TestSuiteActionDeclaration,
-)
-from monitoring.uss_qualifier.suites.suite import (
-    ActionGenerator,
-    TestSuiteAction,
-)
+from monitoring.uss_qualifier.suites.definitions import TestSuiteActionDeclaration
+from monitoring.uss_qualifier.suites.suite import ActionGenerator, TestSuiteAction
 
 
 class FlightPlannerCombinationsSpecification(ImplicitDict):
@@ -39,20 +33,20 @@ class FlightPlannerCombinationsSpecification(ImplicitDict):
     combination_selector_source: Optional[ResourceID] = None
     """If specified and contained in the provided resources, the resource containing a FlightPlannerCombinationSelectorResource to select only a subset of combinations"""
 
-    roles: List[ResourceID]
+    roles: list[ResourceID]
     """Resource IDs of FlightPlannerResource inputs to the action_to_repeat"""
 
 
 class FlightPlannerCombinations(
     ActionGenerator[FlightPlannerCombinationsSpecification]
 ):
-    _actions: List[TestSuiteAction]
+    _actions: list[TestSuiteAction]
     _current_action: int
 
     @classmethod
     def list_potential_actions(
         cls, specification: FlightPlannerCombinationsSpecification
-    ) -> List[PotentialGeneratedAction]:
+    ) -> list[PotentialGeneratedAction]:
         return list_potential_actions_for_action_declaration(
             specification.action_to_repeat
         )
@@ -64,7 +58,7 @@ class FlightPlannerCombinations(
     def __init__(
         self,
         specification: FlightPlannerCombinationsSpecification,
-        resources: Dict[ResourceID, ResourceType],
+        resources: dict[ResourceID, ResourceType],
     ):
         if specification.flight_planners_source not in resources:
             raise MissingResourceError(
@@ -93,7 +87,8 @@ class FlightPlannerCombinations(
                 )
         else:
             combination_selector = FlightPlannerCombinationSelectorResource(
-                FlightPlannerCombinationSelectorSpecification()
+                FlightPlannerCombinationSelectorSpecification(),
+                "default flight planner combination selector",
             )
 
         self._actions = []
@@ -127,5 +122,4 @@ class FlightPlannerCombinations(
         self._current_action = 0
 
     def actions(self) -> Iterator[TestSuiteAction]:
-        for a in self._actions:
-            yield a
+        yield from self._actions

@@ -1,18 +1,14 @@
-from typing import Optional
-
 from uas_standards.interuss.automated_testing.flight_planning.v1.api import (
     BasicFlightPlanInformationUsageState,
-    BasicFlightPlanInformationUasState,
+    FunctionalState,
 )
 
-from monitoring.monitorlib.clients.flight_planning.flight_info import (
-    FlightInfo,
-)
 from monitoring.monitorlib.clients.flight_planning.client import FlightPlannerClient
+from monitoring.monitorlib.clients.flight_planning.flight_info import FlightInfo
 from monitoring.monitorlib.clients.flight_planning.planning import (
+    FlightPlanStatus,
     PlanningActivityResponse,
     PlanningActivityResult,
-    FlightPlanStatus,
 )
 from monitoring.uss_qualifier.scenarios.flight_planning.test_steps import (
     expect_flight_intent_state,
@@ -25,7 +21,7 @@ def plan_priority_conflict_flight(
     scenario: TestScenarioType,
     flight_planner: FlightPlannerClient,
     flight_info: FlightInfo,
-    additional_fields: Optional[dict] = None,
+    additional_fields: dict | None = None,
 ) -> PlanningActivityResponse:
     """Attempt to plan a flight intent that should result in a conflict with a higher priority flight intent.
 
@@ -38,7 +34,7 @@ def plan_priority_conflict_flight(
     expect_flight_intent_state(
         flight_info,
         BasicFlightPlanInformationUsageState.Planned,
-        BasicFlightPlanInformationUasState.Nominal,
+        FunctionalState.Nominal,
         scenario,
     )
 
@@ -60,7 +56,7 @@ def modify_planned_priority_conflict_flight(
     flight_planner: FlightPlannerClient,
     flight_info: FlightInfo,
     flight_id: str,
-    additional_fields: Optional[dict] = None,
+    additional_fields: dict | None = None,
 ) -> PlanningActivityResponse:
     """Attempt to modify a planned flight intent that should result in a conflict with a higher priority flight intent.
 
@@ -72,7 +68,7 @@ def modify_planned_priority_conflict_flight(
     expect_flight_intent_state(
         flight_info,
         BasicFlightPlanInformationUsageState.Planned,
-        BasicFlightPlanInformationUasState.Nominal,
+        FunctionalState.Nominal,
         scenario,
     )
 
@@ -85,6 +81,10 @@ def modify_planned_priority_conflict_flight(
                 PlanningActivityResult.Rejected,
                 FlightPlanStatus.Closed,
             ),  # case where the USS closes the flight plan as a result of the rejected modification attempt
+            (
+                PlanningActivityResult.NotSupported,
+                FlightPlanStatus.Planned,
+            ),  # case where the USS does not support modification of flights
         },
         failed_checks={PlanningActivityResult.Failed: "Failure"},
         flight_planner=flight_planner,
@@ -98,8 +98,8 @@ def activate_priority_conflict_flight(
     scenario: TestScenarioType,
     flight_planner: FlightPlannerClient,
     flight_info: FlightInfo,
-    flight_id: Optional[str] = None,
-    additional_fields: Optional[dict] = None,
+    flight_id: str | None = None,
+    additional_fields: dict | None = None,
 ) -> PlanningActivityResponse:
     """Attempt to activate a flight intent that should result in a conflict with a higher priority flight intent.
 
@@ -111,7 +111,7 @@ def activate_priority_conflict_flight(
     expect_flight_intent_state(
         flight_info,
         BasicFlightPlanInformationUsageState.InUse,
-        BasicFlightPlanInformationUasState.Nominal,
+        FunctionalState.Nominal,
         scenario,
     )
 
@@ -142,7 +142,7 @@ def modify_activated_priority_conflict_flight(
     flight_planner: FlightPlannerClient,
     flight_info: FlightInfo,
     flight_id: str,
-    additional_fields: Optional[dict] = None,
+    additional_fields: dict | None = None,
 ) -> PlanningActivityResponse:
     """Attempt to modify an activated flight intent that should result in a conflict with a higher priority flight intent.
 
@@ -154,7 +154,7 @@ def modify_activated_priority_conflict_flight(
     expect_flight_intent_state(
         flight_info,
         BasicFlightPlanInformationUsageState.InUse,
-        BasicFlightPlanInformationUasState.Nominal,
+        FunctionalState.Nominal,
         scenario,
     )
 
@@ -164,9 +164,9 @@ def modify_activated_priority_conflict_flight(
         expected_results={
             (PlanningActivityResult.Rejected, FlightPlanStatus.OkToFly),
             (
-                PlanningActivityResult.Rejected,
-                FlightPlanStatus.Closed,
-            ),  # case where the USS closes the flight plan as a result of the rejected modification attempt; note: is this actually desirable if the flight was activated?
+                PlanningActivityResult.NotSupported,
+                FlightPlanStatus.OkToFly,
+            ),  # case where the USS does not support modification of flights
         },
         failed_checks={PlanningActivityResult.Failed: "Failure"},
         flight_planner=flight_planner,
@@ -180,7 +180,7 @@ def plan_conflict_flight(
     scenario: TestScenarioType,
     flight_planner: FlightPlannerClient,
     flight_info: FlightInfo,
-    additional_fields: Optional[dict] = None,
+    additional_fields: dict | None = None,
 ) -> PlanningActivityResponse:
     """Attempt to plan a flight intent that should result in a non-permitted conflict with an equal priority flight intent.
 
@@ -192,7 +192,7 @@ def plan_conflict_flight(
     expect_flight_intent_state(
         flight_info,
         BasicFlightPlanInformationUsageState.Planned,
-        BasicFlightPlanInformationUasState.Nominal,
+        FunctionalState.Nominal,
         scenario,
     )
 
@@ -214,7 +214,7 @@ def modify_planned_conflict_flight(
     flight_planner: FlightPlannerClient,
     flight_info: FlightInfo,
     flight_id: str,
-    additional_fields: Optional[dict] = None,
+    additional_fields: dict | None = None,
 ) -> PlanningActivityResponse:
     """Attempt to modify a planned flight intent that should result in a non-permitted conflict with an equal priority flight intent.
 
@@ -226,7 +226,7 @@ def modify_planned_conflict_flight(
     expect_flight_intent_state(
         flight_info,
         BasicFlightPlanInformationUsageState.Planned,
-        BasicFlightPlanInformationUasState.Nominal,
+        FunctionalState.Nominal,
         scenario,
     )
 
@@ -239,6 +239,10 @@ def modify_planned_conflict_flight(
                 PlanningActivityResult.Rejected,
                 FlightPlanStatus.Closed,
             ),  # case where the USS closes the flight plan as a result of the rejected modification attempt
+            (
+                PlanningActivityResult.NotSupported,
+                FlightPlanStatus.Planned,
+            ),  # case where the USS does not support modification of flights
         },
         failed_checks={PlanningActivityResult.Failed: "Failure"},
         flight_planner=flight_planner,
@@ -252,8 +256,8 @@ def activate_conflict_flight(
     scenario: TestScenarioType,
     flight_planner: FlightPlannerClient,
     flight_info: FlightInfo,
-    flight_id: Optional[str] = None,
-    additional_fields: Optional[dict] = None,
+    flight_id: str | None = None,
+    additional_fields: dict | None = None,
 ) -> PlanningActivityResponse:
     """Attempt to activate a flight intent that should result in a non-permitted conflict with an equal priority flight intent.
 
@@ -265,7 +269,7 @@ def activate_conflict_flight(
     expect_flight_intent_state(
         flight_info,
         BasicFlightPlanInformationUsageState.InUse,
-        BasicFlightPlanInformationUasState.Nominal,
+        FunctionalState.Nominal,
         scenario,
     )
 
@@ -296,7 +300,7 @@ def modify_activated_conflict_flight(
     flight_planner: FlightPlannerClient,
     flight_info: FlightInfo,
     flight_id: str,
-    additional_fields: Optional[dict] = None,
+    additional_fields: dict | None = None,
 ) -> PlanningActivityResponse:
     """Attempt to modify an activated flight intent that should result in a non-permitted conflict with an equal priority flight intent.
 
@@ -308,7 +312,7 @@ def modify_activated_conflict_flight(
     expect_flight_intent_state(
         flight_info,
         BasicFlightPlanInformationUsageState.InUse,
-        BasicFlightPlanInformationUasState.Nominal,
+        FunctionalState.Nominal,
         scenario,
     )
 
@@ -318,9 +322,9 @@ def modify_activated_conflict_flight(
         expected_results={
             (PlanningActivityResult.Rejected, FlightPlanStatus.OkToFly),
             (
-                PlanningActivityResult.Rejected,
-                FlightPlanStatus.Closed,
-            ),  # case where the USS closes the flight plan as a result of the rejected modification attempt; note: is this actually desirable if the flight was activated?
+                PlanningActivityResult.NotSupported,
+                FlightPlanStatus.OkToFly,
+            ),  # case where the USS does not support modification of flights
         },
         failed_checks={PlanningActivityResult.Failed: "Failure"},
         flight_planner=flight_planner,

@@ -21,7 +21,8 @@ are properly propagated to every other DSS instance participating in the deploym
 
 ### planning_area
 
-[`PlanningAreaResource`](../../../../../resources/astm/f3548/v21/planning_area.py) describes the 3D volume in which constraint reference will be created.
+[`PlanningAreaResource`](../../../../../resources/planning_area.py) describes the 3D volume in which constraint reference will be created. Note that any start or end times specified in the underlying volume template
+will be ignored.
 
 ### client_identity
 
@@ -29,9 +30,9 @@ are properly propagated to every other DSS instance participating in the deploym
 
 ## Setup test case
 
-### [Ensure clean workspace test step](../clean_workspace.md)
+### [Ensure clean workspace test step](../clean_workspace_constraints.md)
 
-This step ensures that no constraint reference with the known test ID exists in the DSS.
+### [Verify secondary DSS instances are clean test step](../fragments/cr/verify_clean_secondary_workspace.md)
 
 ## CR synchronization test case
 
@@ -41,56 +42,41 @@ It then goes on to mutate and delete it, each time confirming that all other DSS
 
 ### Create CR validation test step
 
-#### [Create CR](../fragments/cr/crud/create_correct.md)
+#### [CR can be created](../fragments/cr/crud/create.md)
 
-Verify that an constraint reference can be created on the primary DSS.
-
-#### [CR Content is correct](../fragments/cr/validate/correctness.md)
-
-Verify that the constraint reference returned by the DSS under test is properly formatted and contains the expected content.
+#### [CR content is correct](../fragments/cr/validate/correctness.md)
 
 ### Retrieve newly created CR test step
 
 Retrieve and validate synchronization of the created constraint at every DSS provided in `dss_instances`.
 
-#### [Get CR query](../fragments/cr/crud/read_correct.md)
+#### [CR can be read](../fragments/cr/crud/read_known.md)
 
-Check that read query succeeds.
-
-#### Newly created CR can be consistently retrieved from all DSS instances check
+#### 🛑 Newly created CR can be consistently retrieved from all DSS instances check
 
 If the constraint retrieved from a secondary DSS instance is not consistent with the newly created one on the
 primary DSS instance, this check will fail per **[astm.f3548.v21.DSS0210,A2-7-2,1a](../../../../../requirements/astm/f3548/v21.md)**, **[astm.f3548.v21.DSS0210,A2-7-2,1f](../../../../../requirements/astm/f3548/v21.md)**,
 **[astm.f3548.v21.DSS0215](../../../../../requirements/astm/f3548/v21.md)** and **[astm.f3548.v21.DSS0020](../../../../../requirements/astm/f3548/v21.md)**.
 
-#### [CR is synchronized](../fragments/cr/sync.md)
-
-Confirm that each DSS provides direct access to the created constraint reference.
-Confirm that the constraint reference that was just created is properly synchronized across all DSS instances.
+#### [CR is synchronized](../fragments/cr/sync_get.md)
 
 #### [CR Content is correct](../fragments/cr/validate/correctness.md)
 
-Sanity check on the rest of the content and format of the response.
-
 #### [CR version is correct](../fragments/cr/validate/non_mutated.md)
-
-Confirm that version and OIR are as expected.
 
 ### Search for newly created CR test step
 
 Search for and validate synchronization of the created constraint at every DSS provided in `dss_instances`.
 
-#### [Search CR](../fragments/cr/crud/search_correct.md)
+#### [CR can be searched for](../fragments/cr/crud/search_known.md)
 
-Check that search query succeeds and the response is well-formed.
-
-#### Newly created CR can be consistently searched for from all DSS instances check
+#### 🛑 Newly created CR can be consistently searched for from all DSS instances check
 
 If the constraint searched from a secondary DSS instance is not consistent with the newly created one on the
 primary DSS instance, this check will fail per **[astm.f3548.v21.DSS0210,A2-7-2,1a](../../../../../requirements/astm/f3548/v21.md)**, **[astm.f3548.v21.DSS0210,A2-7-2,1e](../../../../../requirements/astm/f3548/v21.md)**,
 , **[astm.f3548.v21.DSS0215](../../../../../requirements/astm/f3548/v21.md)** and **[astm.f3548.v21.DSS0020](../../../../../requirements/astm/f3548/v21.md)**.
 
-#### [CR is synchronized](../fragments/cr/sync.md)
+#### [CR is synchronized](../fragments/cr/sync_search.md)
 
 Confirm that each DSS returns the constraint in relevant search results.
 Confirm that the constraint reference that was just created is properly synchronized across all DSS instances.
@@ -104,63 +90,53 @@ Confirm that the constraint reference that was just created is properly synchron
 This test step mutates the previously created constraint reference to verify that the DSS reacts properly: notably, it checks that the constraint reference version is updated,
 including for changes that are not directly visible, such as changing the constraint reference's footprint.
 
-#### [Update CR](../fragments/cr/crud/update_correct.md)
+#### [CR can be mutated](../fragments/cr/crud/update.md)
 
-Confirm that the constraint reference can be mutated.
+#### [CR content is correct](../fragments/cr/validate/correctness.md)
 
-#### [Validate CR](../fragments/cr/validate/correctness.md)
-
-Verify that the constraint reference returned by the DSS is properly formatted and contains the correct content.
-
-#### [CR Versions are correct](../fragments/cr/validate/mutated.md)
-
-Verify that the constraint reference's version fields have been updated.
+#### [CR versions are correct](../fragments/cr/validate/mutated.md)
 
 ### Retrieve updated CR test step
 
 Retrieve and validate synchronization of the updated constraint at every DSS provided in `dss_instances`.
 
-#### [Get CR query](../fragments/cr/crud/read_correct.md)
+#### [CR can be read](../fragments/cr/crud/read_known.md)
 
-Check that read query succeeds and the response is well-formed.
-
-#### Updated CR can be consistently retrieved from all DSS instances check
+#### 🛑 Updated CR can be consistently retrieved from all DSS instances check
 
 If the constraint retrieved from a secondary DSS instance is not consistent with the updated one on the
 primary DSS instance, this check will fail per **[astm.f3548.v21.DSS0210,A2-7-2,1b](../../../../../requirements/astm/f3548/v21.md)**, **[astm.f3548.v21.DSS0210,A2-7-2,1d](../../../../../requirements/astm/f3548/v21.md)**,
 **[astm.f3548.v21.DSS0215](../../../../../requirements/astm/f3548/v21.md)** and **[astm.f3548.v21.DSS0020](../../../../../requirements/astm/f3548/v21.md)**.
 
-#### [CR is synchronized](../fragments/cr/sync.md)
+#### [CR is synchronized](../fragments/cr/sync_get.md)
 
 Confirm that each DSS provides direct access to the updated constraint reference.
 Confirm that the constraint reference that was just updated is properly synchronized across all DSS instances.
 
 #### [CR Content is correct](../fragments/cr/validate/correctness.md)
 
-#### [CR version is correct](../fragments/cr/validate/non_mutated.md)
+#### [CR versions are correct](../fragments/cr/validate/non_mutated.md)
 
 ### Search for updated CR test step
 
 Search for and validate synchronization of the updated constraint at every DSS provided in `dss_instances`.
 
-#### [Search CR](../fragments/cr/crud/search_correct.md)
+#### [CR can be searched for](../fragments/cr/crud/search_known.md)
 
-Check that search query succeeds and the response is well-formed.
-
-#### Updated CR can be consistently searched for from all DSS instances check
+#### 🛑 Updated CR can be consistently searched for from all DSS instances check
 
 If the constraint searched from a secondary DSS instance is not consistent with the updated one on the
 primary DSS instance, this check will fail per **[astm.f3548.v21.DSS0210,A2-7-2,1b](../../../../../requirements/astm/f3548/v21.md)**, **[astm.f3548.v21.DSS0210,A2-7-2,1e](../../../../../requirements/astm/f3548/v21.md)**,
 **[astm.f3548.v21.DSS0215](../../../../../requirements/astm/f3548/v21.md)** and **[astm.f3548.v21.DSS0020](../../../../../requirements/astm/f3548/v21.md)**.
 
-#### [CR is synchronized](../fragments/cr/sync.md)
+#### [CR is synchronized](../fragments/cr/sync_search.md)
 
 Confirm that each DSS returns the constraint in relevant search results.
 Confirm that the constraint reference that was just updated is properly synchronized across all DSS instances.
 
 #### [CR content is correct](../fragments/cr/validate/correctness.md)
 
-#### [CR version is correct](../fragments/cr/validate/non_mutated.md)
+#### [CR versions are correct](../fragments/cr/validate/non_mutated.md)
 
 ### Delete CR test step
 
@@ -168,40 +144,30 @@ Attempt to delete the constraint reference in various ways and ensure that the D
 
 This also checks that the constraint reference data returned by a successful deletion is correct.
 
-#### [Delete CR](../fragments/cr/crud/delete.md)
+#### [CR can be deleted](../fragments/cr/crud/delete_known.md)
 
-Confirm that an constraint reference can be deleted.
+#### [CR content is correct](../fragments/cr/validate/correctness.md)
 
-#### [Validate CR](../fragments/cr/validate/correctness.md)
-
-Verify that the constraint reference returned by the DSS via the deletion is properly formatted and contains the correct content.
-
-#### [CR Versions are correct](../fragments/cr/validate/non_mutated.md)
-
-Verify that the constraint reference's version fields are as expected.
+#### [CR versions are correct](../fragments/cr/validate/non_mutated.md)
 
 ### Query deleted CR test step
 
 Attempt to query and search for the deleted constraint reference in various ways
 
-#### [Get CR query](../fragments/cr/crud/read_correct.md)
-
-Check that read query succeeds.
+#### [CR can be read](../fragments/cr/crud/read_known.md)
 
 #### 🛑 Deleted CR cannot be retrieved from all DSS instances check
 
 If a DSS returns an constraint reference that was previously successfully deleted from the primary DSS,
-either one of the primary DSS or the DSS that returned the constraint reference is in violation of **[astm.f3548.v21.DSS0210,2a](../../../../../requirements/astm/f3548/v21.md)**, **[astm.f3548.v21.DSS0210,A2-7-2,3b](../../../../../requirements/astm/f3548/v21.md)**,
+either one of the primary DSS or the DSS that returned the constraint reference is in violation of **[astm.f3548.v21.DSS0210,2a](../../../../../requirements/astm/f3548/v21.md)**, **[astm.f3548.v21.DSS0210,A2-7-2,3d](../../../../../requirements/astm/f3548/v21.md)**,
 **[astm.f3548.v21.DSS0215](../../../../../requirements/astm/f3548/v21.md)** and **[astm.f3548.v21.DSS0020](../../../../../requirements/astm/f3548/v21.md)**.
 
-#### [Search CR](../fragments/cr/crud/search_query.md)
-
-Check that search query succeeds.
+#### [CR can be searched for](../fragments/cr/crud/search_query.md)
 
 #### 🛑 Deleted CR cannot be searched for from all DSS instances check
 
 If a DSS returns an constraint reference that was previously successfully deleted from the primary DSS,
-either one of the primary DSS or the DSS that returned the constraint reference is in violation of **[astm.f3548.v21.DSS0210,2a](../../../../../requirements/astm/f3548/v21.md)**, **[astm.f3548.v21.DSS0210,A2-7-2,3a](../../../../../requirements/astm/f3548/v21.md)**,
+either one of the primary DSS or the DSS that returned the constraint reference is in violation of **[astm.f3548.v21.DSS0210,2a](../../../../../requirements/astm/f3548/v21.md)**, **[astm.f3548.v21.DSS0210,A2-7-2,3c](../../../../../requirements/astm/f3548/v21.md)**,
 **[astm.f3548.v21.DSS0215](../../../../../requirements/astm/f3548/v21.md)** and **[astm.f3548.v21.DSS0020](../../../../../requirements/astm/f3548/v21.md)**.
 
-## [Cleanup](../clean_workspace.md)
+## [Cleanup](../clean_workspace_constraints_during_cleanup.md)

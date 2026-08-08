@@ -1,18 +1,18 @@
 from __future__ import annotations
-from typing import List, Optional
+
 from urllib.parse import urlparse
 
 from implicitdict import ImplicitDict
 
 from monitoring.monitorlib import infrastructure
+from monitoring.monitorlib.infrastructure import UTMClientSession
 from monitoring.monitorlib.rid import RIDVersion
 from monitoring.uss_qualifier.reports.report import ParticipantID
-from monitoring.uss_qualifier.resources.resource import Resource
 from monitoring.uss_qualifier.resources.communications import AuthAdapterResource
+from monitoring.uss_qualifier.resources.resource import Resource
 
 
 class DSSInstanceSpecification(ImplicitDict):
-
     participant_id: ParticipantID
     """ID of the USS responsible for this DSS instance"""
 
@@ -30,7 +30,7 @@ class DSSInstanceSpecification(ImplicitDict):
             raise ValueError("DSSInstanceConfiguration.base_url must be a URL")
 
 
-class DSSInstance(object):
+class DSSInstance:
     participant_id: ParticipantID
     rid_version: RIDVersion
     base_url: str
@@ -41,12 +41,12 @@ class DSSInstance(object):
         participant_id: ParticipantID,
         base_url: str,
         rid_version: RIDVersion,
-        auth_adapter: infrastructure.AuthAdapter,
+        client: UTMClientSession,
     ):
         self.participant_id = participant_id
         self.base_url = base_url
         self.rid_version = rid_version
-        self.client = infrastructure.UTMClientSession(base_url, auth_adapter)
+        self.client = client
 
     def is_same_as(self, other: DSSInstance) -> bool:
         return (
@@ -60,8 +60,13 @@ class DSSInstanceResource(Resource[DSSInstanceSpecification]):
     dss_instance: DSSInstance
 
     def __init__(
-        self, specification: DSSInstanceSpecification, auth_adapter: AuthAdapterResource
+        self,
+        specification: DSSInstanceSpecification,
+        resource_origin: str,
+        auth_adapter: AuthAdapterResource,
     ):
+        super().__init__(specification, resource_origin)
+
         # Note that the current implementation does not support acting as just a
         # SP accessing the DSS or just a DP accessing the DSS, but this could be
         # improved.
@@ -77,29 +82,38 @@ class DSSInstanceResource(Resource[DSSInstanceSpecification]):
             specification.participant_id,
             specification.base_url,
             specification.rid_version,
-            auth_adapter.adapter,
+            infrastructure.utm_client_session_factory.get_session(
+                specification.base_url, auth_adapter.adapter
+            ),
         )
 
     @classmethod
-    def from_dss_instance(cls, dss_instance: DSSInstance) -> DSSInstanceResource:
+    def from_dss_instance(
+        cls, dss_instance: DSSInstance, resource_origin: str
+    ) -> DSSInstanceResource:
         self = cls.__new__(cls)
         self.dss_instance = dss_instance
+        self.resource_origin = resource_origin
         return self
 
 
 class DSSInstancesSpecification(ImplicitDict):
-    dss_instances: List[DSSInstanceSpecification]
+    dss_instances: list[DSSInstanceSpecification]
 
 
 class DSSInstancesResource(Resource[DSSInstancesSpecification]):
-    dss_instances: List[DSSInstance]
+    dss_instances: list[DSSInstance]
 
     def __init__(
         self,
         specification: DSSInstancesSpecification,
+        resource_origin: str,
         auth_adapter: AuthAdapterResource,
     ):
+        super().__init__(specification, resource_origin)
         self.dss_instances = [
-            DSSInstanceResource(s, auth_adapter).dss_instance
-            for s in specification.dss_instances
+            DSSInstanceResource(
+                s, f"instance {i + 1} in {resource_origin}", auth_adapter
+            ).dss_instance
+            for i, s in enumerate(specification.dss_instances)
         ]

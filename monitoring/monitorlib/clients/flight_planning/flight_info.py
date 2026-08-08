@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from enum import Enum
-from typing import Optional, List
+from enum import StrEnum
 
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
 from uas_standards.ansi_cta_2063_a import SerialNumber
 from uas_standards.astm.f3548.v21 import api as f3548v21
 from uas_standards.en4709_02 import OperatorRegistrationNumber
-from uas_standards.interuss.automated_testing.scd.v1 import api as scd_api
 from uas_standards.interuss.automated_testing.flight_planning.v1 import api as fp_api
+from uas_standards.interuss.automated_testing.scd.v1 import api as scd_api
 
+from monitoring.monitorlib.clients.flight_planning.telemetry import FlightTelemetry
+from monitoring.monitorlib.geo import Altitude, LatLngPoint
 from monitoring.monitorlib.geotemporal import Volume4D, Volume4DCollection
 
 # ===== ASTM F3548-21 =====
@@ -28,7 +29,7 @@ class ASTMF354821OpIntentInformation(ImplicitDict):
 # ===== U-space =====
 
 
-class FlightAuthorisationDataOperationCategory(str, Enum):
+class FlightAuthorisationDataOperationCategory(StrEnum):
     """Category of UAS operation (‘open’, ‘specific’, ‘certified’) as defined in COMMISSION DELEGATED REGULATION (EU) 2019/945. Required by ANNEX IV of COMMISSION IMPLEMENTING REGULATION (EU) 2021/664, paragraph 4."""
 
     Unknown = "Unknown"
@@ -37,7 +38,7 @@ class FlightAuthorisationDataOperationCategory(str, Enum):
     Certified = "Certified"
 
 
-class OperationMode(str, Enum):
+class OperationMode(StrEnum):
     """Specify if the operation is a `VLOS` or `BVLOS` operation. Required by ANNEX IV of COMMISSION IMPLEMENTING REGULATION (EU) 2021/664, paragraph 2."""
 
     Undeclared = "Undeclared"
@@ -45,7 +46,7 @@ class OperationMode(str, Enum):
     Bvlos = "Bvlos"
 
 
-class UASClass(str, Enum):
+class UASClass(StrEnum):
     """Specify the class of the UAS to be flown, the specifition matches EASA class identification label categories. UAS aircraft class as defined in COMMISSION DELEGATED REGULATION (EU) 2019/945 (C0 to C4) and COMMISSION DELEGATED REGULATION (EU) 2020/1058 (C5 and C6). This field is required by ANNEX IV of COMMISSION IMPLEMENTING REGULATION (EU) 2021/664, paragraph 4."""
 
     Other = "Other"
@@ -74,13 +75,13 @@ class FlightAuthorisationData(ImplicitDict):
 
     uas_class: UASClass
 
-    identification_technologies: List[str]
+    identification_technologies: list[str]
     """Technology used to identify the UAS. Required by ANNEX IV of COMMISSION IMPLEMENTING REGULATION (EU) 2021/664, paragraph 6."""
 
     uas_type_certificate: Optional[str]
     """Provisional field. Not applicable as of September 2021. Required only if `uas_class` is set to `other` by ANNEX IV of COMMISSION IMPLEMENTING REGULATION (EU) 2021/664, paragraph 4."""
 
-    connectivity_methods: List[str]
+    connectivity_methods: list[str]
     """Connectivity methods. Required by ANNEX IV of COMMISSION IMPLEMENTING REGULATION (EU) 2021/664, paragraph 7."""
 
     endurance_minutes: int
@@ -107,7 +108,7 @@ class FlightAuthorisationData(ImplicitDict):
 # ===== RPAS Operating Rules 2.6 =====
 
 
-class RPAS26FlightDetailsOperatorType(str, Enum):
+class RPAS26FlightDetailsOperatorType(StrEnum):
     """The type of operator."""
 
     Recreational = "Recreational"
@@ -115,7 +116,7 @@ class RPAS26FlightDetailsOperatorType(str, Enum):
     ReOC = "ReOC"
 
 
-class RPAS26FlightDetailsAircraftType(str, Enum):
+class RPAS26FlightDetailsAircraftType(StrEnum):
     """Type of vehicle being used as per ASTM F3411-22a."""
 
     NotDeclared = "NotDeclared"
@@ -136,7 +137,7 @@ class RPAS26FlightDetailsAircraftType(str, Enum):
     Other = "Other"
 
 
-class RPAS26FlightDetailsFlightProfile(str, Enum):
+class RPAS26FlightDetailsFlightProfile(StrEnum):
     """Type of flight profile."""
 
     AutomatedGrid = "AutomatedGrid"
@@ -150,10 +151,10 @@ class RPAS26FlightDetails(ImplicitDict):
     operator_type: Optional[RPAS26FlightDetailsOperatorType]
     """The type of operator."""
 
-    uas_serial_numbers: Optional[List[str]]
+    uas_serial_numbers: Optional[list[str]]
     """The list of UAS/drone serial numbers that will be operated during the operation."""
 
-    uas_registration_numbers: Optional[List[str]]
+    uas_registration_numbers: Optional[list[str]]
     """The list of UAS/drone registration numbers that will be operated during the operation."""
 
     aircraft_type: Optional[RPAS26FlightDetailsAircraftType]
@@ -178,7 +179,7 @@ class RPAS26FlightDetails(ImplicitDict):
 FlightID = str
 
 
-class AirspaceUsageState(str, Enum):
+class AirspaceUsageState(StrEnum):
     """User's current usage of the airspace defined in the flight plan."""
 
     Planned = "Planned"
@@ -188,7 +189,7 @@ class AirspaceUsageState(str, Enum):
     """The user is currently using the defined area with an active UAS."""
 
 
-class UasState(str, Enum):
+class UasState(StrEnum):
     """State of the user's UAS associated with a flight plan."""
 
     Nominal = "Nominal"
@@ -228,7 +229,7 @@ class BasicFlightPlanInformation(ImplicitDict):
     def to_flight_planning_api(self) -> fp_api.BasicFlightPlanInformation:
         return fp_api.BasicFlightPlanInformation(
             usage_state=fp_api.BasicFlightPlanInformationUsageState(self.usage_state),
-            uas_state=fp_api.BasicFlightPlanInformationUasState(self.uas_state),
+            uas_state=fp_api.FunctionalState(self.uas_state),
             area=[v.to_flight_planning_api() for v in self.area],
         )
 
@@ -251,10 +252,106 @@ class BasicFlightPlanInformation(ImplicitDict):
         return state
 
 
+class UAType(StrEnum):
+    """The UA Type can help infer performance, speed, and duration of flights, for example, a
+    "fixed wing" can generally fly in a forward direction only (as compared to a multi-rotor).
+
+    `HybridLift` is a fixed wing aircraft that can take off vertically.  `Helicopter` includes multirotor.
+
+    `VTOL` is equivalent to HybridLift.
+    """
+
+    NotDeclared = "NotDeclared"
+    Aeroplane = "Aeroplane"
+    Helicopter = "Helicopter"
+    Gyroplane = "Gyroplane"
+    VTOL = "VTOL"
+    HybridLift = "HybridLift"
+    Ornithopter = "Ornithopter"
+    Glider = "Glider"
+    Kite = "Kite"
+    FreeBalloon = "FreeBalloon"
+    CaptiveBalloon = "CaptiveBalloon"
+    Airship = "Airship"
+    FreeFallOrParachute = "FreeFallOrParachute"
+    Rocket = "Rocket"
+    TetheredPoweredAircraft = "TetheredPoweredAircraft"
+    GroundObstacle = "GroundObstacle"
+    Other = "Other"
+
+
+class UASRegistrationNumber(ImplicitDict):
+    """Number provided by CAA or authorized representative for registering and/or identifying UAS."""
+
+    authority: str | None = ""
+    """Authority providing this registration number.  If authority represents a country, the ICAO nationality
+    mark is recommended.
+    """
+
+    identifier: str
+    """Authority-assigned number or identifier."""
+
+
+class UAClassificationEUCategory(StrEnum):
+    EUCategoryUndefined = "EUCategoryUndefined"
+    Open = "Open"
+    Specific = "Specific"
+    Certified = "Certified"
+
+
+class UAClassificationEUClass(StrEnum):
+    EUClassUndefined = "EUClassUndefined"
+    Class0 = "Class0"
+    Class1 = "Class1"
+    Class2 = "Class2"
+    Class3 = "Class3"
+    Class4 = "Class4"
+    Class5 = "Class5"
+    Class6 = "Class6"
+
+
+UAClassificationEU = dict[UAClassificationEUCategory, UAClassificationEUClass]
+
+
+class UASInformation(ImplicitDict):
+    """Information about a UAS that may be provided in flight planning scenarios."""
+
+    aircraft_type: UAType | None
+    """Aircraft type of the injected test flight."""
+
+    serial_number: str | None = ""
+    """This is generally expressed in the CTA-2063-A Serial Number format."""
+
+    registration_numbers: list[UASRegistrationNumber] | None = []
+    """For each relevant authority with which this UAS is registered, the number/identifier assigned to this UAS."""
+
+    eu_classification: UAClassificationEU | None
+    """EU classification of aircraft."""
+
+
+class OperatorInformation(ImplicitDict):
+    """Information about the operator that may be provided in flight planning scenarios."""
+
+    registration_numbers: list[OperatorRegistrationNumber] | None
+    """Registration numbers for the remote pilot or operator."""
+
+    location: LatLngPoint | None
+    """Location of operator."""
+
+    altitude: Altitude | None
+    """Altitude of operator."""
+
+
 class FlightInfo(ImplicitDict):
     """Details of user's intent to create or modify a flight plan."""
 
     basic_information: BasicFlightPlanInformation
+
+    uas: UASInformation | None
+
+    operator: OperatorInformation | None
+
+    telemetry: FlightTelemetry | None
 
     astm_f3548_21: Optional[ASTMF354821OpIntentInformation]
 
@@ -267,44 +364,64 @@ class FlightInfo(ImplicitDict):
 
     @staticmethod
     def from_flight_plan(plan: fp_api.FlightPlan) -> FlightInfo:
-        kwargs = {
-            "basic_information": BasicFlightPlanInformation.from_flight_planning_api(
+        result = FlightInfo(
+            basic_information=BasicFlightPlanInformation.from_flight_planning_api(
                 plan.basic_information
             )
-        }
+        )
+        if "uas" in plan and plan.uas:
+            result.uas = ImplicitDict.parse(plan.uas, UASInformation)
+        if "operator" in plan and plan.operator:
+            result.operator = ImplicitDict.parse(plan.operator, OperatorInformation)
+        if "telemetry" in plan and plan.telemetry:
+            result.telemetry = ImplicitDict.parse(plan.telemetry, FlightTelemetry)
         if "astm_f3548_21" in plan and plan.astm_f3548_21:
-            kwargs["astm_f3548_21"] = ImplicitDict.parse(
+            result.astm_f3548_21 = ImplicitDict.parse(
                 plan.astm_f3548_21, ASTMF354821OpIntentInformation
             )
         if "uspace_flight_authorisation" in plan and plan.uspace_flight_authorisation:
-            kwargs["uspace_flight_authorisation"] = ImplicitDict.parse(
+            result.uspace_flight_authorisation = ImplicitDict.parse(
                 plan.uspace_flight_authorisation, FlightAuthorisationData
             )
         if "rpas_operating_rules_2_6" in plan and plan.rpas_operating_rules_2_6:
-            kwargs["rpas_operating_rules_2_6"] = ImplicitDict.parse(
+            result.rpas_operating_rules_2_6 = ImplicitDict.parse(
                 plan.rpas_operating_rules_2_6, RPAS26FlightDetails
             )
         if "additional_information" in plan and plan.additional_information:
-            kwargs["additional_information"] = plan.additional_information
-        return FlightInfo(**kwargs)
+            result.additional_information = plan.additional_information
+        return result
 
     def to_flight_plan(self) -> fp_api.FlightPlan:
-        kwargs = {"basic_information": self.basic_information.to_flight_planning_api()}
+        result = fp_api.FlightPlan(
+            basic_information=self.basic_information.to_flight_planning_api()
+        )
+        if "uas" in self and self.uas:
+            result.uas = ImplicitDict.parse(self.uas, fp_api.UASInformation)
+        if "operator" in self and self.operator:
+            result.operator = ImplicitDict.parse(
+                self.operator, fp_api.OperatorInformation
+            )
+        if "telemetry" in self and self.telemetry:
+            result.telemetry = ImplicitDict.parse(
+                self.telemetry, fp_api.FlightTelemetry
+            )
         if "astm_f3548_21" in self and self.astm_f3548_21:
-            kwargs["astm_f3548_21"] = ImplicitDict.parse(
+            result.astm_f3548_21 = ImplicitDict.parse(
                 self.astm_f3548_21, fp_api.ASTMF354821OpIntentInformation
             )
         if "uspace_flight_authorisation" in self and self.uspace_flight_authorisation:
-            kwargs["uspace_flight_authorisation"] = ImplicitDict.parse(
+            result.uspace_flight_authorisation = ImplicitDict.parse(
                 self.uspace_flight_authorisation, fp_api.FlightAuthorisationData
             )
         if "rpas_operating_rules_2_6" in self and self.rpas_operating_rules_2_6:
-            kwargs["rpas_operating_rules_2_6"] = ImplicitDict.parse(
+            result.rpas_operating_rules_2_6 = ImplicitDict.parse(
                 self.rpas_operating_rules_2_6, fp_api.RPAS26FlightDetails
             )
         if "additional_information" in self and self.additional_information:
-            kwargs["additional_information"] = self.additional_information
-        return fp_api.FlightPlan(**kwargs)
+            result.additional_information = fp_api.FlightPlanAdditionalInformation()
+            for k, v in self.additional_information.items():
+                result.additional_information[k] = v
+        return result
 
     @staticmethod
     def from_scd_inject_flight_request(
@@ -438,7 +555,7 @@ class FlightInfo(ImplicitDict):
             )
 
 
-class ExecutionStyle(str, Enum):
+class ExecutionStyle(StrEnum):
     Hypothetical = "Hypothetical"
     """The user does not want the USS to actually perform any action regarding the actual flight plan. Instead, the user would like to know the likely outcome if the action were hypothetically attempted. The response to this request will not refer to an actual flight plan, or an actual state change in an existing flight plan, but rather a hypothetical flight plan or a hypothetical change to an existing flight plan."""
 
@@ -449,7 +566,7 @@ class ExecutionStyle(str, Enum):
     """The user is communicating an actual state of reality. The USS should consider the user to be actually performing (or attempting to perform) this action, regardless of whether or not the action is allowed under relevant UTM rules."""
 
 
-def extents_of(flight_infos: List[FlightInfo]) -> Volume4D:
+def extents_of(flight_infos: list[FlightInfo]) -> Volume4D:
     """Return the bounding volume of all volumes in the flight infos"""
     return sum(
         [f.basic_information.area for f in flight_infos], Volume4DCollection([])

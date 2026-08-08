@@ -4,17 +4,19 @@ import inspect
 import json
 import os
 import sys
-from typing import Optional, Set, Dict, Type, get_type_hints, get_args, get_origin
+from typing import Self, get_args, get_origin, get_type_hints
 
 import implicitdict
-from implicitdict import ImplicitDict
 import implicitdict.jsonschema
+from implicitdict import ImplicitDict
 from implicitdict.jsonschema import SchemaVars, SchemaVarsResolver
 from loguru import logger
 
 import monitoring
 import monitoring.uss_qualifier.action_generators
 import monitoring.uss_qualifier.resources
+from monitoring.benchmarker.configurations.configuration import BenchmarkConfiguration
+from monitoring.benchmarker.reports.report import BenchmarkRunReport
 from monitoring.monitorlib.inspection import fullname, import_submodules
 from monitoring.uss_qualifier.action_generators.action_generator import ActionGenerator
 from monitoring.uss_qualifier.configurations.configuration import (
@@ -24,7 +26,7 @@ from monitoring.uss_qualifier.reports.report import TestRunReport
 from monitoring.uss_qualifier.resources.resource import Resource
 
 
-class Action(str, enum.Enum):
+class Action(enum.StrEnum):
     Check = "Check"
     Generate = "Generate"
 
@@ -52,10 +54,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def _make_type_schemas(
-    parent: Type[ImplicitDict],
+    parent: type[ImplicitDict],
     reference_resolver: SchemaVarsResolver,
-    repo: Dict[str, dict],
-    already_checked: Optional[Set[str]] = None,
+    repo: dict[str, dict],
+    already_checked: set[str] | None = None,
 ) -> None:
     implicitdict.jsonschema.make_json_schema(parent, reference_resolver, repo)
     if already_checked is None:
@@ -78,7 +80,8 @@ def _make_type_schemas(
                 pending_types.extend(get_args(pending_type))
             else:
                 if (
-                    issubclass(pending_type, ImplicitDict)
+                    pending_type != Self
+                    and issubclass(pending_type, ImplicitDict)
                     and fullname(pending_type) not in already_checked
                 ):
                     _make_type_schemas(
@@ -86,10 +89,33 @@ def _make_type_schemas(
                     )
 
 
+def _resolve_resource_spec_type(cls: type) -> type:
+    """Find the spec type bound to Resource[Spec] for a Resource subclass,
+    resolving TypeVars through intermediate generic bases (e.g., ResourceModifier)."""
+
+    def walk(c: type, subst: dict):
+        for base in getattr(c, "__orig_bases__", ()):
+            origin = get_origin(base)
+            if origin is None:
+                continue
+            args = tuple(subst.get(a, a) for a in get_args(base))
+            if origin is Resource:
+                return args[0]
+            result = walk(origin, dict(zip(origin.__parameters__, args)))
+            if result is not None:
+                return result
+        return None
+
+    result = walk(cls, {})
+    if result is None:
+        raise ValueError(f"Could not resolve Resource specification type for {cls}")
+    return result
+
+
 def _find_specifications(
     module,
-    repo: Dict[str, Type[ImplicitDict]],
-    already_checked: Optional[Set[str]] = None,
+    repo: dict[str, type[ImplicitDict]],
+    already_checked: set[str] | None = None,
 ) -> None:
     if already_checked is None:
         already_checked = set()
@@ -103,8 +129,12 @@ def _find_specifications(
         ):
             _find_specifications(member, repo, already_checked)
         elif inspect.isclass(member):
+            if getattr(member, "__parameters__", ()):
+                continue
             if issubclass(member, Resource) and member != Resource:
-                spec_type = get_args(member.__orig_bases__[0])[0]
+                if inspect.isabstract(member):
+                    continue
+                spec_type = _resolve_resource_spec_type(member)
                 repo[fullname(spec_type)] = spec_type
             elif issubclass(member, ActionGenerator) and member != ActionGenerator:
                 spec_type = get_args(member.__orig_bases__[0])[0]
@@ -119,11 +149,11 @@ def main() -> int:
             "Invalid usage; action must be specified with --check or --generate flags"
         )
 
-    def schema_vars_resolver(schema_type: Type) -> SchemaVars:
+    def schema_vars_resolver(schema_type: type) -> SchemaVars:
         if schema_type.__module__ in {"builtins", "typing"}:
             return SchemaVars(name=schema_type.__name__)
 
-        def path_of_py_file(t: Type) -> str:
+        def path_of_py_file(t: type) -> str:
             top_module = t.__module__.split(".")[0]
             module_path = os.path.dirname(sys.modules[top_module].__file__)
             py_file_path = inspect.getfile(t)
@@ -131,13 +161,13 @@ def main() -> int:
                 top_module, os.path.relpath(py_file_path, start=module_path)
             )
 
-        def full_name(t: Type) -> str:
+        def full_name(t: type) -> str:
             return t.__module__ + "." + t.__qualname__
 
-        def path_of_schema_file(t: Type) -> str:
+        def path_of_schema_file(t: type) -> str:
             return "schemas/" + "/".join(full_name(t).split(".")) + ".json"
 
-        def path_to(t_dest: Type, t_src: Type) -> str:
+        def path_to(t_dest: type, t_src: type) -> str:
             path_to_dest = path_of_schema_file(t_dest)
             path_to_src = os.path.dirname(path_of_schema_file(t_src))
             rel_path = os.path.relpath(path_to_dest, start=path_to_src)
@@ -157,6 +187,8 @@ def main() -> int:
     schemas = {}
     _make_type_schemas(TestRunReport, schema_vars_resolver, schemas)
     _make_type_schemas(USSQualifierConfiguration, schema_vars_resolver, schemas)
+    _make_type_schemas(BenchmarkRunReport, schema_vars_resolver, schemas)
+    _make_type_schemas(BenchmarkConfiguration, schema_vars_resolver, schemas)
 
     repo = {}
     import_submodules(monitoring.uss_qualifier.resources)
@@ -203,7 +235,7 @@ def main() -> int:
     for rel_filename, schema in schemas.items():
         filename = os.path.abspath(os.path.join(repo_root, rel_filename))
         if os.path.exists(filename):
-            with open(filename, "r") as f:
+            with open(filename) as f:
                 old_value = json.load(f)
             if schema == old_value:
                 continue

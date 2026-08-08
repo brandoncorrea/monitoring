@@ -1,15 +1,13 @@
-from datetime import timedelta
 import time
-from typing import Union
+from datetime import timedelta
 
 from loguru import logger
-
 
 MAX_SILENT_DELAY_S = 0.4
 """Number of seconds to delay above which a reasoning message should be displayed."""
 
 
-def sleep(duration: Union[float, timedelta], reason: str) -> None:
+def sleep(duration: float | timedelta, reason: str) -> None:
     """Sleep for the specified amount of time, logging the fact that the delay is occurring (when appropriate).
 
     Args:

@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from typing import Dict, List
 
 from uas_standards.astm.f3548.v21.api import Subscription, SubscriptionID
 from uas_standards.astm.f3548.v21.constants import Scope
@@ -9,13 +8,11 @@ from monitoring.monitorlib.geo import Polygon, Volume3D
 from monitoring.monitorlib.geotemporal import Volume4D
 from monitoring.monitorlib.mutate.scd import MutatedSubscription
 from monitoring.prober.infrastructure import register_resource_type
-from monitoring.uss_qualifier.resources import VerticesResource
-from monitoring.uss_qualifier.resources.astm.f3548.v21 import PlanningAreaResource
+from monitoring.uss_qualifier.resources import PlanningAreaResource
 from monitoring.uss_qualifier.resources.astm.f3548.v21.dss import DSSInstanceResource
-from monitoring.uss_qualifier.resources.astm.f3548.v21.planning_area import (
-    SubscriptionParams,
-)
 from monitoring.uss_qualifier.resources.interuss.id_generator import IDGeneratorResource
+from monitoring.uss_qualifier.resources.planning_area import SubscriptionParams
+from monitoring.uss_qualifier.resources.volume import VolumeResource
 from monitoring.uss_qualifier.scenarios.astm.utm.dss import test_step_fragments
 from monitoring.uss_qualifier.scenarios.astm.utm.dss.fragments.sub.crud import (
     sub_create_query,
@@ -23,9 +20,7 @@ from monitoring.uss_qualifier.scenarios.astm.utm.dss.fragments.sub.crud import (
 from monitoring.uss_qualifier.scenarios.astm.utm.dss.validators.subscription_validator import (
     SubscriptionValidator,
 )
-from monitoring.uss_qualifier.scenarios.scenario import (
-    TestScenario,
-)
+from monitoring.uss_qualifier.scenarios.scenario import TestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
 TIME_TOLERANCE_SEC = 1
@@ -51,26 +46,28 @@ class SubscriptionSimple(TestScenario):
     # Base identifier for the subscriptions that will be created
     _base_sub_id: SubscriptionID
 
-    _test_subscription_ids: List[SubscriptionID]
+    _test_subscription_ids: list[SubscriptionID]
 
     # Base parameters used for subscription creation variations
     _sub_generation_params: SubscriptionParams
 
     # Effective parameters used for each subscription, indexed by subscription ID
-    _sub_params_by_sub_id: Dict[SubscriptionID, SubscriptionParams]
+    _sub_params_by_sub_id: dict[SubscriptionID, SubscriptionParams]
 
     # Keep track of the latest subscription returned by the DSS
-    _current_subscriptions: Dict[SubscriptionID, Subscription]
+    _current_subscriptions: dict[SubscriptionID, Subscription]
 
     # An area designed to be too big to be allowed to search by the DSS
     _problematically_big_area_vol: Polygon
+
+    _planning_area: PlanningAreaResource
 
     def __init__(
         self,
         dss: DSSInstanceResource,
         id_generator: IDGeneratorResource,
         planning_area: PlanningAreaResource,
-        problematically_big_area: VerticesResource,
+        problematically_big_area: VolumeResource,
     ):
         """
         Args:
@@ -86,12 +83,12 @@ class SubscriptionSimple(TestScenario):
         self._dss = dss.get_instance(scopes)
         self._pid = [self._dss.participant_id]
         self._base_sub_id = id_generator.id_factory.make_id(self.SUB_TYPE)
-        self._planning_area = planning_area.specification
+        self._planning_area = planning_area
 
         # Build a ready-to-use 4D volume with no specified time for searching
         # the currently active subscriptions
-        self._planning_area_volume4d = Volume4D(
-            volume=self._planning_area.volume,
+        self._planning_area_volume4d = self._planning_area.resolved_volume4d_with_times(
+            None, None
         )
 
         # Prepare 4 different subscription ids:
@@ -100,8 +97,11 @@ class SubscriptionSimple(TestScenario):
         ]
 
         self._problematically_big_area_vol = Polygon(
-            vertices=problematically_big_area.specification.vertices
+            vertices=problematically_big_area.specification.vertices()
         )
+
+        self._current_subscriptions = {}
+        self._sub_params_by_sub_id = {}
 
     def _build_current_time_sub_params(self):
         return self._planning_area.get_new_subscription_params(
@@ -122,6 +122,10 @@ class SubscriptionSimple(TestScenario):
 
         self.begin_test_step("Create subscription validation")
         self._create_and_validate_subs()
+        self.end_test_step()
+
+        self.begin_test_step("Attempt Subscription mutation with incorrect version")
+        self._test_mutate_subscription_version_check()
         self.end_test_step()
 
         self.begin_test_step("Mutate Subscription")
@@ -151,12 +155,6 @@ class SubscriptionSimple(TestScenario):
     def _setup_case(self):
         self.begin_test_case("Setup")
 
-        # Multiple runs of the scenario seem to rely on the same instance of it:
-        # thus we need to reset the state of the scenario before running it.
-        self._current_subscriptions = {}
-        self._sub_params_by_sub_id = {}
-        # The subscription needs to be reasonably close to 'now':
-        # We reset it at the beginning of each run.
         self._sub_generation_params = self._build_current_time_sub_params()
 
         self._ensure_clean_workspace_step()
@@ -277,6 +275,46 @@ class SubscriptionSimple(TestScenario):
             query_timestamps=[creation_resp_under_test.request.timestamp],
         )
 
+    def _test_mutate_subscription_version_check(self):
+        """Attempt to mutate a subscription while providing a missing and incorrect OVN"""
+        orig_params = self._sub_params_by_sub_id[self._base_sub_id].copy()
+        sub = self._current_subscriptions[self._base_sub_id]
+        new_params = SubscriptionParams(
+            sub_id=self._base_sub_id,
+            area_vertices=orig_params.area_vertices,
+            min_alt_m=orig_params.min_alt_m,
+            max_alt_m=orig_params.max_alt_m,
+            start_time=sub.time_start.value.datetime + timedelta(seconds=10),
+            end_time=sub.time_end.value.datetime + timedelta(seconds=10),
+            base_url=orig_params.base_url,
+            notify_for_op_intents=orig_params.notify_for_op_intents,
+            notify_for_constraints=orig_params.notify_for_constraints,
+        )
+
+        with self.check("Mutation with empty version fails", self._pid) as check:
+            no_version_res = self._dss.upsert_subscription(
+                version="",
+                **new_params,
+            )
+            if no_version_res.status_code not in [400, 409]:
+                check.record_failed(
+                    "Mutation with empty version did not fail as expected",
+                    details=f"Mutation with an empty version is expected , received status code {no_version_res.status_code}",
+                    query_timestamps=[no_version_res.request.timestamp],
+                )
+
+        with self.check("Mutation with incorrect version fails", self._pid) as check:
+            wrong_version_res = self._dss.upsert_subscription(
+                version="ThisIsAnIncorrectVersion",
+                **new_params,
+            )
+            if wrong_version_res.status_code not in [400, 409]:
+                check.record_failed(
+                    "Mutation with incorrect version did not fail as expected",
+                    details=f"Mutation with an incorrect version is expected , received status code {wrong_version_res.status_code}",
+                    query_timestamps=[wrong_version_res.request.timestamp],
+                )
+
     def _test_mutate_subscriptions_shift_time(self):
         """Mutate all existing subscriptions by adding 10 seconds to their start and end times"""
 
@@ -328,7 +366,6 @@ class SubscriptionSimple(TestScenario):
         Mutate all existing subscriptions by updating their footprint.
         """
         for sub_id, sub in self._current_subscriptions.items():
-
             new_params = self._sub_params_by_sub_id[sub_id].copy()
 
             # Shift all previous vertices west by 0.001 degrees
@@ -373,7 +410,7 @@ class SubscriptionSimple(TestScenario):
             fetched_sub = self._dss.get_subscription(sub_id)
             self.record_query(fetched_sub)
             with self.check("Get subscription query succeeds", self._pid) as check:
-                if not fetched_sub.success:
+                if not (fetched_sub.success or fetched_sub.was_not_found):
                     check.record_failed(
                         "Get subscription by ID failed",
                         details=f"Get subscription by ID failed with status code {fetched_sub.status_code}",
@@ -439,7 +476,6 @@ class SubscriptionSimple(TestScenario):
     def _test_delete_sub_faulty(self):
         """Try to delete subscription in an incorrect way"""
         for sub_id in self._current_subscriptions.keys():
-
             del_missing_version = self._dss.delete_subscription(
                 sub_id=sub_id, sub_version=""
             )
@@ -547,7 +583,7 @@ class SubscriptionSimple(TestScenario):
         sub_under_test: Subscription,
         creation_params: SubscriptionParams,
         was_mutated: bool,
-        query_timestamps: List[datetime],
+        query_timestamps: list[datetime],
     ):
         """Compare the passed subscription with the data we specified when creating it"""
         self._validate_subscription(
@@ -578,7 +614,7 @@ class SubscriptionSimple(TestScenario):
         sub_under_test: Subscription,
         creation_params: SubscriptionParams,
         was_mutated: bool,
-        query_timestamps: List[datetime],
+        query_timestamps: list[datetime],
     ):
         """
         Validate the subscription against the parameters used to create it.
@@ -622,10 +658,13 @@ class SubscriptionSimple(TestScenario):
         with self.check(
             "Returned USS base URL has correct base URL", self._pid
         ) as check:
-            if sub_under_test.uss_base_url != self._planning_area.base_url:
+            if (
+                sub_under_test.uss_base_url
+                != self._planning_area.specification.get_base_url()
+            ):
                 check.record_failed(
                     "Returned USS Base URL does not match provided one",
-                    details=f"Provided: {self._planning_area.base_url}, Returned: {sub_under_test.uss_base_url}",
+                    details=f"Provided: {self._planning_area.specification.get_base_url()}, Returned: {sub_under_test.uss_base_url}",
                     query_timestamps=query_timestamps,
                 )
 

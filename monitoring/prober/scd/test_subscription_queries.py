@@ -1,19 +1,19 @@
 """Strategic conflict detection Subscription query tests:
 
-  - add a few Subscriptions spaced in time and footprints
-  - query with various combinations of arguments
+- add a few Subscriptions spaced in time and footprints
+- query with various combinations of arguments
 """
 
 import datetime
 
-from monitoring.monitorlib.geo import latitude_degrees, Circle
+from monitoring.monitorlib import scd
+from monitoring.monitorlib.geo import Circle, latitude_degrees
 from monitoring.monitorlib.geotemporal import Volume4D
 from monitoring.monitorlib.infrastructure import default_scope
-from monitoring.monitorlib import scd
 from monitoring.monitorlib.scd import SCOPE_SC
+from monitoring.monitorlib.testing import make_fake_url
 from monitoring.prober.infrastructure import for_api_versions, register_resource_type
 from monitoring.prober.scd import actions
-
 
 SUB1_TYPE = register_resource_type(216, "Subscription 1")
 SUB2_TYPE = register_resource_type(217, "Subscription 2")
@@ -36,7 +36,7 @@ def _make_sub1_req(scd_api):
         "extents": Volume4D.from_values(
             None, time_end, 0, 300, Circle.from_meters(lat, LNG0, 100)
         ).to_f3548v21(),
-        "uss_base_url": "https://example.interuss.org/foo",
+        "uss_base_url": make_fake_url(),
         "notify_for_constraints": False,
     }
     req.update({"notify_for_operational_intents": True})
@@ -51,7 +51,7 @@ def _make_sub2_req(scd_api):
             time_start, time_end, 350, 650, Circle.from_meters(LAT0, LNG0, 100)
         ).to_f3548v21(),
         "old_version": 0,
-        "uss_base_url": "https://example.interuss.org/foo",
+        "uss_base_url": make_fake_url(),
         "notify_for_operations": True,
         "notify_for_constraints": False,
     }
@@ -67,7 +67,7 @@ def _make_sub3_req(scd_api):
         "extents": Volume4D.from_values(
             time_start, time_end, 700, 1000, Circle.from_meters(lat, LNG0, 100)
         ).to_f3548v21(),
-        "uss_base_url": "https://example.interuss.org/foo",
+        "uss_base_url": make_fake_url(),
         "notify_for_constraints": False,
     }
     req.update({"notify_for_operational_intents": True})
@@ -86,7 +86,7 @@ def test_ensure_clean_workspace(ids, scd_api, scd_session):
 @default_scope(SCOPE_SC)
 def test_subs_do_not_exist_get(ids, scd_api, scd_session):
     for sub_id in (ids(SUB1_TYPE), ids(SUB2_TYPE), ids(SUB3_TYPE)):
-        resp = scd_session.get("/subscriptions/{}".format(sub_id))
+        resp = scd_session.get(f"/subscriptions/{sub_id}")
         assert resp.status_code == 404, resp.content
 
 
@@ -115,17 +115,17 @@ def test_subs_do_not_exist_query(ids, scd_api, scd_session):
 @default_scope(SCOPE_SC)
 def test_create_subs(ids, scd_api, scd_session):
     resp = scd_session.put(
-        "/subscriptions/{}".format(ids(SUB1_TYPE)), json=_make_sub1_req(scd_api)
+        f"/subscriptions/{ids(SUB1_TYPE)}", json=_make_sub1_req(scd_api)
     )
     assert resp.status_code == 200, resp.content
 
     resp = scd_session.put(
-        "/subscriptions/{}".format(ids(SUB2_TYPE)), json=_make_sub2_req(scd_api)
+        f"/subscriptions/{ids(SUB2_TYPE)}", json=_make_sub2_req(scd_api)
     )
     assert resp.status_code == 200, resp.content
 
     resp = scd_session.put(
-        "/subscriptions/{}".format(ids(SUB3_TYPE)), json=_make_sub3_req(scd_api)
+        f"/subscriptions/{ids(SUB3_TYPE)}", json=_make_sub3_req(scd_api)
     )
     assert resp.status_code == 200, resp.content
 
@@ -303,7 +303,7 @@ def test_search_time_footprint(ids, scd_api, scd_session):
 def test_delete_subs(ids, scd_api, scd_session):
     for sub_id in (ids(SUB1_TYPE), ids(SUB2_TYPE), ids(SUB3_TYPE)):
         if scd_api == scd.API_0_3_17:
-            resp = scd_session.get("/subscriptions/{}".format(sub_id))
+            resp = scd_session.get(f"/subscriptions/{sub_id}")
             assert resp.status_code == 200
             resp = scd_session.delete(
                 "/subscriptions/{}/{}".format(
@@ -311,7 +311,7 @@ def test_delete_subs(ids, scd_api, scd_session):
                 )
             )
         else:
-            raise NotImplementedError("Unsupported API version {}".format(scd_api))
+            raise NotImplementedError(f"Unsupported API version {scd_api}")
         assert resp.status_code == 200, resp.content
 
 

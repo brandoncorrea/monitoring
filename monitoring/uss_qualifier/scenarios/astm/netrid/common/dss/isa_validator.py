@@ -1,20 +1,18 @@
 from datetime import datetime
-from typing import Dict, Optional, List
 
 from monitoring.monitorlib import schema_validation
 from monitoring.monitorlib.fetch.rid import ISA, FetchedISA, FetchedISAs
 from monitoring.monitorlib.mutate.rid import ChangedISA
 from monitoring.monitorlib.rid import RIDVersion
-from monitoring.uss_qualifier.common_data_definitions import Severity
 from monitoring.uss_qualifier.scenarios.scenario import (
-    PendingCheck,
     GenericTestScenario,
+    PendingCheck,
 )
 
 MAX_SKEW = 1e-6  # seconds maximum difference between expected and actual timestamps
 
 
-class ISAValidator(object):
+class ISAValidator:
     """Wraps the validation logic for an ISA that was returned by the DSS.
     It will compare the returned ISA with the parameters specified at its creation.
     """
@@ -22,16 +20,16 @@ class ISAValidator(object):
     _main_check: PendingCheck
     _scenario: GenericTestScenario
     # Params are optional: if they are not set, the field contents will not be checked
-    _isa_params: Optional[Dict[str, any]]
-    _dss_id: List[str]
+    _isa_params: dict[str, any] | None
+    _dss_id: list[str]
     _rid_version: RIDVersion
 
     def __init__(
         self,
         main_check: PendingCheck,
         scenario: GenericTestScenario,
-        isa_params: Optional[Dict[str, any]],
-        dss_id: List[str],
+        isa_params: dict[str, any] | None,
+        dss_id: list[str],
         rid_version: RIDVersion,
     ):
         self._main_check = main_check
@@ -43,18 +41,14 @@ class ISAValidator(object):
     def _fail_sub_check(
         self, _sub_check: PendingCheck, _summary: str, _details: str, t_dss: datetime
     ) -> None:
-        """Fails with Medium severity the sub_check and with High severity the main check."""
-
         _sub_check.record_failed(
             summary=_summary,
-            severity=Severity.Medium,
             details=_details,
             query_timestamps=[t_dss],
         )
 
         self._main_check.record_failed(
             summary=f"ISA request succeeded, but the DSS response is not valid: {_summary}",
-            severity=Severity.High,
             details=_details,
             query_timestamps=[t_dss],
         )
@@ -64,12 +58,10 @@ class ISAValidator(object):
         expected_isa_id: str,
         dss_isa: ISA,
         t_dss: datetime,
-        previous_version: Optional[
-            str
-        ] = None,  # If set, we control that the version changed
-        expected_version: Optional[
-            str
-        ] = None,  # If set, we control that the version has not changed
+        previous_version: str
+        | None = None,  # If set, we control that the version changed
+        expected_version: str
+        | None = None,  # If set, we control that the version has not changed
     ) -> None:
         isa_id = expected_isa_id
         dss_id = self._dss_id
@@ -184,7 +176,7 @@ class ISAValidator(object):
         self,
         expected_isa_id: str,
         mutated_isa: ChangedISA,
-        previous_version: Optional[str] = None,
+        previous_version: str | None = None,
     ):
         """
         Validates the DSS reply to an ISA mutation request.
@@ -203,9 +195,8 @@ class ISAValidator(object):
             if errors:
                 details = "\n".join(f"[{e.json_path}] {e.message}" for e in errors)
                 sub_check.record_failed(
-                    "PUT ISA response format was invalid",
-                    Severity.Medium,
-                    "Found the following schema validation errors in the DSS response:\n"
+                    summary="PUT ISA response format was invalid",
+                    details="Found the following schema validation errors in the DSS response:\n"
                     + details,
                     query_timestamps=[t_dss],
                 )
@@ -236,9 +227,8 @@ class ISAValidator(object):
             if errors:
                 details = "\n".join(f"[{e.json_path}] {e.message}" for e in errors)
                 sub_check.record_failed(
-                    "PUT ISA response format was invalid",
-                    Severity.Medium,
-                    "Found the following schema validation errors in the DSS response:\n"
+                    summary="PUT ISA response format was invalid",
+                    details="Found the following schema validation errors in the DSS response:\n"
                     + details,
                     query_timestamps=[t_dss],
                 )
@@ -250,7 +240,7 @@ class ISAValidator(object):
     def validate_searched_isas(
         self,
         fetched_isas: FetchedISAs,
-        expected_versions: Dict[str, str],
+        expected_versions: dict[str, str],
     ):
         """Validates the DSS reply to an ISA search request:
         based on the ISA ID's present in expected_versions, it will verify the content of the returned ISA's.

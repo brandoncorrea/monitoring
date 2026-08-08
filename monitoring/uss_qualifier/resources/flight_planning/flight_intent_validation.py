@@ -1,85 +1,118 @@
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Optional, List, Dict, Iterator
 
 import arrow
 from implicitdict import StringBasedTimeDelta
 
 from monitoring.monitorlib.clients.flight_planning.flight_info import (
     AirspaceUsageState,
-    UasState,
     FlightInfo,
+    UasState,
 )
 from monitoring.monitorlib.clients.flight_planning.flight_info_template import (
     FlightInfoTemplate,
 )
-from monitoring.monitorlib.geotemporal import Volume4DCollection, Volume4D
-from monitoring.monitorlib.temporal import TimeDuringTest, Time
+from monitoring.monitorlib.geotemporal import Volume4D, Volume4DCollection
+from monitoring.monitorlib.temporal import TestTimeContext, Time, TimeDuringTest
+from monitoring.monitorlib.uspace import problems_with_flight_authorisation
 from monitoring.uss_qualifier.resources.flight_planning.flight_intent import (
     FlightIntentID,
 )
-from monitoring.monitorlib.uspace import problems_with_flight_authorisation
 
 FlightIntentName = str
 
-MAX_TEST_RUN_DURATION = timedelta(minutes=45)
-"""The longest a test run might take (to estimate flight intent timestamps prior to scenario execution)"""
+MAX_SCENARIO_EXEC_DURATION = timedelta(minutes=45)
+"""The longest a scenario run might take (to estimate flight intent timestamps prior to scenario execution)"""
+
+MAX_TEST_RUN_DURATION = timedelta(hours=6)
+"""The longest a test run might take (to estimate flight intent timestamps prior to test run)"""
 
 
 @dataclass
-class ExpectedFlightIntent(object):
+class ExpectedFlightIntent:
     intent_id: FlightIntentID
     name: FlightIntentName
-    must_conflict_with: Optional[List[FlightIntentName]] = None
-    must_not_conflict_with: Optional[List[FlightIntentName]] = None
-    usage_state: Optional[AirspaceUsageState] = None
-    uas_state: Optional[UasState] = None
-    f3548v21_priority_higher_than: Optional[List[FlightIntentName]] = None
-    f3548v21_priority_equal_to: Optional[List[FlightIntentName]] = None
-    earliest_time_start: Optional[StringBasedTimeDelta] = None
-    latest_time_start: Optional[StringBasedTimeDelta] = None
-    earliest_time_end: Optional[StringBasedTimeDelta] = None
-    latest_time_end: Optional[StringBasedTimeDelta] = None
-    valid_uspace_flight_auth: Optional[bool] = None
+    must_conflict_with: list[FlightIntentName] | None = None
+    must_not_conflict_with: list[FlightIntentName] | None = None
+    usage_state: AirspaceUsageState | None = None
+    uas_state: UasState | None = None
+    f3548v21_priority_higher_than: list[FlightIntentName] | None = None
+    f3548v21_priority_equal_to: list[FlightIntentName] | None = None
+    earliest_time_start: StringBasedTimeDelta | None = None
+    latest_time_start: StringBasedTimeDelta | None = None
+    earliest_time_end: StringBasedTimeDelta | None = None
+    latest_time_end: StringBasedTimeDelta | None = None
+    valid_uspace_flight_auth: bool | None = None
 
 
-def validate_flight_intent_templates(
-    templates: Dict[FlightIntentID, FlightInfoTemplate],
-    expected_intents: List[ExpectedFlightIntent],
+def estimate_scenario_execution_max_extents(
+    scenario_time_context: TestTimeContext,
+    templates: dict[FlightIntentID, FlightInfoTemplate],
 ) -> Volume4D:
-    """
-    Returns: the bounding extents of the flight intent templates
-    """
     extents = Volume4DCollection([])
 
-    now = Time(arrow.utcnow().datetime)
-    times = {
-        TimeDuringTest.StartOfTestRun: now,
-        TimeDuringTest.StartOfScenario: now,
-        TimeDuringTest.TimeOfEvaluation: now,
-    }
-    flight_intents = {k: v.resolve(times) for k, v in templates.items()}
+    scenario_start = TestTimeContext(
+        {
+            TimeDuringTest.StartOfTestRun: scenario_time_context[
+                TimeDuringTest.StartOfTestRun
+            ],
+            TimeDuringTest.StartOfScenario: scenario_time_context[
+                TimeDuringTest.StartOfScenario
+            ],
+            TimeDuringTest.TimeOfEvaluation: scenario_time_context[
+                TimeDuringTest.StartOfScenario
+            ],
+        }
+    )
+    flight_intents = {k: v.resolve(scenario_start) for k, v in templates.items()}
     for flight_intent in flight_intents.values():
         extents.extend(flight_intent.basic_information.area)
-    validate_flight_intents(flight_intents, expected_intents, now)
 
-    later = Time(now.datetime + MAX_TEST_RUN_DURATION)
-    times = {
-        TimeDuringTest.StartOfTestRun: now,
-        TimeDuringTest.StartOfScenario: later,
-        TimeDuringTest.TimeOfEvaluation: later,
+    scenario_estimated_end = TestTimeContext(
+        {
+            TimeDuringTest.StartOfTestRun: scenario_time_context[
+                TimeDuringTest.StartOfTestRun
+            ],
+            TimeDuringTest.StartOfScenario: scenario_time_context[
+                TimeDuringTest.StartOfScenario
+            ],
+            TimeDuringTest.TimeOfEvaluation: Time(
+                scenario_time_context[TimeDuringTest.StartOfScenario].datetime
+                + MAX_SCENARIO_EXEC_DURATION
+            ),
+        }
+    )
+    flight_intents = {
+        k: v.resolve(scenario_estimated_end) for k, v in templates.items()
     }
-    flight_intents = {k: v.resolve(times) for k, v in templates.items()}
     for flight_intent in flight_intents.values():
         extents.extend(flight_intent.basic_information.area)
-    validate_flight_intents(flight_intents, expected_intents, later)
 
     return extents.bounding_volume
 
 
+def validate_flight_intent_templates(
+    templates: dict[FlightIntentID, FlightInfoTemplate],
+    expected_intents: list[ExpectedFlightIntent],
+):
+    """Validate that all intents templates meet the criteria from `expected_intents` over the estimated maximum duration of the test run."""
+
+    now = Time(arrow.utcnow().datetime)
+    context = TestTimeContext.all_times_are(now)
+    flight_intents = {k: v.resolve(context) for k, v in templates.items()}
+    validate_flight_intents(flight_intents, expected_intents, now)
+
+    later = Time(now.datetime + MAX_TEST_RUN_DURATION)
+    context = TestTimeContext.all_times_are(later)
+    context[TimeDuringTest.StartOfTestRun] = now
+    flight_intents = {k: v.resolve(context) for k, v in templates.items()}
+    validate_flight_intents(flight_intents, expected_intents, later)
+
+
 def validate_flight_intents(
-    intents: Dict[FlightIntentID, FlightInfo],
-    expected_intents: List[ExpectedFlightIntent],
+    intents: dict[FlightIntentID, FlightInfo],
+    expected_intents: list[ExpectedFlightIntent],
     now: Time,
 ) -> None:
     """Validate that `intents` contains all intents meeting all the criteria in `expected_intents`.

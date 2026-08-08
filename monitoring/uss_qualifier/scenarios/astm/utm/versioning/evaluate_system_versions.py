@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Dict, Optional, Tuple
 
 from implicitdict import ImplicitDict
+from uas_standards.interuss.automated_testing.versioning.api import GetVersionResponse
+
 from monitoring.monitorlib.clients.versioning.client import VersionQueryError
-from monitoring.monitorlib.fetch import QueryType, Query
+from monitoring.monitorlib.fetch import Query, QueryType
 from monitoring.uss_qualifier.configurations.configuration import ParticipantID
 from monitoring.uss_qualifier.resources.versioning import SystemIdentityResource
 from monitoring.uss_qualifier.resources.versioning.client import (
@@ -12,11 +12,10 @@ from monitoring.uss_qualifier.resources.versioning.client import (
 )
 from monitoring.uss_qualifier.scenarios.scenario import TestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
-from uas_standards.interuss.automated_testing.versioning.api import GetVersionResponse
 
 
 @dataclass
-class _VersionInfo(object):
+class _VersionInfo:
     participant_id: ParticipantID
     version: str
     query: Query
@@ -29,7 +28,7 @@ class EvaluateSystemVersions(TestScenario):
         test_env_version_providers: VersionProvidersResource,
         prod_env_version_providers: VersionProvidersResource,
     ):
-        super(EvaluateSystemVersions, self).__init__()
+        super().__init__()
         self._test_env_version_providers = test_env_version_providers.version_providers
         self._prod_env_version_providers = prod_env_version_providers.version_providers
         self._system_identity = system_identity.system_identity
@@ -47,11 +46,11 @@ class EvaluateSystemVersions(TestScenario):
 
     def _get_versions(
         self,
-    ) -> Tuple[Dict[ParticipantID, _VersionInfo], Dict[ParticipantID, _VersionInfo]]:
-        test_env_versions: Dict[ParticipantID, _VersionInfo] = {}
-        prod_env_versions: Dict[ParticipantID, _VersionInfo] = {}
+    ) -> tuple[dict[ParticipantID, _VersionInfo], dict[ParticipantID, _VersionInfo]]:
+        test_env_versions: dict[ParticipantID, _VersionInfo] = {}
+        prod_env_versions: dict[ParticipantID, _VersionInfo] = {}
 
-        for (test_step, version_providers, env_versions) in (
+        for test_step, version_providers, env_versions in (
             (
                 "Get test environment test versions",
                 self._test_env_version_providers,
@@ -91,8 +90,8 @@ class EvaluateSystemVersions(TestScenario):
 
     def _evaluate_versions(
         self,
-        test_env_versions: Dict[ParticipantID, _VersionInfo],
-        prod_env_versions: Dict[ParticipantID, _VersionInfo],
+        test_env_versions: dict[ParticipantID, _VersionInfo],
+        prod_env_versions: dict[ParticipantID, _VersionInfo],
     ):
         self.begin_test_step("Evaluate current system versions")
 
@@ -131,8 +130,8 @@ class EvaluateSystemVersions(TestScenario):
         mismatch_timestamps = []
         for participant_id in mismatched_participants:
             timestamps = [
-                test_env_versions[participant_id].query.timestamp,
-                prod_env_versions[participant_id].query.timestamp,
+                test_env_versions[participant_id].query.request.timestamp,
+                prod_env_versions[participant_id].query.request.timestamp,
             ]
             with self.check(
                 "Test software version matches production", participants=participant_id
@@ -167,7 +166,7 @@ class EvaluateSystemVersions(TestScenario):
     def _evaluate_consistency(
         self,
         context: ExecutionContext,
-        test_env_versions: Dict[ParticipantID, _VersionInfo],
+        test_env_versions: dict[ParticipantID, _VersionInfo],
     ):
         self.begin_test_step("Evaluate system version consistency")
         for q in context.sibling_queries():

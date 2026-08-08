@@ -1,19 +1,22 @@
-from typing import List, Optional
-
-from implicitdict import ImplicitDict, StringBasedDateTime, StringBasedTimeDelta
+from implicitdict import (
+    ImplicitDict,
+    Optional,
+    StringBasedDateTime,
+    StringBasedTimeDelta,
+)
+from uas_standards.interuss.automated_testing.rid.v1 import injection
 
 from monitoring.uss_qualifier.resources.files import ExternalFile
-from uas_standards.astm.f3411.v19.api import RIDAircraftState, RIDFlightDetails
 
 
 class FullFlightRecord(ImplicitDict):
     reference_time: StringBasedDateTime
     """The reference time of this flight (usually the time of first telemetry)"""
 
-    states: List[RIDAircraftState]
+    states: list[injection.RIDAircraftState]
     """All telemetry that will be/was received for this flight"""
 
-    flight_details: RIDFlightDetails
+    flight_details: injection.RIDFlightDetails
     """Details of this flight, as would be reported at the ASTM /details endpoint"""
 
     aircraft_type: str
@@ -21,7 +24,7 @@ class FullFlightRecord(ImplicitDict):
 
 
 class FlightRecordCollection(ImplicitDict):
-    flights: List[FullFlightRecord]
+    flights: list[FullFlightRecord]
 
 
 class AdjacentCircularFlightsSimulatorConfiguration(ImplicitDict):
@@ -55,6 +58,12 @@ class AdjacentCircularFlightsSimulatorConfiguration(ImplicitDict):
 
     flight_start_shift: int = 0
     """Delay generated flight starts from the reference time to spread flights over time. Expressed in seconds. Use 0 to disable."""
+
+    num_flights: int = 6
+    """Number of adjacent circular flights to generate."""
+
+    duration: int = 30
+    """Number of seconds of telemetry to generate for each flight."""
 
 
 class FlightDataKMLFileConfiguration(ImplicitDict):

@@ -19,6 +19,7 @@ def main() -> int:
         print(f"Reformatted documentation in {filename}")
     if not changes:
         print("No scenario documentation needs to be reformatted.")
+
     return os.EX_OK
 
 

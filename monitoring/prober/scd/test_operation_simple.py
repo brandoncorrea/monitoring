@@ -1,21 +1,21 @@
 """Basic Operation tests:
 
-  - make sure the Operation doesn't exist with get or query
-  - create the Operation with a 60 minute length
-  - get by ID
-  - search with earliest_time and latest_time
-  - mutate
-  - delete
+- make sure the Operation doesn't exist with get or query
+- create the Operation with a 60 minute length
+- get by ID
+- search with earliest_time and latest_time
+- mutate
+- delete
 """
 
 import datetime
 
+from monitoring.monitorlib import scd
 from monitoring.monitorlib.geo import Circle
 from monitoring.monitorlib.geotemporal import Volume4D
 from monitoring.monitorlib.infrastructure import default_scope
-from monitoring.monitorlib import scd
-from monitoring.monitorlib.scd import SCOPE_SC, SCOPE_CM, SCOPE_CP
-from monitoring.monitorlib.testing import assert_datetimes_are_equal
+from monitoring.monitorlib.scd import SCOPE_CM, SCOPE_CP, SCOPE_SC
+from monitoring.monitorlib.testing import assert_datetimes_are_equal, make_fake_url
 from monitoring.prober.infrastructure import (
     depends_on,
     for_api_versions,
@@ -23,8 +23,7 @@ from monitoring.prober.infrastructure import (
 )
 from monitoring.prober.scd import actions
 
-
-BASE_URL = "https://example.interuss.org/uss"
+BASE_URL = make_fake_url()
 OP_TYPE = register_resource_type(341, "Operational intent")
 
 
@@ -52,7 +51,7 @@ def _make_op1_request():
 @default_scope(SCOPE_SC)
 @depends_on(test_ensure_clean_workspace)
 def test_op_does_not_exist_get(ids, scd_api, scd_session):
-    resp = scd_session.get("/operational_intent_references/{}".format(ids(OP_TYPE)))
+    resp = scd_session.get(f"/operational_intent_references/{ids(OP_TYPE)}")
     assert resp.status_code == 404, resp.content
 
 
@@ -107,9 +106,7 @@ def test_op_does_not_exist_query(
 def test_create_op_single_extent(ids, scd_api, scd_session):
     req = _make_op1_request()
     req["extents"] = req["extents"][0]
-    resp = scd_session.put(
-        "/operational_intent_references/{}".format(ids(OP_TYPE)), json=req
-    )
+    resp = scd_session.put(f"/operational_intent_references/{ids(OP_TYPE)}", json=req)
     assert resp.status_code == 400, resp.content
 
 
@@ -118,9 +115,7 @@ def test_create_op_single_extent(ids, scd_api, scd_session):
 def test_create_op_missing_time_start(ids, scd_api, scd_session):
     req = _make_op1_request()
     del req["extents"][0]["time_start"]
-    resp = scd_session.put(
-        "/operational_intent_references/{}".format(ids(OP_TYPE)), json=req
-    )
+    resp = scd_session.put(f"/operational_intent_references/{ids(OP_TYPE)}", json=req)
     assert resp.status_code == 400, resp.content
 
 
@@ -129,9 +124,32 @@ def test_create_op_missing_time_start(ids, scd_api, scd_session):
 def test_create_op_missing_time_end(ids, scd_api, scd_session):
     req = _make_op1_request()
     del req["extents"][0]["time_end"]
-    resp = scd_session.put(
-        "/operational_intent_references/{}".format(ids(OP_TYPE)), json=req
-    )
+    resp = scd_session.put(f"/operational_intent_references/{ids(OP_TYPE)}", json=req)
+    assert resp.status_code == 400, resp.content
+
+
+@default_scope(SCOPE_SC)
+@depends_on(test_ensure_clean_workspace)
+def test_create_op_expired(ids, scd_api, scd_session):
+    req = _make_op1_request()
+    time_start = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)
+    time_end = time_start + datetime.timedelta(minutes=60)
+    req["extents"][0] = Volume4D.from_values(
+        time_start, time_end, 0, 120, Circle.from_meters(-56, 178, 50)
+    ).to_f3548v21()
+    resp = scd_session.put(f"/operational_intent_references/{ids(OP_TYPE)}", json=req)
+    assert resp.status_code == 400, resp.content
+
+
+@default_scope(SCOPE_SC)
+@depends_on(test_ensure_clean_workspace)
+def test_create_op_time_start_after_time_end(ids, scd_api, scd_session):
+    req = _make_op1_request()
+    e = req["extents"][0]
+    time_end = e["time_end"]
+    e["time_end"] = e["time_start"]
+    e["time_start"] = time_end
+    resp = scd_session.put(f"/operational_intent_references/{ids(OP_TYPE)}", json=req)
     assert resp.status_code == 400, resp.content
 
 
@@ -141,7 +159,7 @@ def test_create_op(ids, scd_api, scd_session, scd_session_cp, scd_session_cm):
 
     if scd_session_cp:
         resp = scd_session.put(
-            "/operational_intent_references/{}".format(ids(OP_TYPE)),
+            f"/operational_intent_references/{ids(OP_TYPE)}",
             json=req,
             scope=SCOPE_CP,
         )
@@ -149,14 +167,14 @@ def test_create_op(ids, scd_api, scd_session, scd_session_cp, scd_session_cm):
 
     if scd_session_cm:
         resp = scd_session.put(
-            "/operational_intent_references/{}".format(ids(OP_TYPE)),
+            f"/operational_intent_references/{ids(OP_TYPE)}",
             json=req,
             scope=SCOPE_CM,
         )
         assert resp.status_code == 403, resp.content
 
     resp = scd_session.put(
-        "/operational_intent_references/{}".format(ids(OP_TYPE)),
+        f"/operational_intent_references/{ids(OP_TYPE)}",
         json=req,
         scope=SCOPE_SC,
     )
@@ -182,18 +200,18 @@ def test_create_op(ids, scd_api, scd_session, scd_session_cp, scd_session_cm):
 def test_get_op_by_id(ids, scd_api, scd_session, scd_session_cp, scd_session_cm):
     if scd_session_cp:
         resp = scd_session.get(
-            "/operational_intent_references/{}".format(ids(OP_TYPE)), scope=SCOPE_CP
+            f"/operational_intent_references/{ids(OP_TYPE)}", scope=SCOPE_CP
         )
         assert resp.status_code == 403, resp.content
 
     if scd_session_cm:
         resp = scd_session.get(
-            "/operational_intent_references/{}".format(ids(OP_TYPE)), scope=SCOPE_CM
+            f"/operational_intent_references/{ids(OP_TYPE)}", scope=SCOPE_CM
         )
         assert resp.status_code == 403, resp.content
 
     resp = scd_session.get(
-        "/operational_intent_references/{}".format(ids(OP_TYPE)), scope=SCOPE_SC
+        f"/operational_intent_references/{ids(OP_TYPE)}", scope=SCOPE_SC
     )
     assert resp.status_code == 200, resp.content
 
@@ -291,7 +309,7 @@ def test_get_op_by_search_latest_time_included(ids, scd_api, scd_session):
 @depends_on(test_create_op)
 def test_get_op_by_id_other_uss(ids, scd_session2):
     resp = scd_session2.get(
-        "/operational_intent_references/{}".format(ids(OP_TYPE)), scope=SCOPE_SC
+        f"/operational_intent_references/{ids(OP_TYPE)}", scope=SCOPE_SC
     )
     assert resp.status_code == 200, resp.content
 
@@ -361,7 +379,7 @@ def test_get_op_by_search_latest_time_excluded(ids, scd_api, scd_session):
 @depends_on(test_create_op)
 def test_mutate_op(ids, scd_api, scd_session, scd_session_cp, scd_session_cm):
     # GET current op
-    resp = scd_session.get("/operational_intent_references/{}".format(ids(OP_TYPE)))
+    resp = scd_session.get(f"/operational_intent_references/{ids(OP_TYPE)}")
     assert resp.status_code == 200, resp.content
     existing_op = resp.json().get("operational_intent_reference", None)
     assert existing_op is not None, resp.json()
@@ -372,13 +390,13 @@ def test_mutate_op(ids, scd_api, scd_session, scd_session_cp, scd_session_cm):
         "extents": req["extents"],
         "old_version": existing_op["version"],
         "state": "Activated",
-        "uss_base_url": "https://example.interuss.org/uss2",
+        "uss_base_url": make_fake_url("uss2"),
         "subscription_id": existing_op["subscription_id"],
     }
 
     if scd_session_cp:
         resp = scd_session.put(
-            "/operational_intent_references/{}".format(ids(OP_TYPE)),
+            f"/operational_intent_references/{ids(OP_TYPE)}",
             json=req,
             scope=SCOPE_CP,
         )
@@ -386,7 +404,7 @@ def test_mutate_op(ids, scd_api, scd_session, scd_session_cp, scd_session_cm):
 
     if scd_session_cm:
         resp = scd_session.put(
-            "/operational_intent_references/{}".format(ids(OP_TYPE)),
+            f"/operational_intent_references/{ids(OP_TYPE)}",
             json=req,
             scope=SCOPE_CM,
         )
@@ -402,7 +420,7 @@ def test_mutate_op(ids, scd_api, scd_session, scd_session_cp, scd_session_cm):
     data = resp.json()
     op = data["operational_intent_reference"]
     assert op["id"] == ids(OP_TYPE)
-    assert op["uss_base_url"] == "https://example.interuss.org/uss2"
+    assert op["uss_base_url"] == make_fake_url("uss2")
     assert op["version"] == 2
     assert op["subscription_id"] == existing_op["subscription_id"]
     # assert 'state' not in op
@@ -411,27 +429,27 @@ def test_mutate_op(ids, scd_api, scd_session, scd_session_cp, scd_session_cm):
 @depends_on(test_mutate_op)
 def test_delete_op(ids, scd_api, scd_session, scd_session_cp, scd_session_cm):
     resp = scd_session.get(
-        "/operational_intent_references/{}".format(ids(OP_TYPE)), scope=SCOPE_SC
+        f"/operational_intent_references/{ids(OP_TYPE)}", scope=SCOPE_SC
     )
     assert resp.status_code == 200, resp.content
     ovn = resp.json()["operational_intent_reference"]["ovn"]
 
     if scd_session_cp:
         resp = scd_session.delete(
-            "/operational_intent_references/{}/{}".format(ids(OP_TYPE), ovn),
+            f"/operational_intent_references/{ids(OP_TYPE)}/{ovn}",
             scope=SCOPE_CP,
         )
         assert resp.status_code == 403, resp.content
 
     if scd_session_cm:
         resp = scd_session.delete(
-            "/operational_intent_references/{}/{}".format(ids(OP_TYPE), ovn),
+            f"/operational_intent_references/{ids(OP_TYPE)}/{ovn}",
             scope=SCOPE_CM,
         )
         assert resp.status_code == 403, resp.content
 
     resp = scd_session.delete(
-        "/operational_intent_references/{}/{}".format(ids(OP_TYPE), ovn), scope=SCOPE_SC
+        f"/operational_intent_references/{ids(OP_TYPE)}/{ovn}", scope=SCOPE_SC
     )
     assert resp.status_code == 200, resp.content
 
@@ -439,7 +457,7 @@ def test_delete_op(ids, scd_api, scd_session, scd_session_cp, scd_session_cm):
 @default_scope(SCOPE_SC)
 @depends_on(test_delete_op)
 def test_get_deleted_op_by_id(ids, scd_api, scd_session):
-    resp = scd_session.get("/operational_intent_references/{}".format(ids(OP_TYPE)))
+    resp = scd_session.get(f"/operational_intent_references/{ids(OP_TYPE)}")
     assert resp.status_code == 404, resp.content
 
 

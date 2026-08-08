@@ -1,7 +1,8 @@
-from typing import List, NamedTuple
-from shapely.geometry import Polygon
-import shapely.geometry
 from datetime import datetime
+from typing import NamedTuple
+
+import shapely.geometry
+from shapely.geometry import Polygon
 
 
 class QueryBoundingBox(NamedTuple):
@@ -27,4 +28,4 @@ class GridCellFlight(NamedTuple):
     """A object to hold details of a grid location and the track within it"""
 
     bounds: shapely.geometry.polygon.Polygon
-    track: List[FlightPoint]
+    track: list[FlightPoint]

@@ -1,23 +1,21 @@
-from datetime import datetime, timedelta, UTC
-from typing import Dict, List
+from datetime import UTC, datetime, timedelta
 
 from uas_standards.astm.f3548.v21.api import (
-    Subscription,
-    SubscriptionID,
     EntityID,
     OperationalIntentReference,
     OperationalIntentState,
+    Subscription,
+    SubscriptionID,
 )
 from uas_standards.astm.f3548.v21.constants import Scope
 
 from monitoring.monitorlib.fetch import QueryError
-from monitoring.monitorlib.geotemporal import Volume4D
-from monitoring.uss_qualifier.resources.astm.f3548.v21 import PlanningAreaResource
+from monitoring.monitorlib.testing import make_fake_url
+from monitoring.uss_qualifier.resources import PlanningAreaResource
 from monitoring.uss_qualifier.resources.astm.f3548.v21.dss import (
     DSSInstanceResource,
     DSSInstancesResource,
 )
-
 from monitoring.uss_qualifier.resources.communications import ClientIdentityResource
 from monitoring.uss_qualifier.resources.interuss.id_generator import IDGeneratorResource
 from monitoring.uss_qualifier.scenarios.astm.utm.dss import test_step_fragments
@@ -29,24 +27,23 @@ from monitoring.uss_qualifier.scenarios.astm.utm.dss.subscription_interactions i
     PER_DSS_SUB_TYPE,
     to_sub_ids,
 )
-from monitoring.uss_qualifier.scenarios.scenario import (
-    TestScenario,
-)
+from monitoring.uss_qualifier.scenarios.scenario import TestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
 
 class SubscriptionInteractionsDeletion(TestScenario):
+    _oir_ids: list[EntityID]
+    _sub_ids: list[SubscriptionID]
 
-    _oir_ids: List[EntityID]
-    _sub_ids: List[SubscriptionID]
-
-    _current_subs: Dict[SubscriptionID, Subscription]
-    _current_oirs: Dict[EntityID, OperationalIntentReference]
+    _current_subs: dict[SubscriptionID, Subscription]
+    _current_oirs: dict[EntityID, OperationalIntentReference]
 
     _time_start: datetime
     _time_end: datetime
 
     _manager: str
+
+    _planning_area: PlanningAreaResource
 
     def __init__(
         self,
@@ -61,7 +58,7 @@ class SubscriptionInteractionsDeletion(TestScenario):
             Scope.StrategicCoordination: "create and delete subscriptions and operational intents"
         }
         self._dss = dss.get_instance(scopes)
-        self._planning_area = planning_area.specification
+        self._planning_area = planning_area
 
         self._secondary_instances = [
             dss.get_instance(scopes) for dss in other_instances.dss_instances
@@ -140,7 +137,7 @@ class SubscriptionInteractionsDeletion(TestScenario):
                 ) as check:
                     other_dss_sub = other_dss.get_subscription(sub_id)
                     self.record_query(other_dss_sub)
-                    if not other_dss_sub.success:
+                    if not (other_dss_sub.success or other_dss_sub.was_not_found):
                         check.record_failed(
                             summary="Get subscription query failed",
                             details=f"Failed to retrieved a subscription from DSS with code {other_dss_sub.status_code}: {other_dss_sub.error_message}",
@@ -166,11 +163,11 @@ class SubscriptionInteractionsDeletion(TestScenario):
             oir = self._planning_area.get_new_operational_intent_ref_params(
                 key=[current_oir.ovn for current_oir in self._current_oirs.values()],
                 state=OperationalIntentState.Accepted,
-                uss_base_url="https://example.interuss.org/oir_base_url",
+                uss_base_url=make_fake_url("oir_base_url"),
                 time_start=self._time_start,
                 time_end=self._time_end,
                 subscription_id=None,
-                implicit_sub_base_url="https://example.interuss.org/sub_base_url",
+                implicit_sub_base_url=make_fake_url("sub_base_url"),
             )
 
             with self.check(
@@ -215,7 +212,9 @@ class SubscriptionInteractionsDeletion(TestScenario):
             oir = self._planning_area.get_new_operational_intent_ref_params(
                 key=[current_oir.ovn for current_oir in self._current_oirs.values()],
                 state=OperationalIntentState.Accepted,
-                uss_base_url="https://example.interuss.org/oir_base_url_bis",  # dummy modification of the OIR
+                uss_base_url=make_fake_url(
+                    "oir_base_url_bis"
+                ),  # dummy modification of the OIR
                 time_start=self._time_start,
                 time_end=self._time_end,
                 subscription_id=self._current_oirs[oir_id].subscription_id,
@@ -269,17 +268,31 @@ class SubscriptionInteractionsDeletion(TestScenario):
         self._current_subs = {}
         self._current_oirs = {}
 
-        self._ensure_clean_workspace_step()
+        self._ensure_clean_primary_workspace_step()
+        self._verify_clean_secondaries_step()
 
         self.end_test_case()
 
-    def _ensure_clean_workspace_step(self):
+    def _ensure_clean_primary_workspace_step(self):
         self.begin_test_step("Ensure clean workspace")
         self._clean_workspace()
         self.end_test_step()
 
+    def _verify_clean_secondaries_step(self):
+        self.begin_test_step("Verify secondary DSS instances are clean")
+        for dss in self._secondary_instances:
+            for oir_id in self._oir_ids:
+                test_step_fragments.verify_op_intent_does_not_exist(self, dss, oir_id)
+
+            for sub_id in self._sub_ids:
+                test_step_fragments.verify_subscription_does_not_exist(
+                    self, dss, sub_id
+                )
+
+        self.end_test_step()
+
     def _clean_workspace(self):
-        extents = Volume4D(volume=self._planning_area.volume)
+        extents = self._planning_area.resolved_volume4d_with_times(None, None)
         test_step_fragments.cleanup_active_oirs(
             self,
             self._dss,

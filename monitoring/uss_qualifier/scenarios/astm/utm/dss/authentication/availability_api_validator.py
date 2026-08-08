@@ -1,27 +1,23 @@
-from typing import Optional
-
-from implicitdict import ImplicitDict
 from uas_standards.astm.f3548.v21.api import (
     OPERATIONS,
     OperationID,
-    UssAvailabilityStatusResponse,
     SetUssAvailabilityStatusParameters,
     UssAvailabilityState,
+    UssAvailabilityStatusResponse,
 )
 from uas_standards.astm.f3548.v21.constants import Scope
 
-from monitoring.monitorlib.fetch import QueryType, QueryError
+from monitoring.monitorlib.fetch import QueryError, QueryType
 from monitoring.monitorlib.infrastructure import UTMClientSession
 from monitoring.uss_qualifier.resources.astm.f3548.v21.dss import DSSInstance
 from monitoring.uss_qualifier.scenarios.astm.utm.dss.authentication.generic import (
     GenericAuthValidator,
 )
-from monitoring.uss_qualifier.scenarios.scenario import TestScenario, PendingCheck
+from monitoring.uss_qualifier.scenarios.scenario import PendingCheck, TestScenario
 
 
 class AvailabilityAuthValidator:
-
-    _current_availability: Optional[UssAvailabilityStatusResponse] = None
+    _current_availability: UssAvailabilityStatusResponse | None = None
 
     def __init__(
         self,
@@ -31,7 +27,7 @@ class AvailabilityAuthValidator:
         test_id: str,
         no_auth_session: UTMClientSession,
         invalid_token_session: UTMClientSession,
-        test_wrong_scope: Optional[str] = None,
+        test_wrong_scope: str | None = None,
         test_missing_scope: bool = False,
     ):
         """

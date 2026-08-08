@@ -1,50 +1,47 @@
 import re
-from typing import List, Dict, Optional
+
+from loguru import logger
 
 from monitoring.monitorlib import fetch
-from monitoring.monitorlib.fetch import evaluation, QueryType
+from monitoring.monitorlib.fetch import QueryType, evaluation
 from monitoring.monitorlib.rid import RIDVersion
 from monitoring.uss_qualifier.configurations.configuration import ParticipantID
 from monitoring.uss_qualifier.resources.astm.f3411 import DSSInstancesResource
 from monitoring.uss_qualifier.resources.astm.f3411.dss import DSSInstance
 from monitoring.uss_qualifier.resources.dev import TestExclusionsResource
-
 from monitoring.uss_qualifier.resources.netrid import (
-    NetRIDServiceProviders,
     NetRIDObserversResource,
+    NetRIDServiceProviders,
 )
 from monitoring.uss_qualifier.resources.netrid.observers import RIDSystemObserver
 from monitoring.uss_qualifier.resources.netrid.service_providers import (
     NetRIDServiceProvider,
 )
-
-from loguru import logger
-
 from monitoring.uss_qualifier.scenarios.scenario import GenericTestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
 
 class AggregateChecks(GenericTestScenario):
     _rid_version: RIDVersion
-    _service_providers: List[NetRIDServiceProvider]
-    _observers: List[RIDSystemObserver]
-    _dss_instances: List[DSSInstance]
+    _service_providers: list[NetRIDServiceProvider]
+    _observers: list[RIDSystemObserver]
+    _dss_instances: list[DSSInstance]
 
-    _queries: List[fetch.Query]
-    _participants_by_base_url: Dict[str, ParticipantID] = dict()
+    _queries: list[fetch.Query]
+    _participants_by_base_url: dict[str, ParticipantID] = dict()
     _allow_cleartext_queries: bool = False
-    _queries_by_participant: Dict[ParticipantID, List[fetch.Query]]
+    _queries_by_participant: dict[ParticipantID, list[fetch.Query]]
 
     def __init__(
         self,
         service_providers: NetRIDServiceProviders,
-        observers: NetRIDObserversResource,
         dss_instances: DSSInstancesResource,
-        test_exclusions: Optional[TestExclusionsResource] = None,
+        observers: NetRIDObserversResource | None = None,
+        test_exclusions: TestExclusionsResource | None = None,
     ):
         super().__init__()
         self._service_providers = service_providers.service_providers
-        self._observers = observers.observers
+        self._observers = observers.observers if observers else []
         self._dss_instances = dss_instances.dss_instances
 
         # identify SPs and observers by their base URL
@@ -145,7 +142,7 @@ class AggregateChecks(GenericTestScenario):
         else:
             self.record_note(
                 "https-check",
-                f"cleartext queries are allowed by test exclusions, skipping HTTPS check",
+                "cleartext queries are allowed by test exclusions, skipping HTTPS check",
             )
 
         # Check that all queries have been attributed to a participant
@@ -161,7 +158,7 @@ class AggregateChecks(GenericTestScenario):
             logger.warning(msg)
 
     def _inspect_participant_queries(
-        self, participant_id: str, participant_queries: List[fetch.Query]
+        self, participant_id: str, participant_queries: list[fetch.Query]
     ):
         cleartext_queries = []
         for query in participant_queries:
@@ -192,7 +189,7 @@ class AggregateChecks(GenericTestScenario):
         NetDpDetailsResponse95thPercentile (2s) and NetDpDetailsResponse99thPercentile (6s)
         """
         for participant, all_queries in self._queries_by_participant.items():
-            relevant_queries: List[fetch.Query] = list()
+            relevant_queries: list[fetch.Query] = list()
             for query in all_queries:
                 if (
                     query.status_code == 200
@@ -217,12 +214,12 @@ class AggregateChecks(GenericTestScenario):
             ) as check:
                 if p95 > self._rid_version.dp_details_resp_percentile95_s:
                     check.record_failed(
-                        summary=f"95th percentile of durations for DP display_data details queries is higher than threshold",
+                        summary="95th percentile of durations for DP display_data details queries is higher than threshold",
                         details=f"threshold: {self._rid_version.dp_details_resp_percentile95_s}s, 95th percentile: {p95:.3g}s",
                     )
                 if p99 > self._rid_version.dp_details_resp_percentile99_s:
                     check.record_failed(
-                        summary=f"99th percentile of durations for DP display_data details queries is higher than threshold",
+                        summary="99th percentile of durations for DP display_data details queries is higher than threshold",
                         details=f"threshold: {self._rid_version.dp_details_resp_percentile99_s}s, 99th percentile: {p99:.3g}s",
                     )
 
@@ -235,7 +232,7 @@ class AggregateChecks(GenericTestScenario):
     def _sp_flights_area_times_step(self):
         for participant, all_queries in self._queries_by_participant.items():
             # identify successful flights queries
-            relevant_queries: List[fetch.Query] = list()
+            relevant_queries: list[fetch.Query] = list()
             for query in all_queries:
                 if query.has_field_with_value("query_type") and (
                     # TODO find a cleaner way than checking for version here
@@ -282,7 +279,7 @@ class AggregateChecks(GenericTestScenario):
         pattern = re.compile(r"/display_data\?view=(-?\d+(.\d+)?,){3}-?\d+(.\d+)?")
         for participant, all_queries in self._queries_by_participant.items():
             # identify successful display_data queries
-            relevant_queries: List[fetch.Query] = list()
+            relevant_queries: list[fetch.Query] = list()
             for query in all_queries:
                 match = pattern.search(query.request.url)
                 if match is not None and query.status_code == 200:
@@ -315,12 +312,12 @@ class AggregateChecks(GenericTestScenario):
             ) as check:
                 if init_95th > self._rid_version.dp_init_resp_percentile95_s:
                     check.record_failed(
-                        summary=f"95th percentile of durations for initial DP display_data queries is higher than threshold",
+                        summary="95th percentile of durations for initial DP display_data queries is higher than threshold",
                         details=f"threshold: {self._rid_version.dp_init_resp_percentile95_s}, 95th percentile: {init_95th:.3g}",
                     )
                 if init_99th > self._rid_version.dp_init_resp_percentile99_s:
                     check.record_failed(
-                        summary=f"99th percentile of durations for initial DP display_data queries is higher than threshold",
+                        summary="99th percentile of durations for initial DP display_data queries is higher than threshold",
                         details=f"threshold: {self._rid_version.dp_init_resp_percentile99_s}, 99th percentile: {init_99th:.3g}",
                     )
 
@@ -329,12 +326,12 @@ class AggregateChecks(GenericTestScenario):
             ) as check:
                 if subsequent_95th > self._rid_version.dp_data_resp_percentile95_s:
                     check.record_failed(
-                        summary=f"95th percentile of durations for subsequent DP display_data queries is higher than threshold",
+                        summary="95th percentile of durations for subsequent DP display_data queries is higher than threshold",
                         details=f"threshold: {self._rid_version.dp_data_resp_percentile95_s}, 95th percentile: {subsequent_95th:.3g}",
                     )
                 if subsequent_99th > self._rid_version.dp_data_resp_percentile99_s:
                     check.record_failed(
-                        summary=f"99th percentile of durations for subsequent DP display_data queries is higher than threshold",
+                        summary="99th percentile of durations for subsequent DP display_data queries is higher than threshold",
                         details=f"threshold: {self._rid_version.dp_data_resp_percentile99_s}, 95th percentile: {subsequent_99th:.3g}",
                     )
 

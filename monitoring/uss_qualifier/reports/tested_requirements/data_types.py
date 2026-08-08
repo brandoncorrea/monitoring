@@ -1,18 +1,19 @@
-from enum import Enum
-from typing import List, Dict, Optional
+from __future__ import annotations
 
-from implicitdict import ImplicitDict
+from collections.abc import Iterable
+from enum import StrEnum
 
-from monitoring.uss_qualifier.configurations.configuration import (
-    ParticipantID,
-)
+from implicitdict import ImplicitDict, Optional
+
+from monitoring.uss_qualifier.configurations.configuration import ParticipantID
+from monitoring.uss_qualifier.reports.report import TestScenarioReport
 from monitoring.uss_qualifier.requirements.definitions import PackageID
-from monitoring.uss_qualifier.scenarios.definitions import TestScenarioTypeName
-
 
 PASS_CLASS = "pass_result"
+FINDINGS_CLASS = "findings_result"
 NOT_TESTED_CLASS = "not_tested"
 FAIL_CLASS = "fail_result"
+ACCEPTED_FINDINGS_CLASS = "accepted_findings_result"
 HAS_TODO_CLASS = "has_todo"
 
 
@@ -20,23 +21,28 @@ class TestedCheck(ImplicitDict):
     name: str
     url: str
     has_todo: bool
-    successes: int = 0
+    is_finding_acceptable: bool
+    passes: int = 0
+    findings: int = 0
     failures: int = 0
 
     @property
     def result(self) -> str:
         if self.failures > 0:
             return "Fail"
-        if self.not_tested:
-            return "Not tested"
-        else:
+        if self.findings > 0 and self.passes == 0:
+            return "Findings"
+        if self.findings == 0 and self.passes > 0:
             return "Pass"
+        if self.findings > 0 and self.passes > 0:
+            return "Pass (with findings)"
+        return "Not tested"
 
     @property
     def check_classname(self) -> str:
         if self.failures > 0:
-            return FAIL_CLASS
-        if self.successes + self.failures == 0:
+            return ACCEPTED_FINDINGS_CLASS if self.is_finding_acceptable else FAIL_CLASS
+        if self.passes + self.failures == 0:
             if self.has_todo:
                 return HAS_TODO_CLASS
             else:
@@ -46,76 +52,74 @@ class TestedCheck(ImplicitDict):
 
     @property
     def result_classname(self) -> str:
-        if self.failures > 0:
-            return FAIL_CLASS
-        if self.successes + self.failures == 0:
-            return NOT_TESTED_CLASS
+        if self.is_finding_acceptable:
+            if self.passes > 0:
+                return PASS_CLASS
+            elif self.failures > 0 or self.findings > 0:
+                return ACCEPTED_FINDINGS_CLASS
+            else:
+                return NOT_TESTED_CLASS
         else:
+            if self.failures > 0:
+                return FAIL_CLASS
+            if self.passes + self.failures + self.findings == 0:
+                return NOT_TESTED_CLASS
+            if self.findings > 0:
+                return FINDINGS_CLASS
             return PASS_CLASS
-
-    @property
-    def not_tested(self) -> bool:
-        return self.successes + self.failures == 0
 
 
 class TestedStep(ImplicitDict):
     name: str
     url: str
-    checks: List[TestedCheck]
+    checks: list[TestedCheck]
 
     @property
     def rows(self) -> int:
         return len(self.checks)
 
-    @property
-    def no_failures(self) -> bool:
-        return all(c.failures == 0 for c in self.checks)
-
-    @property
-    def not_tested(self) -> bool:
-        return all(c.not_tested for c in self.checks)
-
 
 class TestedCase(ImplicitDict):
     name: str
     url: str
-    steps: List[TestedStep]
+    steps: list[TestedStep]
 
     @property
     def rows(self) -> int:
         return sum(s.rows for s in self.steps)
 
-    @property
-    def no_failures(self) -> bool:
-        return all(s.no_failures for s in self.steps)
-
-    @property
-    def not_tested(self) -> bool:
-        return all(s.not_tested for s in self.steps)
-
 
 class TestedScenario(ImplicitDict):
-    type: TestScenarioTypeName
+    type: str
     name: str
     url: str
-    cases: List[TestedCase]
+    cases: list[TestedCase]
 
     @property
     def rows(self) -> int:
         return sum(c.rows for c in self.cases)
 
-    @property
-    def no_failures(self) -> bool:
-        return all(c.no_failures for c in self.cases)
+    @staticmethod
+    def from_scenario_report(report: TestScenarioReport) -> TestedScenario:
+        return TestedScenario(
+            type=report.scenario_type,
+            name=report.name,
+            url=report.documentation_url,
+            cases=[],
+        )
 
-    @property
-    def not_tested(self) -> bool:
-        return all(c.not_tested for c in self.cases)
+
+class TestedRequirementStatus(StrEnum):
+    Pass = "Pass"
+    PassWithFindings = "Pass (with findings)"
+    Findings = "Findings"
+    Fail = "Fail"
+    NotTested = "Not tested"
 
 
 class TestedRequirement(ImplicitDict):
     id: str
-    scenarios: List[TestedScenario]
+    scenarios: list[TestedScenario]
 
     @property
     def rows(self) -> int:
@@ -125,20 +129,44 @@ class TestedRequirement(ImplicitDict):
         return n
 
     @property
+    def checks(self) -> Iterable[TestedCheck]:
+        for scenario in self.scenarios:
+            for case in scenario.cases:
+                for step in case.steps:
+                    yield from step.checks
+
+    @property
+    def status(self) -> TestedRequirementStatus:
+        if any((c.failures > 0 and not c.is_finding_acceptable) for c in self.checks):
+            return TestedRequirementStatus.Fail
+        if all(c.passes == 0 for c in self.checks) and any(
+            c.findings > 0 for c in self.checks
+        ):
+            return TestedRequirementStatus.Findings
+        if any(c.passes > 0 for c in self.checks) and any(
+            (c.findings > 0 and not c.is_finding_acceptable) for c in self.checks
+        ):
+            return TestedRequirementStatus.PassWithFindings
+        if any(c.passes > 0 for c in self.checks):
+            return TestedRequirementStatus.Pass
+        return TestedRequirementStatus.NotTested
+
+    @property
     def classname(self) -> str:
-        if not all(s.no_failures for s in self.scenarios):
-            return FAIL_CLASS
-        elif all(s.not_tested for s in self.scenarios):
-            return NOT_TESTED_CLASS
-        else:
-            return PASS_CLASS
+        return {
+            TestedRequirementStatus.Fail: FAIL_CLASS,
+            TestedRequirementStatus.Findings: FINDINGS_CLASS,
+            TestedRequirementStatus.PassWithFindings: FINDINGS_CLASS,
+            TestedRequirementStatus.Pass: PASS_CLASS,
+            TestedRequirementStatus.NotTested: NOT_TESTED_CLASS,
+        }[self.status]
 
 
 class TestedPackage(ImplicitDict):
     id: PackageID
     url: str
     name: str
-    requirements: List[TestedRequirement]
+    requirements: list[TestedRequirement]
 
     @property
     def rows(self) -> int:
@@ -146,7 +174,7 @@ class TestedPackage(ImplicitDict):
 
 
 class TestedBreakdown(ImplicitDict):
-    packages: List[TestedPackage]
+    packages: list[TestedPackage]
 
 
 class TestRunInformation(ImplicitDict):
@@ -157,28 +185,45 @@ class TestRunInformation(ImplicitDict):
     environment: str
 
 
-class ParticipantVerificationStatus(str, Enum):
+class ParticipantVerificationStatus(StrEnum):
     Unknown = "Unknown"
     """Participant verification status is not known."""
 
     Pass = "Pass"
     """Participant has verified all tested requirements."""
 
+    PassWithFindings = "PassWithFindings"
+    """Participant has verified all tested requirements, but has some additional findings."""
+
     Fail = "Fail"
     """Participant has failed to comply with one or more requirements."""
 
-    Incomplete = "Incomplete"
+    NotFullyVerified = "NotFullyVerified"
     """Participant has not failed to comply with any requirements, but some identified requirements were not verified."""
 
     def get_class(self) -> str:
         if self == ParticipantVerificationStatus.Pass:
             return PASS_CLASS
+        elif self == ParticipantVerificationStatus.PassWithFindings:
+            return PASS_CLASS
         elif self == ParticipantVerificationStatus.Fail:
             return FAIL_CLASS
-        elif self == ParticipantVerificationStatus.Incomplete:
+        elif self == ParticipantVerificationStatus.NotFullyVerified:
             return NOT_TESTED_CLASS
         else:
             return ""
+
+    def get_text(self) -> str:
+        if self == ParticipantVerificationStatus.Pass:
+            return "Pass"
+        elif self == ParticipantVerificationStatus.PassWithFindings:
+            return "Pass (with findings)"
+        elif self == ParticipantVerificationStatus.Fail:
+            return "Fail"
+        elif self == ParticipantVerificationStatus.NotFullyVerified:
+            return "Not fully verified"
+        else:
+            return "???"
 
 
 class ParticipantVerificationInfo(ImplicitDict):
@@ -193,7 +238,7 @@ class RequirementsVerificationReport(ImplicitDict):
     test_run_information: TestRunInformation
     """Information about the test run during which the participant_verifications were determined."""
 
-    participant_verifications: Dict[ParticipantID, ParticipantVerificationInfo]
+    participant_verifications: dict[ParticipantID, ParticipantVerificationInfo]
     """Information regarding verification of compliance for each participant."""
 
     artifact_configuration: Optional[str]

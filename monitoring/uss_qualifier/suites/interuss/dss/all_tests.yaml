@@ -3,14 +3,14 @@ resources:
   f3411v19_dss_instances: resources.astm.f3411.DSSInstancesResource?
   f3411v22a_dss_instances: resources.astm.f3411.DSSInstancesResource?
   f3548v21_dss_instances: resources.astm.f3548.v21.dss.DSSInstancesResource?
-  dss_crdb_cluster: resources.interuss.crdb.CockroachDBClusterResource?
+  dss_datastore_cluster: resources.interuss.datastore.DatastoreDBClusterResource?
 
   utm_client_identity: resources.communications.ClientIdentityResource
   id_generator: resources.interuss.IDGeneratorResource
 
   service_area: resources.netrid.ServiceAreaResource?
-  planning_area: resources.astm.f3548.v21.PlanningAreaResource?
-  problematically_big_area: resources.VerticesResource?
+  planning_area: resources.PlanningAreaResource?
+  problematically_big_area: resources.VolumeResource?
 
   second_utm_auth: resources.communications.AuthAdapterResource?
   flight_intents: resources.flight_planning.FlightIntentsResource?
@@ -21,7 +21,7 @@ actions:
       generator_type: action_generators.astm.f3548.ForEachDSS
       resources:
         dss_instances: f3548v21_dss_instances
-        dss_crdb_cluster: dss_crdb_cluster?
+        dss_datastore_cluster: dss_datastore_cluster?
         second_utm_auth: second_utm_auth?
         utm_client_identity: utm_client_identity
         flight_intents: flight_intents
@@ -38,7 +38,7 @@ actions:
               second_utm_auth: second_utm_auth?
               utm_client_identity: utm_client_identity
               all_dss_instances: dss_instances
-              dss_crdb_cluster: dss_crdb_cluster?
+              dss_datastore_cluster: dss_datastore_cluster?
               flight_intents: flight_intents
               id_generator: id_generator
               planning_area: planning_area
@@ -52,11 +52,12 @@ actions:
       generator_type: action_generators.astm.f3411.ForEachDSS
       resources:
         dss_instances: f3411v19_dss_instances
-        dss_crdb_cluster: dss_crdb_cluster?
+        dss_datastore_cluster: dss_datastore_cluster?
         utm_client_identity: utm_client_identity
         id_generator: id_generator
         service_area: service_area
         problematically_big_area: problematically_big_area
+        planning_area: planning_area
         test_exclusions: test_exclusions?
       specification:
         action_to_repeat:
@@ -65,11 +66,12 @@ actions:
             resources:
               dss: dss
               all_dss_instances: dss_instances
-              dss_crdb_cluster: dss_crdb_cluster?
+              dss_datastore_cluster: dss_datastore_cluster?
               utm_client_identity: utm_client_identity
               id_generator: id_generator
               isa: service_area
               problematically_big_area: problematically_big_area
+              planning_area: planning_area
               test_exclusions: test_exclusions?
           on_failure: Continue
         dss_instances_source: dss_instances
@@ -79,11 +81,12 @@ actions:
       generator_type: action_generators.astm.f3411.ForEachDSS
       resources:
         dss_instances: f3411v22a_dss_instances
-        dss_crdb_cluster: dss_crdb_cluster?
+        dss_datastore_cluster: dss_datastore_cluster?
         utm_client_identity: utm_client_identity
         id_generator: id_generator
         service_area: service_area
         problematically_big_area: problematically_big_area
+        planning_area: planning_area
         test_exclusions: test_exclusions?
       specification:
         action_to_repeat:
@@ -92,11 +95,12 @@ actions:
             resources:
               dss: dss
               all_dss_instances: dss_instances
-              dss_crdb_cluster: dss_crdb_cluster?
+              dss_datastore_cluster: dss_datastore_cluster?
               utm_client_identity: utm_client_identity
               id_generator: id_generator
               isa: service_area
               problematically_big_area: problematically_big_area
+              planning_area: planning_area
               test_exclusions: test_exclusions?
           on_failure: Continue
         dss_instances_source: dss_instances

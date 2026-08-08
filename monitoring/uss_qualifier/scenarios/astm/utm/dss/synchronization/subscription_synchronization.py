@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict
 
 import loguru
 from uas_standards.astm.f3548.v21.api import Subscription, SubscriptionID
@@ -11,17 +10,15 @@ from monitoring.monitorlib.geotemporal import Volume4D
 from monitoring.monitorlib.mutate.scd import MutatedSubscription
 from monitoring.monitorlib.schema_validation import F3548_21
 from monitoring.prober.infrastructure import register_resource_type
-from monitoring.uss_qualifier.resources.astm.f3548.v21 import PlanningAreaResource
+from monitoring.uss_qualifier.resources import PlanningAreaResource
 from monitoring.uss_qualifier.resources.astm.f3548.v21.dss import (
+    DSSInstance,
     DSSInstanceResource,
     DSSInstancesResource,
-    DSSInstance,
-)
-from monitoring.uss_qualifier.resources.astm.f3548.v21.planning_area import (
-    SubscriptionParams,
 )
 from monitoring.uss_qualifier.resources.communications import AuthAdapterResource
 from monitoring.uss_qualifier.resources.interuss.id_generator import IDGeneratorResource
+from monitoring.uss_qualifier.resources.planning_area import SubscriptionParams
 from monitoring.uss_qualifier.scenarios.astm.utm.dss import test_step_fragments
 from monitoring.uss_qualifier.scenarios.astm.utm.dss.fragments.sub.crud import (
     sub_create_query,
@@ -32,9 +29,7 @@ from monitoring.uss_qualifier.scenarios.astm.utm.dss.validators import (
 from monitoring.uss_qualifier.scenarios.astm.utm.dss.validators.subscription_validator import (
     SubscriptionValidator,
 )
-from monitoring.uss_qualifier.scenarios.scenario import (
-    TestScenario,
-)
+from monitoring.uss_qualifier.scenarios.scenario import TestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
 
@@ -56,15 +51,15 @@ class SubscriptionSynchronization(TestScenario):
     _dss: DSSInstance
 
     # Separate DSS client for testing manager synchronization
-    _dss_separate_creds: Optional[DSSInstance]
+    _dss_separate_creds: DSSInstance | None
 
-    _dss_read_instances: List[DSSInstance]
+    _dss_read_instances: list[DSSInstance]
 
     # Base identifier for the subscriptions that will be created
     _sub_id: SubscriptionID
 
     # Extra sub IDs for testing only deletions
-    _ids_for_deletion: List[SubscriptionID]
+    _ids_for_deletion: list[SubscriptionID]
 
     # Extra sub id for testing manager sync
     _acl_sub_id: SubscriptionID
@@ -75,10 +70,10 @@ class SubscriptionSynchronization(TestScenario):
     _sub_params: SubscriptionParams
 
     # Keep track of the current subscription state
-    _current_subscription = Optional[Subscription]
+    _current_subscription = Subscription | None
 
     # For the secondary deletion test
-    _subs_for_deletion: Dict[SubscriptionID, Subscription]
+    _subs_for_deletion: dict[SubscriptionID, Subscription]
 
     def __init__(
         self,
@@ -86,7 +81,7 @@ class SubscriptionSynchronization(TestScenario):
         other_instances: DSSInstancesResource,
         id_generator: IDGeneratorResource,
         planning_area: PlanningAreaResource,
-        second_utm_auth: Optional[AuthAdapterResource] = None,
+        second_utm_auth: AuthAdapterResource | None = None,
     ):
         """
         Args:
@@ -122,12 +117,12 @@ class SubscriptionSynchronization(TestScenario):
         ]
 
         self._acl_sub_id = id_generator.id_factory.make_id(self.ACL_SUB_TYPE)
-        self._planning_area = planning_area.specification
+        self._planning_area = planning_area
 
         # Build a ready-to-use 4D volume with no specified time for searching
         # the currently active subscriptions
-        self._planning_area_volume4d = Volume4D(
-            volume=self._planning_area.volume,
+        self._planning_area_volume4d = self._planning_area.resolved_volume4d_with_times(
+            None, None
         )
 
         # Get a list of vertices enclosing the area
@@ -157,6 +152,10 @@ class SubscriptionSynchronization(TestScenario):
             )
         else:
             self._dss_separate_creds = None
+
+        self._current_subscription = None
+        self._subs_for_deletion = {}
+        self._subs_for_deletion_params = {}
 
     def run(self, context: ExecutionContext):
         self._sub_params = self._planning_area.get_new_subscription_params(
@@ -229,15 +228,11 @@ class SubscriptionSynchronization(TestScenario):
 
     def _step_setup_case(self):
         self.begin_test_case("Setup")
-        # Multiple runs of the scenario seem to rely on the same instance of it:
-        # thus we need to reset the state of the scenario before running it.
-        self._current_subscription = None
-        self._subs_for_deletion = {}
-        self._subs_for_deletion_params = {}
-        self._ensure_clean_workspace_step()
+        self._ensure_clean_primary_workspace_step()
+        self._verify_clean_secondaries_step()
         self.end_test_case()
 
-    def _ensure_clean_workspace_step(self):
+    def _ensure_clean_primary_workspace_step(self):
         self.begin_test_step("Ensure clean workspace")
         # Start by dropping any active sub
         self._ensure_no_active_subs_exist()
@@ -260,6 +255,16 @@ class SubscriptionSynchronization(TestScenario):
             self._dss,
             self._planning_area_volume4d,
         )
+
+    def _verify_clean_secondaries_step(self):
+        self.begin_test_step("Verify secondary DSS instances are clean")
+        for dss in self._dss_read_instances:
+            for sub_id in [self._sub_id] + self._ids_for_deletion:
+                test_step_fragments.verify_subscription_does_not_exist(
+                    self, dss, sub_id
+                )
+
+        self.end_test_step()
 
     def _step_create_subscriptions(self):
         # Create the 'main' test subscription:
@@ -313,7 +318,7 @@ class SubscriptionSynchronization(TestScenario):
         self,
         secondary_dss: DSSInstance,
         expected_sub_id: str,
-        involved_participants: List[str],
+        involved_participants: list[str],
     ):
         """Checks that the secondary DSS is also aware of the proper subscription's area:
         - searching for the subscription's area should yield the subscription
@@ -376,19 +381,30 @@ class SubscriptionSynchronization(TestScenario):
         self,
         secondary_dss: DSSInstance,
         expected_sub_params: SubscriptionParams,
-        involved_participants: List[str],
+        involved_participants: list[str],
     ):
         """Fetches the subscription from the secondary DSS and validates it."""
         with self.check(
-            "Subscription can be found at every DSS",
-            involved_participants,
+            "Get Subscription by ID",
+            secondary_dss.participant_id,
         ) as check:
             fetched_sub = secondary_dss.get_subscription(expected_sub_params.sub_id)
             self.record_query(fetched_sub)
-            if fetched_sub.status_code != 200:
+            # At this point we just check that the request itself returned successfully.
+            if fetched_sub.error_message is not None:
                 check.record_failed(
                     "Get query for existing subscription failed",
-                    details=f"Get query for a subscription expected to exist failed with status code {fetched_sub.status_code}",
+                    details=f"Get query for a subscription expected to exist failed with status code {fetched_sub.status_code}, error: {fetched_sub.error_message}",
+                    query_timestamps=[fetched_sub.request.timestamp],
+                )
+
+        with self.check(
+            "Subscription can be found at every DSS", involved_participants
+        ) as check:
+            if fetched_sub.status_code != 200:
+                check.record_failed(
+                    "Subscription was not found at every DSS",
+                    details=f"Get query for a subscription expected to exist failed with status code {fetched_sub.status_code}.",
                     query_timestamps=[fetched_sub.request.timestamp],
                 )
 
@@ -516,6 +532,25 @@ class SubscriptionSynchronization(TestScenario):
                     details=f"Expected: 0 or more, Received: {notif_index}",
                     query_timestamps=[fetched_sub.request.timestamp],
                 )
+
+        with self.check(
+            "Get subscription response content is correct",
+            involved_participants,
+        ) as check:
+            # The above checks validate synchronization requirements. The check below validates the correctness requirements
+            # (The logic is similar, but it covers different requirements in the standard).
+            SubscriptionValidator(
+                check,
+                self,
+                involved_participants,
+                expected_sub_params,
+            ).validate_fetched_subscription(
+                expected_sub_id=expected_sub_params.sub_id,
+                fetched_sub=fetched_sub,
+                expected_version=self._current_subscription.version,
+                is_implicit=False,
+                validate_schema=False,  # schema validated only for secondary DSS participant in check below
+            )
 
         # Finally, validate the response schema
         with self.check(
@@ -663,7 +698,8 @@ class SubscriptionSynchronization(TestScenario):
 
     def _repeat_steps_mutate_subscriptions_secondaries_shift_time(self):
         """Mutate the subscription on every secondary DSS by adding 10 seconds to its start and end times,
-        then checking on every DSS that the response is valid and corresponds to the expected parameters."""
+        then checking on every DSS that the response is valid and corresponds to the expected parameters.
+        """
 
         for secondary_dss in self._dss_read_instances:
             # Mutate the subscription on the secondary DSS
@@ -758,7 +794,8 @@ class SubscriptionSynchronization(TestScenario):
         self, sub_id: str, deleted_on_participant_id: str
     ):
         """Confirm that no secondary DSS has the subscription.
-        deleted_on_participant_id specifies the participant_id of the DSS where the subscription was deleted."""
+        deleted_on_participant_id specifies the participant_id of the DSS where the subscription was deleted.
+        """
         for secondary_dss in self._dss_read_instances:
             self._confirm_dss_has_no_sub(
                 secondary_dss, sub_id, deleted_on_participant_id
@@ -768,7 +805,7 @@ class SubscriptionSynchronization(TestScenario):
         self,
         dss_instance: DSSInstance,
         sub_id: str,
-        other_participant_id: Optional[str],
+        other_participant_id: str | None,
     ):
         """Confirm that a DSS has no subscription.
         other_participant_id may be specified if a failed check may be caused by it."""

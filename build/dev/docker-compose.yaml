@@ -1,85 +1,247 @@
-# Brings up a local interoperability ecosystem consisting of a DSS instance and dummy OAuth server.
-
-# To bring up this system, run ./run_locally.sh then optionally ./wait_for_local_infra.sh to wait for the servers to start.
-
-version: '3.8'
+# This Docker Compose file must be used through `./run_locally.sh`.
 
 services:
 
   crdb:
-    hostname: crdb.uss1.localutm
-    image: cockroachdb/cockroach:v21.2.7
-    command: start-single-node --insecure
-    expose:
-      - 26257
-    ports:
-      - "8080:8080"
-      - "26257:26257"
+    image: cockroachdb/cockroach:v24.1.3
+    entrypoint: /db-entrypoint.sh
+    # 128MB limits allow larger numbers of nodes on a single machine
+    command: /cockroach/cockroach.sh start --insecure --join=db1.uss1.localutm --cache=128MiB --max-sql-memory=128MiB --locality=uss=${USS_IDX:?},node=${USS_IDX:?}-${USS_NODE_IDX:?}
+    volumes:
+      - $PWD/startup/db-entrypoint.sh:/db-entrypoint.sh:ro
+    profiles: [crdb]
     restart: always
-    networks:
-      - dss_internal_network
-
-  rid_bootstrapper:
-    image: interuss/dss:v0.15.0-rc1
-    volumes:
-      - dss_component_coordination:/var/dss_component_coordination
-      - $PWD/startup:/startup:ro
-    entrypoint: /startup/rid_bootstrapper.sh
-    depends_on:
-      - crdb
-    networks:
-      - dss_internal_network
-
-  scd_bootstrapper:
-    image: interuss/dss:v0.15.0-rc1
-    volumes:
-      - dss_component_coordination:/var/dss_component_coordination
-      - $PWD/startup:/startup:ro
-    entrypoint: /startup/scd_bootstrapper.sh
-    depends_on:
-      - crdb
-    networks:
-      - dss_internal_network
-
-  dss:
-    hostname: dss.uss1.localutm
-    image: interuss/dss:v0.15.0-rc1
-    volumes:
-      - $PWD/../test-certs:/var/test-certs:ro
-      - dss_component_coordination:/var/dss_component_coordination
-      - $PWD/startup:/startup:ro
-    command: /startup/core_service.sh ${DEBUG_ON:-0}
-    expose:
-      - 8082
-    ports:
-      - "4000:4000"
-      - "8082:80"
-    depends_on:
-      - rid_bootstrapper
-      - scd_bootstrapper
+    cap_add: [NET_ADMIN]
+    hostname: db${USS_NODE_IDX:?}.uss${USS_IDX:?}.localutm
     networks:
       dss_internal_network:
+        ipv4_address: ${DB_IP:?}
+    ports:
+      - "81${PADDED_NODE_IDX:?}:8080"
+      - "262${PADDED_NODE_IDX:?}:26257"
+    environment:
+      - INTRA_USS_SUBNET=172.27.${USS_IDX:?}.0/24
+      - INTER_USS_SUBNET=172.27.0.0/16
+      - INTRA_USS_NETEM_CONF=${INTRA_USS_NETEM_CONF-}
+      - INTER_USS_NETEM_CONF=${INTER_USS_NETEM_CONF-}
+    healthcheck:
+      test: curl -f 'http://localhost:8080/health?ready=1' || exit 1
+      interval: 3m
+      start_period: 30s
+      start_interval: 5s
+
+  ybdb:
+    image: interuss/yugabyte:2025.1.2.1-interuss
+    entrypoint: /db-entrypoint.sh
+    # ysql_output_buffer_size needs to be increased to allow ysql to retry read restart errors. https://docs.yugabyte.com/preview/reference/configuration/yb-tserver/#ysql-output-buffer-size
+    command: sh -c "bin/yugabyted start --background=false --tserver_flags=ysql_output_buffer_size=1048576 --advertise_address=$$YBDB_HOST --join=$$([ "$$YBDB_HOST" = db1.uss1.localutm ] || echo db1.uss1.localutm)"
+    volumes:
+      - $PWD/startup/db-entrypoint.sh:/db-entrypoint.sh:ro
+    profiles: [ybdb]
+    restart: always
+    cap_add: [ NET_ADMIN ]
+    hostname: db${USS_NODE_IDX:?}.uss${USS_IDX:?}.localutm
+    networks:
+      dss_internal_network:
+        ipv4_address: ${DB_IP:?}
+    ports:
+      - "70${PADDED_NODE_IDX:?}:7000"
+      - "90${PADDED_NODE_IDX:?}:9000"
+      - "154${PADDED_NODE_IDX:?}:15433"
+      - "54${PADDED_NODE_IDX:?}:5433"
+      - "91${PADDED_NODE_IDX:?}:9042"
+    environment:
+      - YBDB_HOST=db${USS_NODE_IDX:?}.uss${USS_IDX:?}.localutm
+      - INTRA_USS_SUBNET=172.27.${USS_IDX:?}.0/24
+      - INTER_USS_SUBNET=172.27.0.0/16
+      - INTRA_USS_NETEM_CONF=${INTRA_USS_NETEM_CONF-}
+      - INTER_USS_NETEM_CONF=${INTER_USS_NETEM_CONF-}
+    healthcheck:
+      test: /home/yugabyte/postgres/bin/pg_isready -h $$YBDB_HOST || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  crdb-init:
+    image: cockroachdb/cockroach:v24.1.3
+    profiles: [bootstrap-crdb]
+    depends_on: [crdb]
+    # The entrypoint below sets the CRDB zones to have as many replicas as there are USSs (for all tables), combined with the fact that CRDB will try to distribute replicas uniformly over zones (which are defined by locality), this ensures that each USS has at least a replica.
+    # On a real production deployment such a configuration would be made to meet the survivability objectives (https://interuss.github.io/dss/latest/operations/survivability-crdb).
+    entrypoint: >
+      sh -c "
+        out=$$(/cockroach/cockroach.sh init --insecure --host=db1.uss1.localutm 2>&1);
+        if [ $$? -eq 0 ]; then
+          echo "$$out";
+          /cockroach/cockroach.sh sql --insecure --host=db1.uss1.localutm -e 'ALTER RANGE default CONFIGURE ZONE USING num_replicas = ${NUM_USS:?};';
+          exit 0;
+        fi;
+        echo "$$out";
+        if echo \"$$out\" | grep -q \"already been initialized\"; then
+          exit 0;
+        fi;
+        exit 1;
+      "
+    networks: [dss_internal_network]
+
+  rid_bootstrapper:
+    image: ${DSS_IMAGE:-interuss/dss:v0.22.0}
+    profiles: [bootstrap-crdb]
+    entrypoint: sh -c "/usr/bin/db-manager migrate --schemas_dir=/db-schemas/rid --db_version latest --cockroach_host db1.uss1.localutm"
+    depends_on:
+      crdb-init:
+        condition: service_completed_successfully
+    networks: [dss_internal_network]
+    healthcheck:
+      disable: true
+
+  scd_bootstrapper:
+    image: ${DSS_IMAGE:-interuss/dss:v0.22.0}
+    profiles: [bootstrap-crdb]
+    entrypoint: sh -c "/usr/bin/db-manager migrate --schemas_dir=/db-schemas/scd --db_version latest --cockroach_host db1.uss1.localutm"
+    depends_on:
+      crdb-init:
+        condition: service_completed_successfully
+    networks: [dss_internal_network]
+    healthcheck:
+      disable: true
+
+  aux_bootstrapper:
+    image: ${DSS_IMAGE:-interuss/dss:v0.22.0}
+    profiles: [bootstrap-crdb]
+    entrypoint: sh -c "/usr/bin/db-manager migrate --schemas_dir=/db-schemas/aux_ --db_version latest --cockroach_host db1.uss1.localutm"
+    depends_on:
+      crdb-init:
+        condition: service_completed_successfully
+    networks: [dss_internal_network]
+    healthcheck:
+      disable: true
+
+  rid_bootstrapper-ybdb:
+    image: ${DSS_IMAGE:-interuss/dss:v0.22.0}
+    profiles: [bootstrap-ybdb]
+    entrypoint: sh -c "/usr/bin/db-manager migrate --schemas_dir=/db-schemas/yugabyte/rid --db_version latest --datastore_host db1.uss1.localutm --datastore_user yugabyte --datastore_port 5433"
+    restart: on-failure
+    networks: [dss_internal_network]
+    healthcheck:
+      disable: true
+
+  scd_bootstrapper-ybdb:
+    image: ${DSS_IMAGE:-interuss/dss:v0.22.0}
+    profiles: [bootstrap-ybdb]
+    entrypoint: sh -c "/usr/bin/db-manager migrate --schemas_dir=/db-schemas/yugabyte/scd --db_version latest --datastore_host db1.uss1.localutm --datastore_user yugabyte --datastore_port 5433"
+    restart: on-failure
+    networks: [dss_internal_network]
+    healthcheck:
+      disable: true
+
+  aux_bootstrapper-ybdb:
+    image: ${DSS_IMAGE:-interuss/dss:v0.22.0}
+    profiles: [bootstrap-ybdb]
+    entrypoint: sh -c "/usr/bin/db-manager migrate --schemas_dir=/db-schemas/yugabyte/aux_ --db_version latest --datastore_host db1.uss1.localutm --datastore_user yugabyte --datastore_port 5433"
+    restart: on-failure
+    networks: [dss_internal_network]
+    healthcheck:
+      disable: true
+
+  dss:
+    image: ${DSS_IMAGE:-interuss/dss:v0.22.0}
+    command: /startup/core_service.sh ${DEBUG_ON:-0}
+    profiles: [ crdb, ybdb, raft ]
+    restart: always
+    cap_add: [ NET_ADMIN ]
+    volumes:
+      - $PWD/../test-certs:/var/test-certs:ro
+      - $PWD/startup/core_service.sh:/startup/core_service.sh:ro
+    depends_on:
+      rid_bootstrapper:
+        condition: service_completed_successfully
+        required: false
+      scd_bootstrapper:
+        condition: service_completed_successfully
+        required: false
+      aux_bootstrapper:
+        condition: service_completed_successfully
+        required: false
+      rid_bootstrapper-ybdb:
+        condition: service_completed_successfully
+        required: false
+      scd_bootstrapper-ybdb:
+        condition: service_completed_successfully
+        required: false
+      aux_bootstrapper-ybdb:
+        condition: service_completed_successfully
+        required: false
+    hostname: dss${USS_NODE_IDX:?}.uss${USS_IDX:?}.localutm
+    networks:
+      dss_internal_network:
+          ipv4_address: ${DSS_IP:?}
       interop_ecosystem_network:
-        aliases:
-          - dss.uss2.localutm
+    ports:
+      - "40${PADDED_NODE_IDX:?}:4000"
+      - "80${PADDED_NODE_IDX:?}:80"
+      - "95${PADDED_NODE_IDX:?}:95${PADDED_NODE_IDX:?}"
+      - "96${PADDED_NODE_IDX:?}:96${PADDED_NODE_IDX:?}"
+      - "97${PADDED_NODE_IDX:?}:97${PADDED_NODE_IDX:?}"
+    environment:
+      COMPOSE_PROFILES: ${COMPOSE_PROFILES}
+      JWT_AUDIENCES: dss${USS_NODE_IDX:?}.uss${USS_IDX:?}.localutm
+      DATASTORE_HOST: db${USS_NODE_IDX:?}.uss${USS_IDX:?}.localutm
+      INTRA_USS_SUBNET: 172.27.${USS_IDX:?}.0/24
+      INTER_USS_SUBNET: 172.27.0.0/16
+      INTRA_USS_NETEM_CONF: ${INTRA_USS_NETEM_CONF-}
+      INTER_USS_NETEM_CONF: ${INTER_USS_NETEM_CONF-}
+      CORE_SERVICE_EXTRA_FLAGS: ${CORE_SERVICE_EXTRA_FLAGS-}
+      RAFT_ID: ${RAFT_ID:-1}
+      AUX_RAFT_NODES: ${AUX_RAFT_NODES-}
+      RID_RAFT_NODES: ${RID_RAFT_NODES-}
+      SCD_RAFT_NODES: ${SCD_RAFT_NODES-}
+    healthcheck:
+      test: wget -O - 'http://localhost/healthy' || exit 1
+      start_period: 120s # yugabyte may be slow to be ready, and the dss service needs the ybdb service live in order to be healthy
+      start_interval: 5s
 
   oauth:
-    hostname: oauth.authority.localutm
     image: interuss/dummy-oauth
     command: -private_key_file /var/test-certs/auth2.key
+    volumes:
+      - $PWD/../test-certs:/var/test-certs:ro
+    profiles: [oauth]
+    hostname: oauth.authority.localutm
+    networks:
+      - interop_ecosystem_network
     expose:
       - 8085
     ports:
       - "8085:8085"
+    healthcheck:
+      test: wget -O - 'http://localhost:8085/token?intended_audience=-&scope=-' || exit 1
+      interval: 3m
+      start_period: 30s
+      start_interval: 5s
+
+  dss_loadbalancer:
+    image: haproxy:2.9-alpine
+    profiles: [lb]
+    entrypoint: /startup/lb-entrypoint.sh
+    hostname: dss.lb.localutm
+    volumes:
+      - $PWD/startup/lb-entrypoint.sh:/startup/lb-entrypoint.sh:ro
     networks:
       - interop_ecosystem_network
-
+    ports:
+      - "8090:80"
+    environment:
+      NUM_USS: ${NUM_USS:-1}
+      NUM_NODES: ${NUM_NODES:-1}
 
 networks:
   dss_internal_network:
     name: dss_internal_network
+    external: true
   interop_ecosystem_network:
     name: interop_ecosystem_network
+    external: true
 
 volumes:
   dss_component_coordination:

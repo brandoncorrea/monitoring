@@ -1,7 +1,8 @@
 import json
 
-from monitoring.monitorlib.multiprocessing import SynchronizedValue
 from implicitdict import ImplicitDict
+
+from monitoring.monitorlib.multiprocessing import SynchronizedValue
 
 # TODO Use this database to dynamically alter which key pair to use for message signing activities.
 
@@ -13,7 +14,7 @@ class Database(ImplicitDict):
     private_key_name: str = "messagesigning/mock_faa_priv.pem"
 
 
-db = SynchronizedValue(
+db = SynchronizedValue[Database](
     Database(),
     decoder=lambda b: ImplicitDict.parse(json.loads(b.decode("utf-8")), Database),
 )

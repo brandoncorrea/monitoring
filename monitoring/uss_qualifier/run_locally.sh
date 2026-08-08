@@ -31,8 +31,10 @@ configurations.dev.generate_rid_test_data,\
 configurations.dev.geospatial_comprehension,\
 configurations.dev.general_flight_auth,\
 configurations.dev.message_signing,\
+configurations.dev.minimal_probing,\
 configurations.dev.dss_probing,\
 configurations.dev.f3548_self_contained,\
+configurations.dev.utm_implementation_us.environments.local.test_1,\
 configurations.dev.netrid_v22a,\
 configurations.dev.netrid_v19,\
 configurations.dev.uspace"
@@ -59,6 +61,14 @@ else
   docker_args="-it"
 fi
 
+# Initialize an empty string for additional Docker options
+PRIVATE_REPOS_ENV_FLAG=""
+
+# Check if GITHUB_PRIVATE_REPOS is set and not empty
+if [ -n "${GITHUB_PRIVATE_REPOS}" ]; then
+  PRIVATE_REPOS_ENV_FLAG="-e GITHUB_PRIVATE_REPOS=${GITHUB_PRIVATE_REPOS}"
+fi
+
 # shellcheck disable=SC2086
 docker run ${docker_args} --name uss_qualifier \
   --rm \
@@ -68,10 +78,11 @@ docker run ${docker_args} --name uss_qualifier \
   -e PYTHONBUFFERED=1 \
   -e AUTH_SPEC=${AUTH_SPEC} \
   -e AUTH_SPEC_2=${AUTH_SPEC_2} \
-  -e GITHUB_PRIVATE_REPOS=${GITHUB_PRIVATE_REPOS:-} \
+  -e PROJ_NETWORK \
+  ${PRIVATE_REPOS_ENV_FLAG} \
   -e MONITORING_GITHUB_ROOT=${MONITORING_GITHUB_ROOT:-} \
   -v "$(pwd)/$OUTPUT_DIR:/app/$OUTPUT_DIR" \
   -v "$(pwd)/$CACHE_DIR:/app/$CACHE_DIR" \
   -w /app/monitoring/uss_qualifier \
   interuss/monitoring \
-  python main.py $QUALIFIER_OPTIONS
+  uv run main.py $QUALIFIER_OPTIONS

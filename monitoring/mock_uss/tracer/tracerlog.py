@@ -8,9 +8,11 @@ from monitoring.mock_uss.tracer.log_types import TracerLogEntry
 from monitoring.monitorlib import infrastructure
 
 
-class Logger(object):
+class Logger:
     def __init__(
-        self, log_path: str, kml_session: infrastructure.KMLGenerationSession = None
+        self,
+        log_path: str,
+        kml_session: infrastructure.KMLGenerationSession | None = None,
     ):
         self.log_path = log_path
         os.makedirs(self.log_path, exist_ok=True)
@@ -28,7 +30,7 @@ class Logger(object):
         basename = "{:06d}_{}_{}".format(
             n, datetime.datetime.now().strftime("%H%M%S_%f"), content.prefix_code()
         )
-        logname = "{}.yaml".format(basename)
+        logname = f"{basename}.yaml"
         fullname = os.path.join(self.log_path, logname)
 
         dump = json.loads(json.dumps(content))
@@ -39,7 +41,7 @@ class Logger(object):
         if self.kml_session:
             kml_server_filename = os.path.join(self.kml_session.kml_folder, logname)
             try:
-                with open(fullname, "r") as f:
+                with open(fullname) as f:
                     resp = self.kml_session.post(
                         "/realtime_kml",
                         data={"path": self.kml_session.kml_folder},
@@ -48,11 +50,20 @@ class Logger(object):
                 resp.raise_for_status()
                 kml_path = os.path.join(self.log_path, "kml")
                 os.makedirs(kml_path, exist_ok=True)
-                with open(os.path.join(kml_path, "{}.kml".format(basename)), "w") as f:
+                with open(os.path.join(kml_path, f"{basename}.kml"), "w") as f:
                     f.write(resp.content.decode("utf-8"))
-            except IOError as e:
-                print(
-                    "Error posting {} to KML server: {}".format(kml_server_filename, e)
-                )
+            except OSError as e:
+                print(f"Error posting {kml_server_filename} to KML server: {e}")
 
         return logname
+
+
+class DummyLogger(Logger):
+    def __init__(self):
+        pass
+
+    def log_same(self, t0: datetime.datetime, t1: datetime.datetime, code: str) -> None:
+        pass
+
+    def log_new(self, content: TracerLogEntry) -> str:
+        return "dummy"

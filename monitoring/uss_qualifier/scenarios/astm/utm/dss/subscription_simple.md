@@ -16,17 +16,17 @@ Perform basic operations on a single DSS instance to create, update and delete s
 
 ### planning_area
 
-[`PlanningAreaResource`](../../../../resources/astm/f3548/v21/planning_area.py) describes the 3D volume in which subscriptions will be created.
+[`PlanningAreaResource`](../../../../resources/planning_area.py) describes the 3D volume in which subscriptions will be created.
 
 ### problematically_big_area
 
-[`VerticesResource`](../../../../resources/vertices.py) describing an area designed to be too big to be accepted by the DSS.
+[`VolumeResource`](../../../../resources/volume.py) describing an area designed to be too big to be accepted by the DSS as a subscription area.
 
 ## Setup test case
 
-### [Ensure clean workspace test step](clean_workspace.md)
+### Ensure clean workspace test step
 
-This step ensures that no subscription with the known test ID exists in the DSS.
+#### [Clean any existing subscriptions with known test IDs](clean_workspace_subs.md)
 
 ## Subscription Simple test case
 
@@ -38,13 +38,7 @@ This test step creates multiple subscriptions with different combinations of the
 
 All subscriptions are left on the DSS when this step ends, as they are expected to be present for the subsequent step.
 
-#### [Create subscription](./fragments/sub/crud/create_correct.md)
-
-Check creation succeeds and response is correct.
-
-#### [Validate subscription](fragments/sub/validate/correctness.md)
-
-Verify that the subscription returned by the DSS after its creation is properly formatted and has the right content.
+#### [Create subscription](./fragments/sub/crud/create.md)
 
 ### Query Existing Subscription test step
 
@@ -95,6 +89,18 @@ Verify that the subscription returned by the DSS via the search is correctly for
 #### [Validate version field](fragments/sub/validate/non_mutated.md)
 
 Verify that the version field is as expected.
+
+### Attempt Subscription mutation with incorrect version test step
+
+This test step attempts to mutate the subscription both with a missing and incorrect OVN, and checks that the DSS reacts properly.
+
+#### 🛑 Mutation with empty version fails check
+
+If a request to mutate a subscription is missing the version and succeeds, the DSS is failing to properly implement **[astm.f3548.v21.DSS0005,5](../../../../requirements/astm/f3548/v21.md)**.
+
+#### 🛑 Mutation with incorrect version fails check
+
+If a request to mutate a subscription providing the wrong version succeeds, the DSS is failing to properly implement **[astm.f3548.v21.DSS0005,5](../../../../requirements/astm/f3548/v21.md)**.
 
 ### Mutate Subscription test step
 
@@ -153,10 +159,6 @@ The response to a successful delete subscription query is expected to conform to
 
 If it does not, the DSS is failing to implement **[astm.f3548.v21.DSS0005,5](../../../../requirements/astm/f3548/v21.md)**.
 
-#### 🛑 Subscription can be deleted check
-
-An attempt to delete a subscription when the correct version is provided should succeed, otherwise the DSS is in violation of **[astm.f3548.v21.DSS0005,5](../../../../requirements/astm/f3548/v21.md)**.
-
 #### [Validate subscription](fragments/sub/validate/correctness.md)
 
 Verify that the subscription returned by the DSS via the deletion is properly formatted and contains the correct content.
@@ -181,4 +183,6 @@ If the DSS fails to let us search in the area for which the subscription was jus
 
 If the DSS returns the deleted subscription in a search that covers the area it was originally created for, the DSS is not properly implementing **[astm.f3548.v21.DSS0005,5](../../../../requirements/astm/f3548/v21.md)**.
 
-## [Cleanup](./clean_workspace.md)
+## Cleanup
+
+### [Clean any straggling subscriptions with known test IDs](clean_workspace_subs_during_cleanup.md)

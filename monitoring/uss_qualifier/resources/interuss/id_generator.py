@@ -10,7 +10,6 @@ class IDGeneratorSpecification(ImplicitDict):
 
 
 class IDGeneratorResource(Resource[IDGeneratorSpecification]):
-
     _client_identity: ClientIdentityResource
 
     # Not initialised before it's actually used
@@ -19,8 +18,10 @@ class IDGeneratorResource(Resource[IDGeneratorSpecification]):
     def __init__(
         self,
         specification: IDGeneratorSpecification,
+        resource_origin: str,
         client_identity: ClientIdentityResource,
     ):
+        super().__init__(specification, resource_origin)
         self._client_identity = client_identity
 
     @property

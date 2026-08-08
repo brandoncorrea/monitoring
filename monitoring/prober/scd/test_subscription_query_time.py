@@ -1,18 +1,19 @@
 """Strategic conflict detection Subscription put query tests:
 
-  - query with different time formats.
+- query with different time formats.
 """
 
 import datetime
 
+from monitoring.monitorlib import scd
 from monitoring.monitorlib.geo import Circle
 from monitoring.monitorlib.geotemporal import Volume4D
 from monitoring.monitorlib.infrastructure import default_scope
-from monitoring.monitorlib import scd
 from monitoring.monitorlib.scd import SCOPE_SC
+from monitoring.monitorlib.testing import make_fake_url
 from monitoring.prober.infrastructure import for_api_versions, register_resource_type
 
-BASE_URL = "https://example.interuss.org/uss"
+BASE_URL = make_fake_url()
 
 SUB_TYPE = register_resource_type(219, "Subscription")
 
@@ -45,5 +46,5 @@ def test_subscription_with_invalid_start_time(ids, scd_api, scd_session):
     req = _make_sub_req(time_start, time_end, 200, 1000, 500, scd_api)
     req["extents"]["time_start"]["value"] = "something-invalid"
 
-    resp = scd_session.put("/subscriptions/{}".format(ids(SUB_TYPE)), json=req)
+    resp = scd_session.put(f"/subscriptions/{ids(SUB_TYPE)}", json=req)
     assert resp.status_code == 400, resp.content

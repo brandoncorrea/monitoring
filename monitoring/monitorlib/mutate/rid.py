@@ -1,27 +1,18 @@
 import datetime
-from typing import Dict, List, Optional, Union, Set
+from typing import Any
 
-from implicitdict import ImplicitDict
 import s2sphere
+import uas_standards.astm.f3411.v19.api as v19_api
+import uas_standards.astm.f3411.v19.constants as v19_constants
+import uas_standards.astm.f3411.v22a.api as v22a_api
+import uas_standards.astm.f3411.v22a.constants as v22a_constants
+from implicitdict import ImplicitDict, Optional
 from uas_standards import Operation
 
+from monitoring.monitorlib import fetch, infrastructure, rid_v1, rid_v2
 from monitoring.monitorlib.fetch import QueryType
-from monitoring.monitorlib.fetch.rid import RIDQuery, Subscription, ISA
+from monitoring.monitorlib.fetch.rid import ISA, RIDQuery, Subscription
 from monitoring.monitorlib.rid import RIDVersion
-from uas_standards.astm.f3411 import v19, v22a
-import uas_standards.astm.f3411.v19.api
-import uas_standards.astm.f3411.v19.constants
-import uas_standards.astm.f3411.v22a.api
-import uas_standards.astm.f3411.v22a.constants
-import yaml
-from yaml.representer import Representer
-
-from monitoring.monitorlib import (
-    fetch,
-    infrastructure,
-    rid_v1,
-    rid_v2,
-)
 
 
 class ChangedSubscription(RIDQuery):
@@ -30,23 +21,27 @@ class ChangedSubscription(RIDQuery):
     mutation: Optional[str] = None
 
     @property
-    def _v19_response(self) -> v19.api.PutSubscriptionResponse:
+    def _v19_response(self) -> v19_api.PutSubscriptionResponse:
+        if not self.v19_query:
+            raise ValueError("v19 query isn't set")
         return ImplicitDict.parse(
-            self.v19_query.response.json,
-            v19.api.PutSubscriptionResponse,
+            self.v19_query.response.json or {},
+            v19_api.PutSubscriptionResponse,
         )
 
     @property
-    def _v22a_response(self) -> v22a.api.PutSubscriptionResponse:
+    def _v22a_response(self) -> v22a_api.PutSubscriptionResponse:
+        if not self.v22a_query:
+            raise ValueError("v22a query isn't set")
         return ImplicitDict.parse(
-            self.v22a_query.response.json,
-            v22a.api.PutSubscriptionResponse,
+            self.v22a_query.response.json or {},
+            v22a_api.PutSubscriptionResponse,
         )
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self) -> list[str]:
         if self.status_code != 200:
-            return ["Failed to mutate subscription ({})".format(self.status_code)]
+            return [f"Failed to mutate subscription ({self.status_code})"]
         if self.query.response.json is None:
             return ["Subscription response did not include valid JSON"]
 
@@ -71,7 +66,7 @@ class ChangedSubscription(RIDQuery):
         return []
 
     @property
-    def subscription(self) -> Optional[Subscription]:
+    def subscription(self) -> Subscription | None:
         if not self.success:
             return None
         if self.rid_version == RIDVersion.f3411_19:
@@ -84,11 +79,15 @@ class ChangedSubscription(RIDQuery):
             )
 
     @property
-    def isas(self) -> List[ISA]:
+    def isas(self) -> list[ISA]:
         if self.rid_version == RIDVersion.f3411_19:
-            return [ISA(v19_value=isa) for isa in self._v19_response.service_areas]
+            return [
+                ISA(v19_value=isa) for isa in self._v19_response.service_areas or []
+            ]
         elif self.rid_version == RIDVersion.f3411_22a:
-            return [ISA(v22a_value=isa) for isa in self._v22a_response.service_areas]
+            return [
+                ISA(v22a_value=isa) for isa in self._v22a_response.service_areas or []
+            ]
         else:
             raise NotImplementedError(
                 f"Cannot retrieve ISAs using RID version {self.rid_version}"
@@ -96,17 +95,17 @@ class ChangedSubscription(RIDQuery):
 
 
 def upsert_subscription(
-    area_vertices: List[s2sphere.LatLng],
+    area_vertices: list[s2sphere.LatLng],
     alt_lo: float,
     alt_hi: float,
-    start_time: Optional[datetime.datetime],
-    end_time: Optional[datetime.datetime],
+    start_time: datetime.datetime | None,
+    end_time: datetime.datetime | None,
     uss_base_url: str,
     subscription_id: str,
     rid_version: RIDVersion,
     utm_client: infrastructure.UTMClientSession,
-    subscription_version: Optional[str] = None,
-    participant_id: Optional[str] = None,
+    subscription_version: str | None = None,
+    participant_id: str | None = None,
 ) -> ChangedSubscription:
     mutation = "create" if subscription_version is None else "update"
     if rid_version == RIDVersion.f3411_19:
@@ -120,17 +119,17 @@ def upsert_subscription(
             ),
             "callbacks": {
                 "identification_service_area_url": uss_base_url
-                + v19.api.OPERATIONS[
-                    v19.api.OperationID.PostIdentificationServiceArea
+                + v19_api.OPERATIONS[
+                    v19_api.OperationID.PostIdentificationServiceArea
                 ].path[: -len("/{id}")]
             },
         }
         if subscription_version is None:
-            op = v19.api.OPERATIONS[v19.api.OperationID.CreateSubscription]
+            op = v19_api.OPERATIONS[v19_api.OperationID.CreateSubscription]
             url = op.path.format(id=subscription_id)
             query_type = QueryType.F3411v19DSSCreateSubscription
         else:
-            op = v19.api.OPERATIONS[v19.api.OperationID.UpdateSubscription]
+            op = v19_api.OPERATIONS[v19_api.OperationID.UpdateSubscription]
             url = op.path.format(id=subscription_id, version=subscription_version)
             query_type = QueryType.F3411v19DSSUpdateSubscription
         return ChangedSubscription(
@@ -140,7 +139,7 @@ def upsert_subscription(
                 op.verb,
                 url,
                 json=body,
-                scope=v19.constants.Scope.Read,
+                scope=v19_constants.Scope.Read,
                 participant_id=participant_id,
                 query_type=query_type,
             ),
@@ -157,11 +156,11 @@ def upsert_subscription(
             "uss_base_url": uss_base_url,
         }
         if subscription_version is None:
-            op = v22a.api.OPERATIONS[v22a.api.OperationID.CreateSubscription]
+            op = v22a_api.OPERATIONS[v22a_api.OperationID.CreateSubscription]
             url = op.path.format(id=subscription_id)
             query_type = QueryType.F3411v22aDSSCreateSubscription
         else:
-            op = v22a.api.OPERATIONS[v22a.api.OperationID.UpdateSubscription]
+            op = v22a_api.OPERATIONS[v22a_api.OperationID.UpdateSubscription]
             url = op.path.format(id=subscription_id, version=subscription_version)
             query_type = QueryType.F3411v22aDSSUpdateSubscription
         return ChangedSubscription(
@@ -171,7 +170,7 @@ def upsert_subscription(
                 op.verb,
                 url,
                 json=body,
-                scope=v22a.constants.Scope.DisplayProvider,
+                scope=v22a_constants.Scope.DisplayProvider,
                 participant_id=participant_id,
                 query_type=query_type,
             ),
@@ -187,10 +186,10 @@ def delete_subscription(
     subscription_version: str,
     rid_version: RIDVersion,
     utm_client: infrastructure.UTMClientSession,
-    participant_id: Optional[str] = None,
+    participant_id: str | None = None,
 ) -> ChangedSubscription:
     if rid_version == RIDVersion.f3411_19:
-        op = v19.api.OPERATIONS[v19.api.OperationID.DeleteSubscription]
+        op = v19_api.OPERATIONS[v19_api.OperationID.DeleteSubscription]
         url = op.path.format(id=subscription_id, version=subscription_version)
         return ChangedSubscription(
             mutation="delete",
@@ -198,13 +197,13 @@ def delete_subscription(
                 utm_client,
                 op.verb,
                 url,
-                scope=v19.constants.Scope.Read,
+                scope=v19_constants.Scope.Read,
                 participant_id=participant_id,
                 query_type=QueryType.F3411v19DSSDeleteSubscription,
             ),
         )
     elif rid_version == RIDVersion.f3411_22a:
-        op = v22a.api.OPERATIONS[v22a.api.OperationID.DeleteSubscription]
+        op = v22a_api.OPERATIONS[v22a_api.OperationID.DeleteSubscription]
         url = op.path.format(id=subscription_id, version=subscription_version)
         return ChangedSubscription(
             mutation="delete",
@@ -212,7 +211,7 @@ def delete_subscription(
                 utm_client,
                 op.verb,
                 url,
-                scope=v22a.constants.Scope.DisplayProvider,
+                scope=v22a_constants.Scope.DisplayProvider,
                 participant_id=participant_id,
                 query_type=QueryType.F3411v22aDSSDeleteSubscription,
             ),
@@ -227,18 +226,18 @@ class ISAChangeNotification(RIDQuery):
     """Version-independent representation of response to a USS notification following an ISA change in the DSS."""
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self) -> list[str]:
         # Tolerate not-strictly-correct 200 response
         if self.status_code != 204 and self.status_code != 200:
-            return ["Failed to notify ({})".format(self.status_code)]
+            return [f"Failed to notify ({self.status_code})"]
         return []
 
 
 class SubscriberToNotify(ImplicitDict):
     """Version-independent representation of a subscriber to notify of a change in the DSS."""
 
-    v19_value: Optional[v19.api.SubscriberToNotify] = None
-    v22a_value: Optional[v22a.api.SubscriberToNotify] = None
+    v19_value: Optional[v19_api.SubscriberToNotify] = None
+    v22a_value: Optional[v22a_api.SubscriberToNotify] = None
 
     @property
     def rid_version(self) -> RIDVersion:
@@ -254,10 +253,10 @@ class SubscriberToNotify(ImplicitDict):
     @property
     def raw(
         self,
-    ) -> Union[v19.api.SubscriberToNotify, v22a.api.SubscriberToNotify]:
-        if self.rid_version == RIDVersion.f3411_19:
+    ) -> v19_api.SubscriberToNotify | v22a_api.SubscriberToNotify:
+        if self.rid_version == RIDVersion.f3411_19 and self.v19_value:
             return self.v19_value
-        elif self.rid_version == RIDVersion.f3411_22a:
+        elif self.rid_version == RIDVersion.f3411_22a and self.v22a_value:
             return self.v22a_value
         else:
             raise NotImplementedError(
@@ -268,12 +267,12 @@ class SubscriberToNotify(ImplicitDict):
         self,
         isa_id: str,
         utm_session: infrastructure.UTMClientSession,
-        isa: Optional[ISA] = None,
-        participant_id: Optional[str] = None,
+        isa: ISA | None = None,
+        participant_id: str | None = None,
     ) -> ISAChangeNotification:
         # Note that optional `extents` are not specified
-        if self.rid_version == RIDVersion.f3411_19:
-            body = {
+        if self.rid_version == RIDVersion.f3411_19 and self.v19_value:
+            body: dict[str, Any] = {
                 "subscriptions": self.v19_value.subscriptions,
             }
             if isa is not None:
@@ -285,18 +284,18 @@ class SubscriberToNotify(ImplicitDict):
                     "POST",
                     url,
                     json=body,
-                    scope=v19.constants.Scope.Write,
+                    scope=v19_constants.Scope.Write,
                     participant_id=participant_id,
                     query_type=QueryType.F3411v19USSPostIdentificationServiceArea,
                 )
             )
-        elif self.rid_version == RIDVersion.f3411_22a:
+        elif self.rid_version == RIDVersion.f3411_22a and self.v22a_value:
             body = {
                 "subscriptions": self.v22a_value.subscriptions,
             }
             if isa is not None:
                 body["service_area"] = isa.as_v22a()
-            op = v22a.api.OPERATIONS[v22a.api.OperationID.PostIdentificationServiceArea]
+            op = v22a_api.OPERATIONS[v22a_api.OperationID.PostIdentificationServiceArea]
             url = self.v22a_value.url + op.path.format(id=isa_id)
             return ISAChangeNotification(
                 v22a_query=fetch.query_and_describe(
@@ -304,7 +303,7 @@ class SubscriberToNotify(ImplicitDict):
                     op.verb,
                     url,
                     json=body,
-                    scope=v22a.constants.Scope.ServiceProvider,
+                    scope=v22a_constants.Scope.ServiceProvider,
                     participant_id=participant_id,
                     query_type=QueryType.F3411v22aUSSPostIdentificationServiceArea,
                 )
@@ -327,29 +326,33 @@ class ChangedISA(RIDQuery):
     @property
     def _v19_response(
         self,
-    ) -> v19.api.PutIdentificationServiceAreaResponse:
+    ) -> v19_api.PutIdentificationServiceAreaResponse:
+        if not self.v19_query:
+            raise ValueError("v19 query isn't set")
         return ImplicitDict.parse(
-            self.v19_query.response.json,
-            v19.api.PutIdentificationServiceAreaResponse,
+            self.v19_query.response.json or {},
+            v19_api.PutIdentificationServiceAreaResponse,
         )
 
     @property
     def _v22a_response(
         self,
-    ) -> v22a.api.PutIdentificationServiceAreaResponse:
+    ) -> v22a_api.PutIdentificationServiceAreaResponse:
+        if not self.v22a_query:
+            raise ValueError("v22a query isn't set")
         return ImplicitDict.parse(
-            self.v22a_query.response.json,
-            v22a.api.PutIdentificationServiceAreaResponse,
+            self.v22a_query.response.json or {},
+            v22a_api.PutIdentificationServiceAreaResponse,
         )
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self) -> list[str]:
         # Tolerate reasonable-but-technically-incorrect code 201
         if not (
             self.status_code == 200
             or (self.mutation == "create" and self.status_code == 201)
         ):
-            return ["Failed to mutate ISA ({})".format(self.status_code)]
+            return [f"Failed to mutate ISA ({self.status_code})"]
         if self.query.response.json is None:
             return ["ISA response did not include valid JSON"]
 
@@ -391,7 +394,7 @@ class ChangedISA(RIDQuery):
             )
 
     @property
-    def subscribers(self) -> Optional[List[SubscriberToNotify]]:
+    def subscribers(self) -> list[SubscriberToNotify] | None:
         if self.rid_version == RIDVersion.f3411_19:
             if (
                 "subscribers" not in self._v19_response
@@ -400,13 +403,13 @@ class ChangedISA(RIDQuery):
                 return None
             return [
                 SubscriberToNotify(v19_value=sub)
-                for sub in self._v19_response.subscribers
+                for sub in self._v19_response.subscribers or []
             ]
         elif self.rid_version == RIDVersion.f3411_22a:
             return (
                 [
                     SubscriberToNotify(v22a_value=sub)
-                    for sub in self._v22a_response.subscribers
+                    for sub in self._v22a_response.subscribers or []
                 ]
                 if "subscribers" in self._v22a_response
                 else []
@@ -417,7 +420,7 @@ class ChangedISA(RIDQuery):
             )
 
     @property
-    def sub_ids(self) -> Set[str]:
+    def sub_ids(self) -> set[str]:
         if self.rid_version == RIDVersion.f3411_19:
             return set(
                 [
@@ -431,7 +434,7 @@ class ChangedISA(RIDQuery):
             return set(
                 [
                     subscription.subscription_id
-                    for subscriber in self._v22a_response.subscribers
+                    for subscriber in self._v22a_response.subscribers or []
                     if subscriber is not None
                     for subscription in subscriber.subscriptions
                 ]
@@ -447,19 +450,24 @@ class ISAChange(ImplicitDict):
 
     dss_query: ChangedISA
 
-    notifications: Dict[str, ISAChangeNotification]
+    notifications: dict[str, ISAChangeNotification]
     """Mapping from USS base URL to change notification query"""
+
+    @property
+    def subscribers(self) -> list[SubscriberToNotify] | None:
+        """List of subscribers that required a notification for the change."""
+        return self.dss_query.subscribers
 
 
 def build_isa_request_body(
-    area_vertices: List[s2sphere.LatLng],
+    area_vertices: list[s2sphere.LatLng],
     alt_lo: float,
     alt_hi: float,
     start_time: datetime.datetime,
     end_time: datetime.datetime,
     uss_base_url: str,
     rid_version: RIDVersion,
-) -> Dict[str, any]:
+) -> dict[str, Any]:
     """Build the http request body expected to PUT or UPDATE an ISA on a DSS,
     in accordance with the specified rid_version."""
     if rid_version == RIDVersion.f3411_19:
@@ -472,7 +480,7 @@ def build_isa_request_body(
                 end_time,
             ),
             "flights_url": uss_base_url
-            + v19.api.OPERATIONS[v19.api.OperationID.SearchFlights].path,
+            + v19_api.OPERATIONS[v19_api.OperationID.SearchFlights].path,
         }
     elif rid_version == RIDVersion.f3411_22a:
         return {
@@ -492,8 +500,8 @@ def build_isa_request_body(
 
 
 def build_isa_url(
-    rid_version: RIDVersion, isa_id: str, isa_version: Optional[str] = None
-) -> (Operation, str):
+    rid_version: RIDVersion, isa_id: str, isa_version: str | None = None
+) -> tuple[Operation, str]:
     """Build the required URL to create, get, update or delete an ISA on a DSS,
     in accordance with the specified rid_version and isa_version, if it is available.
 
@@ -501,20 +509,20 @@ def build_isa_url(
     """
     if rid_version == RIDVersion.f3411_19:
         if isa_version is None:
-            op = v19.api.OPERATIONS[v19.api.OperationID.CreateIdentificationServiceArea]
+            op = v19_api.OPERATIONS[v19_api.OperationID.CreateIdentificationServiceArea]
             return (op, op.path.format(id=isa_id))
         else:
-            op = v19.api.OPERATIONS[v19.api.OperationID.UpdateIdentificationServiceArea]
+            op = v19_api.OPERATIONS[v19_api.OperationID.UpdateIdentificationServiceArea]
             return (op, op.path.format(id=isa_id, version=isa_version))
     elif rid_version == RIDVersion.f3411_22a:
         if isa_version is None:
-            op = v22a.api.OPERATIONS[
-                v22a.api.OperationID.CreateIdentificationServiceArea
+            op = v22a_api.OPERATIONS[
+                v22a_api.OperationID.CreateIdentificationServiceArea
             ]
             return (op, op.path.format(id=isa_id))
         else:
-            op = v22a.api.OPERATIONS[
-                v22a.api.OperationID.UpdateIdentificationServiceArea
+            op = v22a_api.OPERATIONS[
+                v22a_api.OperationID.UpdateIdentificationServiceArea
             ]
             return (op, op.path.format(id=isa_id, version=isa_version))
     else:
@@ -522,7 +530,7 @@ def build_isa_url(
 
 
 def put_isa(
-    area_vertices: List[s2sphere.LatLng],
+    area_vertices: list[s2sphere.LatLng],
     alt_lo: float,
     alt_hi: float,
     start_time: datetime.datetime,
@@ -531,9 +539,9 @@ def put_isa(
     isa_id: str,
     rid_version: RIDVersion,
     utm_client: infrastructure.UTMClientSession,
-    isa_version: Optional[str] = None,
-    participant_id: Optional[str] = None,
-    do_not_notify: Optional[Union[str, List[str]]] = None,
+    isa_version: str | None = None,
+    participant_id: str | None = None,
+    do_not_notify: str | list[str] | None = None,
 ) -> ISAChange:
     is_creation = isa_version is None
     mutation = "create" if is_creation else "update"
@@ -549,9 +557,9 @@ def put_isa(
     (op, url) = build_isa_url(rid_version, isa_id, isa_version)
     if rid_version == RIDVersion.f3411_19:
         query_type = (
-            QueryType.F3411v19DSSUpdateIdentificationServiceArea
+            QueryType.F3411v19DSSCreateIdentificationServiceArea
             if is_creation
-            else QueryType.F3411v19DSSCreateIdentificationServiceArea
+            else QueryType.F3411v19DSSUpdateIdentificationServiceArea
         )
         dss_response = ChangedISA(
             mutation=mutation,
@@ -560,16 +568,16 @@ def put_isa(
                 op.verb,
                 url,
                 json=body,
-                scope=v19.constants.Scope.Write,
+                scope=v19_constants.Scope.Write,
                 participant_id=participant_id,
                 query_type=query_type,
             ),
         )
     elif rid_version == RIDVersion.f3411_22a:
         query_type = (
-            QueryType.F3411v22aDSSUpdateIdentificationServiceArea
+            QueryType.F3411v22aDSSCreateIdentificationServiceArea
             if is_creation
-            else QueryType.F3411v22aDSSCreateIdentificationServiceArea
+            else QueryType.F3411v22aDSSUpdateIdentificationServiceArea
         )
         dss_response = ChangedISA(
             mutation=mutation,
@@ -578,7 +586,7 @@ def put_isa(
                 op.verb,
                 url,
                 json=body,
-                scope=v22a.constants.Scope.ServiceProvider,
+                scope=v22a_constants.Scope.ServiceProvider,
                 participant_id=participant_id,
                 query_type=query_type,
             ),
@@ -594,7 +602,7 @@ def put_isa(
             do_not_notify = []
         notifications = {
             sub.url: sub.notify(isa.id, utm_client, isa)
-            for sub in dss_response.subscribers
+            for sub in dss_response.subscribers or []
             if not any(sub.url.startswith(base_url) for base_url in do_not_notify)
         }
     else:
@@ -608,11 +616,11 @@ def delete_isa(
     isa_version: str,
     rid_version: RIDVersion,
     utm_client: infrastructure.UTMClientSession,
-    participant_id: Optional[str] = None,
-    do_not_notify: Optional[Union[str, List[str]]] = None,
+    participant_id: str | None = None,
+    do_not_notify: str | list[str] | None = None,
 ) -> ISAChange:
     if rid_version == RIDVersion.f3411_19:
-        op = v19.api.OPERATIONS[v19.api.OperationID.DeleteIdentificationServiceArea]
+        op = v19_api.OPERATIONS[v19_api.OperationID.DeleteIdentificationServiceArea]
         url = op.path.format(id=isa_id, version=isa_version)
         dss_response = ChangedISA(
             mutation="delete",
@@ -620,13 +628,13 @@ def delete_isa(
                 utm_client,
                 op.verb,
                 url,
-                scope=v19.constants.Scope.Write,
+                scope=v19_constants.Scope.Write,
                 participant_id=participant_id,
                 query_type=QueryType.F3411v19DSSDeleteIdentificationServiceArea,
             ),
         )
     elif rid_version == RIDVersion.f3411_22a:
-        op = v22a.api.OPERATIONS[v22a.api.OperationID.DeleteIdentificationServiceArea]
+        op = v22a_api.OPERATIONS[v22a_api.OperationID.DeleteIdentificationServiceArea]
         url = op.path.format(id=isa_id, version=isa_version)
         dss_response = ChangedISA(
             mutation="delete",
@@ -634,7 +642,7 @@ def delete_isa(
                 utm_client,
                 op.verb,
                 url,
-                scope=v22a.constants.Scope.ServiceProvider,
+                scope=v22a_constants.Scope.ServiceProvider,
                 participant_id=participant_id,
                 query_type=QueryType.F3411v22aDSSDeleteIdentificationServiceArea,
             ),
@@ -650,7 +658,7 @@ def delete_isa(
             do_not_notify = []
         notifications = {
             sub.url: sub.notify(isa.id, utm_client)
-            for sub in dss_response.subscribers
+            for sub in dss_response.subscribers or []
             if not any(sub.url.startswith(base_url) for base_url in do_not_notify)
         }
     else:
@@ -659,6 +667,62 @@ def delete_isa(
     return ISAChange(dss_query=dss_response, notifications=notifications)
 
 
-yaml.add_representer(ChangedSubscription, Representer.represent_dict)
-yaml.add_representer(ChangedISA, Representer.represent_dict)
-yaml.add_representer(ISAChange, Representer.represent_dict)
+class UpdatedISA(RIDQuery):
+    """Version-independent representation of an updated (via notification) F3411 identification service area."""
+
+    @property
+    def _v19_request(
+        self,
+    ) -> v19_api.PutIdentificationServiceAreaNotificationParameters:
+        if not self.v19_query:
+            raise ValueError("v19 query isn't set")
+        return ImplicitDict.parse(
+            self.v19_query.request.json or {},
+            v19_api.PutIdentificationServiceAreaNotificationParameters,
+        )
+
+    @property
+    def _v22a_request(
+        self,
+    ) -> v22a_api.PutIdentificationServiceAreaNotificationParameters:
+        if not self.v22a_query:
+            raise ValueError("v22a query isn't set")
+        return ImplicitDict.parse(
+            self.v22a_query.request.json or {},
+            v22a_api.PutIdentificationServiceAreaNotificationParameters,
+        )
+
+    @property
+    def isa(self) -> ISA | None:
+        if self.rid_version == RIDVersion.f3411_19:
+            return ISA(
+                v19_value=(
+                    self._v19_request.service_area
+                    if "service_area" in self._v19_request
+                    else None
+                )
+            )
+        elif self.rid_version == RIDVersion.f3411_22a:
+            return ISA(
+                v22a_value=(
+                    self._v22a_request.service_area
+                    if "service_area" in self._v22a_request
+                    else None
+                )
+            )
+        else:
+            raise NotImplementedError(
+                f"Cannot retrieve ISA using RID version {self.rid_version}"
+            )
+
+    @property
+    def isa_id(self) -> str:
+        if self.rid_version == RIDVersion.f3411_19 and self.v19_query:
+            url = self.v19_query.request.url
+        elif self.rid_version == RIDVersion.f3411_22a and self.v22a_query:
+            url = self.v22a_query.request.url
+        else:
+            raise NotImplementedError(
+                f"Cannot retrieve ISA ID using RID version {self.rid_version}"
+            )
+        return url.split("?")[0].split("/")[-1]

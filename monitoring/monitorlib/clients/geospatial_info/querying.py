@@ -1,17 +1,15 @@
-from enum import Enum
-from typing import Optional, List
+from enum import StrEnum
 
-from implicitdict import ImplicitDict, StringBasedDateTime
+from implicitdict import ImplicitDict, Optional
 from uas_standards.interuss.automated_testing.geospatial_map.v1 import (
     api as geospatial_map_api,
 )
 
 from monitoring.monitorlib.fetch import Query
-from monitoring.monitorlib.geo import LatLngPoint
 from monitoring.monitorlib.geotemporal import Volume4D
 
 
-class OperationalImpact(str, Enum):
+class OperationalImpact(StrEnum):
     """The specified outcome if a user attempted to plan a flight."""
 
     Block = "Block"
@@ -29,7 +27,7 @@ class GeospatialFeatureFilter(ImplicitDict):
 
     # TODO: Add position
 
-    volumes4d: Optional[List[Volume4D]]
+    volumes4d: Optional[list[Volume4D]]
     """If specified, only select geospatial features at least partially intersecting one or more of these volumes."""
 
     # TODO: Add after & before
@@ -61,7 +59,7 @@ class GeospatialFeatureFilter(ImplicitDict):
 
 
 class GeospatialFeatureCheck(ImplicitDict):
-    filter_sets: Optional[List[GeospatialFeatureFilter]]
+    filter_sets: Optional[list[GeospatialFeatureFilter]]
     """Select geospatial features which match any of the specified filter sets."""
 
     def to_geospatial_map(self) -> geospatial_map_api.GeospatialMapCheck:
@@ -70,7 +68,7 @@ class GeospatialFeatureCheck(ImplicitDict):
         )
 
 
-class SelectionOutcome(str, Enum):
+class SelectionOutcome(StrEnum):
     """Indication of whether one or more applicable geospatial features were selected."""
 
     Present = "Present"
@@ -95,8 +93,8 @@ class GeospatialFeatureCheckResult(ImplicitDict):
 
 
 class GeospatialFeatureQueryResponse(ImplicitDict):
-    queries: List[Query]
+    queries: list[Query]
     """Queries used to accomplish this activity."""
 
-    results: List[GeospatialFeatureCheckResult]
+    results: list[GeospatialFeatureCheckResult]
     """Responses to each of the `checks` in the request.  The number of entries in this array should match the number of entries in the `checks` field of the request."""

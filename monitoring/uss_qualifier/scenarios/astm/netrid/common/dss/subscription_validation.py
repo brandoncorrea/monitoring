@@ -1,9 +1,7 @@
 import datetime
-from typing import Dict
 
 from monitoring.monitorlib.mutate.rid import ChangedSubscription
 from monitoring.prober.infrastructure import register_resource_type
-from monitoring.uss_qualifier.common_data_definitions import Severity
 from monitoring.uss_qualifier.resources.astm.f3411.dss import DSSInstanceResource
 from monitoring.uss_qualifier.resources.interuss.id_generator import IDGeneratorResource
 from monitoring.uss_qualifier.resources.netrid.service_area import ServiceAreaResource
@@ -44,8 +42,8 @@ class SubscriptionValidation(GenericTestScenario):
         # TODO: the id_factory seems to generate static IDs:
         #  for creating different subscriptions this probably won't do.
         self._sub_id = id_generator.id_factory.make_id(self.SUB_TYPE)
-        self._isa = isa.specification
-        self._isa_area = [vertex.as_s2sphere() for vertex in self._isa.footprint]
+        self._isa = isa
+        self._isa_area = isa.s2_vertices()
 
     def run(self, context: ExecutionContext):
         self.begin_test_scenario(context)
@@ -203,8 +201,7 @@ class SubscriptionValidation(GenericTestScenario):
         else:
             check.record_failed(
                 "Created record subscription has not been properly truncated to 24 hours",
-                Severity.Medium,
-                f"{self._dss.participant_id} DSS instance has returned a non-properly truncated subscription "
+                details=f"{self._dss.participant_id} DSS instance has returned a non-properly truncated subscription "
                 f"(duration: {duration}) "
                 f"when the expectation was either to fail or to truncate at 24 hours.",
                 query_timestamps=[changed.query.request.timestamp],
@@ -212,10 +209,10 @@ class SubscriptionValidation(GenericTestScenario):
             # If a subscription was created, we want to delete it before continuing:
             self._dss_wrapper.cleanup_sub(sub_id=self._sub_id)
 
-    def _default_subscription_params(self, duration: datetime.timedelta) -> Dict:
+    def _default_subscription_params(self, duration: datetime.timedelta) -> dict:
         now = datetime.datetime.now(datetime.UTC)
         return dict(
-            area_vertices=[vertex.as_s2sphere() for vertex in self._isa.footprint],
+            area_vertices=self._isa_area,
             alt_lo=self._isa.altitude_min,
             alt_hi=self._isa.altitude_max,
             start_time=now,

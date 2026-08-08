@@ -20,7 +20,7 @@ Create and mutate subscriptions as well as entities, and verify that the DSS han
 
 ### planning_area
 
-[`PlanningAreaResource`](../../../../resources/astm/f3548/v21/planning_area.py) describes the 3D volume in which subscriptions will be created.
+[`PlanningAreaResource`](../../../../resources/planning_area.py) describes the 3D volume in which subscriptions will be created.
 
 ### utm_client_identity
 
@@ -28,9 +28,25 @@ Create and mutate subscriptions as well as entities, and verify that the DSS han
 
 ## Setup test case
 
-### [Ensure clean workspace test step](clean_workspace.md)
+Ensure that no subscriptions and OIRs with the known test IDs exists in the DSS deployment.
 
-This step ensures that no subscriptions and OIRs with the known test IDs exists in the DSS deployment.
+### Ensure clean workspace on primary DSS test step
+
+#### [Clean any existing OIRs with known test IDs](clean_workspace_op_intents.md)
+
+#### [Clean any existing subscriptions with known test IDs](clean_workspace_subs.md)
+
+### Verify secondary DSS instances are clean test step
+
+This test step queries all secondary instances to confirm that none of the test IDs that are used in the scenario exist.
+
+#### [Verify secondary DSS contains no OIRs with a test ID](./fragments/oir/verify_clean_secondary_workspace.md)
+
+#### [Verify secondary DSS contains no Subscriptions with a test ID](./fragments/sub/verify_clean_secondary_workspace.md)
+
+#### OIRs with known test IDs do not exist on secondary DSS instance check
+
+#### Subscriptions with known test IDs do not exist on secondary DSS instance check
 
 ## OIR creation and modification trigger relevant notifications test case
 
@@ -155,4 +171,8 @@ The explicit subscription expired on a DSS instance must have been removed from 
 If the subscription still exists on one of the other DSS instances, one of the instances fails to comply with **[astm.f3548.v21.DSS0210,A2-7-2,4d](../../../../requirements/astm/f3548/v21.md)**.
 
 
-## [Cleanup](./clean_workspace.md)
+## Cleanup
+
+### [Clean any straggling OIRs with known test IDs](clean_workspace_op_intents_during_cleanup.md)
+
+### [Clean any straggling subscriptions with known test IDs](clean_workspace_subs_during_cleanup.md)

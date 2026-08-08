@@ -1,5 +1,5 @@
-from .documentation import resolve_requirements_collection, get_requirement_set
-from .definitions import RequirementCollection, RequirementSetID
+from .definitions import RequirementSetID
+from .documentation import get_requirement_set
 
 
 def test_requirements_extraction():

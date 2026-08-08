@@ -4,8 +4,9 @@ import os
 import sys
 
 from implicitdict import ImplicitDict
+
 from monitoring.monitorlib.inspection import import_submodules
-from monitoring.uss_qualifier import scenarios, suites, action_generators
+from monitoring.uss_qualifier import action_generators, scenarios, suites
 from monitoring.uss_qualifier.fileio import load_dict_with_references
 from monitoring.uss_qualifier.suites.definitions import TestSuiteDefinition
 from monitoring.uss_qualifier.suites.documentation.documentation import (
@@ -34,27 +35,29 @@ def main(lint: bool) -> int:
     changes = False
     for suite_doc_file, suite_doc_content in test_suite_docs.items():
         if os.path.exists(suite_doc_file):
-            with open(suite_doc_file, "r") as f:
+            with open(suite_doc_file) as f:
                 existing_content = f.read()
+
             if existing_content == suite_doc_content:
                 # No changes needed
                 continue
-        changes = True
-        if lint:
-            print(
-                f"vvv Begin diff of expected content versus existing content for {suite_doc_file}"
-            )
-            for line in difflib.unified_diff(
-                existing_content.split("\n"), suite_doc_content.split("\n")
-            ):
-                print(line)
-            print(
-                f"^^^ Test suite documentation must be regenerated with `make format`: {suite_doc_file}"
-            )
-        else:
-            with open(suite_doc_file, "w") as f:
-                f.write(suite_doc_content)
-            print(f"Wrote test suite documentation: {suite_doc_file}")
+
+            changes = True
+            if lint:
+                print(
+                    f"vvv Begin diff of expected content versus existing content for {suite_doc_file}"
+                )
+                for line in difflib.unified_diff(
+                    existing_content.split("\n"), suite_doc_content.split("\n")
+                ):
+                    print(line)
+                print(
+                    f"^^^ Test suite documentation must be regenerated with `make format`: {suite_doc_file}"
+                )
+            else:
+                with open(suite_doc_file, "w") as f:
+                    f.write(suite_doc_content)
+                print(f"Wrote test suite documentation: {suite_doc_file}")
 
     if lint and changes:
         return -1

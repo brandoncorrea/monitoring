@@ -2,13 +2,12 @@ import base64
 import json
 import os
 import re
-from typing import Tuple, Optional, Dict, List, Union
 
-import bc_jsonpath_ng
 import _jsonnet
-from loguru import logger
+import bc_jsonpath_ng
 import requests
 import yaml
+from loguru import logger
 
 FILE_PREFIX = "file://"
 HTTP_PREFIX = "http://"
@@ -80,7 +79,7 @@ def _get_web_content(url: str) -> str:
 
     # Check if this is a request to a private GitHub repo
     github_private_repos_key = "GITHUB_PRIVATE_REPOS"
-    if github_private_repos_key in os.environ:
+    if os.environ.get(github_private_repos_key):
         github_match = re.match(
             r"^https://(?P<hostname>github\.com|raw\.githubusercontent\.com|api\.github\.com)/(?P<org>[^/]*)/(?P<repo>[^/?#]*)(?P<predicate>.*)$",
             url,
@@ -98,7 +97,7 @@ def _get_web_content(url: str) -> str:
             pat_defs = os.environ.get(github_private_repos_key).split(";")
             for pat_def in pat_defs:
                 patdef_match = re.match(
-                    f"^(?P<org>[^/]*)/(?P<repos>[^:]*):(?P<token>.*)$", pat_def
+                    "^(?P<org>[^/]*)/(?P<repos>[^:]*):(?P<token>.*)$", pat_def
                 )
                 if not patdef_match:
                     raise ValueError(
@@ -112,9 +111,9 @@ def _get_web_content(url: str) -> str:
 
             if token is not None:
                 # This request is for a resource in a private GitHub repo that we have a personal access token for.
-                headers[
-                    "Authorization"
-                ] = f"Basic {base64.b64encode(token.encode()).decode()}"
+                headers["Authorization"] = (
+                    f"Basic {base64.b64encode(token.encode()).decode()}"
+                )
 
     resp = requests.get(url, headers=headers)
     resp.raise_for_status()
@@ -126,7 +125,7 @@ def _load_content_from_file_name(file_name: str) -> str:
         # http(s):// web file reference
         file_content = _get_web_content(file_name)
     else:
-        with open(file_name, "r") as f:
+        with open(file_name) as f:
             file_content = f.read()
 
     return file_content
@@ -136,7 +135,7 @@ def load_content(data_file: FileReference) -> str:
     return _load_content_from_file_name(resolve_filename(data_file))
 
 
-def _split_anchor(file_name: str) -> Tuple[str, Optional[str]]:
+def _split_anchor(file_name: str) -> tuple[str, str | None]:
     if "#" in file_name:
         anchor_location = file_name.index("#")
         base_file_name = file_name[0:anchor_location]
@@ -171,8 +170,8 @@ def load_dict_with_references(data_file: FileReference) -> dict:
 
 
 def _jsonnet_import_callback(
-    base_file_name: str, folder: str, rel: str, cache: Optional[Dict[str, dict]]
-) -> Tuple[str, bytes]:
+    base_file_name: str, folder: str, rel: str, cache: dict[str, dict] | None
+) -> tuple[str, bytes]:
     if rel.endswith(".libsonnet"):
         # Do not attempt to parse libsonnet content (e.g., resolve $refs);
         # it will be parsed after loading the full top-level Jsonnet.
@@ -187,8 +186,8 @@ def _jsonnet_import_callback(
 
 
 def _load_dict_with_references_from_file_name(
-    file_name: str, context_file_name: str, cache: Optional[Dict[str, dict]] = None
-) -> Tuple[dict, str]:
+    file_name: str, context_file_name: str, cache: dict[str, dict] | None = None
+) -> tuple[dict, str]:
     if cache is None:
         cache = {}
 
@@ -278,7 +277,7 @@ def _is_descendant(potential_descendant: str, ancestor: str) -> bool:
     return result
 
 
-def _identify_refs(content: dict) -> List[str]:
+def _identify_refs(content: dict) -> list[str]:
     refs = _find_refs(content)
     external_refs = [k for k, v in refs.items() if not v.startswith("#")]
     remaining_internal_refs = {k: v for k, v in refs.items() if v.startswith("#")}
@@ -302,7 +301,7 @@ def _identify_refs(content: dict) -> List[str]:
                 break
         if ref_to_add is None:
             raise ValueError(
-                f'Likely circular dependency in $refs; could not add any of the refs {{{", ".join(remaining_internal_refs)}}} to dependency list of [{" <- ".join(internal_refs)}]'
+                f"Likely circular dependency in $refs; could not add any of the refs {{{', '.join(remaining_internal_refs)}}} to dependency list of [{' <- '.join(internal_refs)}]"
             )
         internal_refs.append(ref_to_add)
         del remaining_internal_refs[ref_to_add]
@@ -310,7 +309,7 @@ def _identify_refs(content: dict) -> List[str]:
     return external_refs + internal_refs
 
 
-def _find_refs(content: Union[dict, list], root: str = "$") -> Dict[str, str]:
+def _find_refs(content: dict | list, root: str = "$") -> dict[str, str]:
     paths = {}
     if isinstance(content, dict):
         if "$ref" in content and isinstance(content["$ref"], str):
@@ -328,12 +327,12 @@ def _find_refs(content: Union[dict, list], root: str = "$") -> Dict[str, str]:
 def _replace_refs(
     content: dict,
     context_file_name: str,
-    ref_parent_paths: List[str],
-    allof_paths: List[str],
-    cache: Optional[Dict[str, dict]] = None,
+    ref_parent_paths: list[str],
+    allof_paths: list[str],
+    cache: dict[str, dict] | None = None,
 ) -> None:
     for path in ref_parent_paths:
-        parent = [m.value for m in bc_jsonpath_ng.parse(path).find(content)]
+        parent = [m.value for m in bc_jsonpath_ng.parser.parse(path).find(content)]
         if len(parent) != 1:
             raise RuntimeError(
                 f'Unexpectedly found {len(parent)} matches for $ref parent JSON Path "{path}"'
@@ -345,7 +344,7 @@ def _replace_refs(
                 ref_path, context_file_name, cache
             )
         else:
-            ref_json_path = bc_jsonpath_ng.parse(
+            ref_json_path = bc_jsonpath_ng.parser.parse(
                 ref_path.replace("#", "$").replace("/", ".")
             )
             ref_content = [m.value for m in ref_json_path.find(content)]
@@ -363,7 +362,9 @@ def _replace_refs(
             if allof_parent_path + ".allOf" in allof_paths:
                 allof_parent_content = [
                     m.value
-                    for m in bc_jsonpath_ng.parse(allof_parent_path).find(content)
+                    for m in bc_jsonpath_ng.parser.parse(allof_parent_path).find(
+                        content
+                    )
                 ]
                 if len(allof_parent_content) != 1:
                     raise RuntimeError(
@@ -385,7 +386,7 @@ def _select_path(content: dict, path: str) -> dict:
         )
     path = path[1:]
     if "/" not in path:
-        if not path in content:
+        if path not in content:
             raise KeyError(
                 f'Could not find key "{path}" in dict; found keys: {", ".join(content)}'
             )
@@ -401,7 +402,7 @@ def _select_path(content: dict, path: str) -> dict:
         return _select_path(content[component], subpath)
 
 
-def _identify_allofs(content: Union[dict, list], root: str = "$") -> List[str]:
+def _identify_allofs(content: dict | list, root: str = "$") -> list[str]:
     paths = []
     if isinstance(content, dict):
         if (

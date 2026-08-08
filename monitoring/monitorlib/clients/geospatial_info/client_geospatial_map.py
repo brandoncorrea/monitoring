@@ -1,36 +1,35 @@
-from typing import List
-
 from implicitdict import ImplicitDict
+from uas_standards.interuss.automated_testing.geospatial_map.v1.api import (
+    OPERATIONS,
+    GeospatialMapQueryReply,
+    GeospatialMapQueryRequest,
+    OperationID,
+)
+from uas_standards.interuss.automated_testing.geospatial_map.v1.constants import Scope
+
 from monitoring.monitorlib.clients.geospatial_info.client import (
     GeospatialInfoClient,
     GeospatialInfoError,
 )
 from monitoring.monitorlib.clients.geospatial_info.querying import (
     GeospatialFeatureCheck,
-    GeospatialFeatureQueryResponse,
     GeospatialFeatureCheckResult,
+    GeospatialFeatureQueryResponse,
 )
-from monitoring.monitorlib.fetch import query_and_describe, QueryType
+from monitoring.monitorlib.fetch import QueryType, query_and_describe
 from monitoring.monitorlib.infrastructure import UTMClientSession
 from monitoring.uss_qualifier.configurations.configuration import ParticipantID
-from uas_standards.interuss.automated_testing.geospatial_map.v1.api import (
-    OPERATIONS,
-    OperationID,
-    GeospatialMapQueryRequest,
-    GeospatialMapQueryReply,
-)
-from uas_standards.interuss.automated_testing.geospatial_map.v1.constants import Scope
 
 
 class GeospatialMapClient(GeospatialInfoClient):
     _session: UTMClientSession
 
     def __init__(self, session: UTMClientSession, participant_id: ParticipantID):
-        super(GeospatialMapClient, self).__init__(participant_id)
+        super().__init__(participant_id)
         self._session = session
 
     def query_geospatial_features(
-        self, checks: List[GeospatialFeatureCheck]
+        self, checks: list[GeospatialFeatureCheck]
     ) -> GeospatialFeatureQueryResponse:
         req_checks = [c.to_geospatial_map() for c in checks]
 

@@ -1,20 +1,18 @@
+import hashlib
+import io
 import json
-import shutil
 import os
-from typing import List
+import pathlib
+import zipfile
 
+import requests
 from loguru import logger
 
 from monitoring.uss_qualifier.configurations.configuration import (
-    ArtifactsConfiguration,
     TemplatedReportConfiguration,
     TemplatedReportInjectedConfiguration,
 )
 from monitoring.uss_qualifier.reports.report import TestRunReport
-import requests, zipfile, io
-import pathlib
-import hashlib
-import fileinput
 
 CACHE_TEMPLATE_PATH = ".templates_cache/"
 TEMPLATE_CONFIGURATION_MARK = "<!-- Configuration goes here -->"
@@ -52,7 +50,13 @@ class TemplateRenderer:
         if path.exists():
             logger.debug(f"{url} already in cache ({path}). Skip download.")
         else:
-            req = requests.get(url)
+            try:
+                req = requests.get(url)
+                req.raise_for_status()
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to download template from {url}: {e}"
+                ) from e
             z = zipfile.ZipFile(io.BytesIO(req.content))
             z.extractall(path)
             logger.debug(f"{url} extracted to {path}")
@@ -68,9 +72,7 @@ class TemplateRenderer:
         # Configure application
         rendered_configuration = json.dumps(
             InjectedConfiguration(self._template.configuration, report=self._report)
-        ).replace(
-            "</", "<\\d/"
-        )  # Replace closing html tags in json strings
+        ).replace("</", "<\\d/")  # Replace closing html tags in json strings
         injected_configuration = f"""
 <script id="interuss_report_json" type="application/json">
     {rendered_configuration}
@@ -87,7 +89,7 @@ class TemplateRenderer:
 
 def render_templates(
     base_path: str,
-    templated_reports: List[TemplatedReportConfiguration],
+    templated_reports: list[TemplatedReportConfiguration],
     report: TestRunReport,
 ):
     pathlib.Path(CACHE_TEMPLATE_PATH).mkdir(parents=True, exist_ok=True)

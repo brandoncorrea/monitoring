@@ -1,15 +1,13 @@
 import inspect
 import os
 import subprocess
-from typing import Optional
 
 import monitoring
 
-
-_commit_hash: Optional[str] = None
-_code_version: Optional[str] = None
-_github_base_url: Optional[str] = None
-_repo_root: Optional[str] = None
+_commit_hash: str | None = None
+_code_version: str | None = None
+_github_base_url: str | None = None
+_repo_root: str | None = None
 
 
 def repo_url_of(abspath: str) -> str:
@@ -60,13 +58,8 @@ def _retrieve_commit_hash() -> str:
         return env_hash
 
     # We must be running outside a monitoring-image container; use git to determine the commit hash.
-    process = subprocess.Popen(
-        ["git", "rev-parse", "HEAD"],
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-    )
-    commit, _ = process.communicate()
-    if process.returncode != 0:
+    commit = _get_process_result(["git", "rev-parse", "HEAD"])
+    if commit is None:
         return "unknown"
     commit = commit.strip()
     if "not a git repository" in commit:
@@ -97,14 +90,27 @@ def _retrieve_code_version() -> str:
     if len(commit) > 7:
         commit = commit[0:7]
 
-    process = subprocess.Popen(
-        ["git", "status", "-s"], stdout=subprocess.PIPE, universal_newlines=True
-    )
-    status, _ = process.communicate()
-    if process.returncode != 0:
+    status = _get_process_result(["git", "status", "-s"])
+    if status is None:
         # git status returned an error so we don't know the working status of the repo
         return commit + "-unknown"
-    elif status:
+    if status:
         # git status indicated differences from the latest commit, so the working copy is dirty
         return commit + "-dirty"
+
     return commit
+
+
+def _get_process_result(cmd: list[str]) -> str | None:
+    try:
+        with subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, universal_newlines=True
+        ) as process:
+            result, _ = process.communicate()
+            if process.returncode != 0:
+                return None
+            return result
+    except FileNotFoundError:
+        return None
+    except subprocess.SubprocessError:
+        return None

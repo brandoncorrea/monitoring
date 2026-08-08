@@ -1,30 +1,26 @@
 from __future__ import annotations
-import math
-from enum import Enum
-import os
-from typing import List, Tuple, Union, Optional
 
-from implicitdict import ImplicitDict
+import math
+import os
+from collections.abc import Iterable
+from enum import StrEnum
+
 import numpy as np
+import pyproj
 import s2sphere
+import shapely.geometry
+from implicitdict import ImplicitDict, Optional
 from s2sphere import LatLng
 from scipy.interpolate import RectBivariateSpline as Spline
-import shapely.geometry
-
-from monitoring.monitorlib.transformations import (
-    Transformation,
-    RelativeTranslation,
-    AbsoluteTranslation,
-)
-from uas_standards.astm.f3548.v21 import api as f3548v21
 from uas_standards.astm.f3411.v19 import api as f3411v19
 from uas_standards.astm.f3411.v22a import api as f3411v22a
-from uas_standards.interuss.automated_testing.rid.v1 import (
-    injection as f3411testing_injection,
-)
+from uas_standards.astm.f3548.v21 import api as f3548v21
 from uas_standards.interuss.automated_testing.flight_planning.v1 import api as fp_api
 from uas_standards.interuss.automated_testing.geospatial_map.v1 import (
     api as geospatial_map_api,
+)
+from uas_standards.interuss.automated_testing.rid.v1 import (
+    injection as f3411testing_injection,
 )
 
 EARTH_CIRCUMFERENCE_KM = 40075
@@ -37,7 +33,7 @@ DISTANCE_TOLERANCE_M = 0.01
 COORD_TOLERANCE_DEG = 360 / EARTH_CIRCUMFERENCE_M * DISTANCE_TOLERANCE_M
 
 
-class DistanceUnits(str, Enum):
+class DistanceUnits(StrEnum):
     M = "M"
     """Meters"""
 
@@ -64,11 +60,9 @@ class LatLngPoint(ImplicitDict):
 
     @staticmethod
     def from_f3411(
-        position: Union[
-            f3411v19.RIDAircraftPosition,
-            f3411v22a.RIDAircraftPosition,
-            f3411testing_injection.RIDAircraftPosition,
-        ]
+        position: f3411v19.RIDAircraftPosition
+        | f3411v22a.RIDAircraftPosition
+        | f3411testing_injection.RIDAircraftPosition,
     ):
         return LatLngPoint(
             lat=position.lat,
@@ -111,7 +105,7 @@ class Radius(ImplicitDict):
 
 
 class Polygon(ImplicitDict):
-    vertices: Optional[List[LatLngPoint]]
+    vertices: list[LatLngPoint]
 
     def vertex_average(self) -> LatLngPoint:
         lat = sum(p.lat for p in self.vertices) / len(self.vertices)
@@ -119,13 +113,13 @@ class Polygon(ImplicitDict):
         return LatLngPoint(lat=lat, lng=lng)
 
     @staticmethod
-    def from_coords(coords: List[Tuple[float, float]]) -> Polygon:
+    def from_coords(coords: list[tuple[float, float]]) -> Polygon:
         return Polygon(
             vertices=[LatLngPoint(lat=lat, lng=lng) for (lat, lng) in coords]
         )
 
     @staticmethod
-    def from_latlng_coords(coords: List[LatLng]) -> Polygon:
+    def from_latlng_coords(coords: list[LatLng]) -> Polygon:
         return Polygon(
             vertices=[
                 LatLngPoint(lat=p.lat().degrees, lng=p.lng().degrees) for p in coords
@@ -152,11 +146,33 @@ class Polygon(ImplicitDict):
         )
 
     @staticmethod
-    def from_f3548v21(vol: Union[f3548v21.Polygon, dict]) -> Polygon:
+    def from_f3548v21(vol: f3548v21.Polygon | dict) -> Polygon:
         if not isinstance(vol, f3548v21.Polygon) and isinstance(vol, dict):
             vol = ImplicitDict.parse(vol, f3548v21.Polygon)
         return Polygon(
             vertices=[ImplicitDict.parse(p, LatLngPoint) for p in vol.vertices]
+        )
+
+    def is_equivalent(self, other: Polygon) -> bool:
+        if "vertices" not in self and "vertices" not in other:
+            return True
+        elif "vertices" not in self or "vertices" not in other:
+            return False
+
+        if self.vertices == other.vertices:
+            # covers both None and exact equality
+            return True
+        elif not self.vertices or not other.vertices:
+            # covers one being None
+            return False
+        elif len(self.vertices) != len(other.vertices):
+            return False
+
+        return all(
+            [
+                vertices[0].match(vertices[1])
+                for vertices in zip(self.vertices, other.vertices)
+            ]
         )
 
 
@@ -174,7 +190,7 @@ class Circle(ImplicitDict):
         )
 
     @staticmethod
-    def from_f3548v21(vol: Union[f3548v21.Circle, dict]) -> Circle:
+    def from_f3548v21(vol: f3548v21.Circle | dict) -> Circle:
         if not isinstance(vol, f3548v21.Circle) and isinstance(vol, dict):
             vol = ImplicitDict.parse(vol, f3548v21.Circle)
         return Circle(
@@ -182,8 +198,17 @@ class Circle(ImplicitDict):
             radius=ImplicitDict.parse(vol.radius, Radius),
         )
 
+    def is_equivalent(self, other: Circle) -> bool:
+        if not self.center.match(other.center):
+            return False
 
-class AltitudeDatum(str, Enum):
+        return (
+            abs(self.radius.in_meters() - other.radius.in_meters())
+            <= DISTANCE_TOLERANCE_M
+        )
+
+
+class AltitudeDatum(StrEnum):
     W84 = "W84"
     """WGS84 reference ellipsoid"""
 
@@ -197,7 +222,7 @@ class Altitude(ImplicitDict):
     units: DistanceUnits
 
     @staticmethod
-    def w84m(value: Optional[float]) -> Optional[Altitude]:
+    def w84m(value: float | None) -> Altitude | None:
         if value is None:
             return None
         return Altitude(value=value, reference=AltitudeDatum.W84, units=DistanceUnits.M)
@@ -209,9 +234,72 @@ class Altitude(ImplicitDict):
             units=fp_api.AltitudeUnits.M,
         )
 
+    def to_w84_m(self) -> float:
+        """This altitude expressed in WGS84 meters, if possible to convert to it."""
+        if self.reference != AltitudeDatum.W84:
+            raise NotImplementedError(
+                f"Cannot convert altitude with reference {self.reference} to WGS84 meters"
+            )
+        if self.units != DistanceUnits.M:
+            raise NotImplementedError(
+                f"Cannot convert altitude with units {self.units} to WGS84 meters"
+            )
+        return self.value
+
     @staticmethod
-    def from_f3548v21(vol: Union[f3548v21.Altitude, dict]) -> Altitude:
+    def from_f3548v21(vol: f3548v21.Altitude | dict) -> Altitude:
         return ImplicitDict.parse(vol, Altitude)
+
+    def is_equivalent(self, other: Altitude) -> bool:
+        if self.reference != other.reference:
+            return False
+        return (
+            abs(self.units.in_meters(self.value) - other.units.in_meters(other.value))
+            <= DISTANCE_TOLERANCE_M
+        )
+
+
+class RelativeTranslation(ImplicitDict):
+    """Offset a geo feature by a particular amount."""
+
+    meters_east: Optional[float]
+    """Number of meters east to translate."""
+
+    meters_north: Optional[float]
+    """Number of meters north to translate."""
+
+    meters_up: Optional[float]
+    """Number of meters upward to translate."""
+
+    degrees_east: Optional[float]
+    """Number of degrees of longitude east to translate."""
+
+    degrees_north: Optional[float]
+    """Number of degrees of latitude north to translate."""
+
+    reference_center: Optional[LatLngPoint]
+    """The center around which the translation is defined/rotated."""
+
+
+class AbsoluteTranslation(ImplicitDict):
+    """Move a geo feature to a specified location."""
+
+    new_latitude: float
+    """The new latitude at which the feature should be located (degrees)."""
+
+    new_longitude: float
+    """The new longitude at which the feature should be located (degrees)."""
+
+    reference_center: Optional[LatLngPoint]
+    """The center around which the translation is defined/rotated."""
+
+
+class Transformation(ImplicitDict):
+    """A transformation to apply to a geotemporal feature.  Exactly one field must be specified."""
+
+    relative_translation: Optional[RelativeTranslation]
+
+    absolute_translation: Optional[AbsoluteTranslation]
 
 
 class Volume3D(ImplicitDict):
@@ -220,7 +308,7 @@ class Volume3D(ImplicitDict):
     altitude_lower: Optional[Altitude] = None
     altitude_upper: Optional[Altitude] = None
 
-    def altitude_lower_wgs84_m(self, default_value: Optional[float] = None) -> float:
+    def altitude_lower_wgs84_m(self, default_value: float | None = None) -> float:
         if self.altitude_lower is None:
             if default_value is None:
                 raise ValueError("Lower altitude was not specified")
@@ -236,7 +324,7 @@ class Volume3D(ImplicitDict):
             )
         return self.altitude_lower.value
 
-    def altitude_upper_wgs84_m(self, default_value: Optional[float] = None) -> float:
+    def altitude_upper_wgs84_m(self, default_value: float | None = None) -> float:
         if self.altitude_upper is None:
             if default_value is None:
                 raise ValueError("Upper altitude was not specified")
@@ -263,7 +351,7 @@ class Volume3D(ImplicitDict):
             circle = vol3_1.outline_circle
             if circle.radius.units != "M":
                 raise NotImplementedError(
-                    "Unsupported circle radius units: {}".format(circle.radius.units)
+                    f"Unsupported circle radius units: {circle.radius.units}"
                 )
             ref = s2sphere.LatLng.from_degrees(circle.center.lat, circle.center.lng)
             footprint1 = shapely.geometry.Point(0, 0).buffer(
@@ -283,7 +371,7 @@ class Volume3D(ImplicitDict):
             circle = vol3_2.outline_circle
             if circle.radius.units != "M":
                 raise NotImplementedError(
-                    "Unsupported circle radius units: {}".format(circle.radius.units)
+                    f"Unsupported circle radius units: {circle.radius.units}"
                 )
             xy = flatten(
                 ref, s2sphere.LatLng.from_degrees(circle.center.lat, circle.center.lng)
@@ -299,7 +387,7 @@ class Volume3D(ImplicitDict):
 
         return footprint1.intersects(footprint2)
 
-    def transform(self, transformation: Transformation):
+    def transform(self, transformation: Transformation) -> Volume3D:
         if (
             "relative_translation" in transformation
             and transformation.relative_translation
@@ -314,32 +402,72 @@ class Volume3D(ImplicitDict):
             f"No supported transformation defined (keys: {', '.join(transformation)})"
         )
 
+    def center_2d(self) -> LatLngPoint:
+        if self.outline_polygon is not None:
+            return self.outline_polygon.vertex_average()
+        elif self.outline_circle is not None:
+            return self.outline_circle.center
+        else:
+            raise ValueError("Neither outline_circle nor outline_polygon specified")
+
     def translate_relative(self, translation: RelativeTranslation) -> Volume3D:
-        def offset(p0: LatLngPoint, p: LatLngPoint) -> LatLngPoint:
-            s2_p0 = p0.as_s2sphere()
-            xy = flatten(s2_p0, p.as_s2sphere())
-            if "meters_east" in translation and translation.meters_east:
-                xy = (xy[0] + translation.meters_east, xy[1])
-            if "meters_north" in translation and translation.meters_north:
-                xy = (xy[0], xy[1] + translation.meters_north)
-            p1 = LatLngPoint.from_s2(unflatten(s2_p0, xy))
-            if "degrees_east" in translation and translation.degrees_east:
-                p1.lng += translation.degrees_east
-            if "degrees_north" in translation and translation.degrees_north:
-                p1.lat += translation.degrees_north
-            return p1
+        if (
+            "reference_center" in translation
+            and translation.reference_center is not None
+        ):
+            src_center = translation.reference_center
+        else:
+            src_center = self.center_2d()
+
+        meters_east = (
+            translation.meters_east
+            if "meters_east" in translation and translation.meters_east is not None
+            else 0.0
+        )
+        meters_north = (
+            translation.meters_north
+            if "meters_north" in translation and translation.meters_north is not None
+            else 0.0
+        )
+        degrees_east = (
+            translation.degrees_east
+            if "degrees_east" in translation and translation.degrees_east is not None
+            else 0.0
+        )
+        degrees_north = (
+            translation.degrees_north
+            if "degrees_north" in translation and translation.degrees_north is not None
+            else 0.0
+        )
+
+        dst_center = src_center.offset(meters_east, meters_north)
+        dst_center.lng += degrees_east
+        dst_center.lat += degrees_north
+
+        r_matrix = make_rotation_matrix(
+            src_center.as_s2sphere(), dst_center.as_s2sphere()
+        )
 
         kwargs = {k: v for k, v in self.items() if v is not None}
         if self.outline_circle is not None:
+            new_circle_center = LatLngPoint.from_s2(
+                apply_rotation(r_matrix, self.outline_circle.center.as_s2sphere())
+            )
             kwargs["outline_circle"] = Circle(
-                center=offset(self.outline_circle.center, self.outline_circle.center),
+                center=new_circle_center,
                 radius=self.outline_circle.radius,
             )
-        if self.outline_polygon is not None:
-            ref0 = self.outline_polygon.vertex_average()
-            vertices = [offset(ref0, p) for p in self.outline_polygon.vertices]
+        if (
+            self.outline_polygon is not None
+            and self.outline_polygon.vertices is not None
+        ):
+            vertices = [
+                LatLngPoint.from_s2(apply_rotation(r_matrix, p.as_s2sphere()))
+                for p in self.outline_polygon.vertices
+            ]
             kwargs["outline_polygon"] = Polygon(vertices=vertices)
         result = Volume3D(**kwargs)
+
         if "meters_up" in translation and translation.meters_up:
             if result.altitude_lower:
                 if result.altitude_lower.units == DistanceUnits.M:
@@ -361,16 +489,35 @@ class Volume3D(ImplicitDict):
         new_center = LatLngPoint(
             lat=translation.new_latitude, lng=translation.new_longitude
         )
+
+        if (
+            "reference_center" in translation
+            and translation.reference_center is not None
+        ):
+            src_center = translation.reference_center
+        else:
+            src_center = self.center_2d()
+
+        r_matrix = make_rotation_matrix(
+            src_center.as_s2sphere(), new_center.as_s2sphere()
+        )
+
         kwargs = {k: v for k, v in self.items() if v is not None}
         if self.outline_circle is not None:
-            kwargs["outline_circle"] = Circle(
-                center=new_center, radius=self.outline_circle.radius
+            new_circle_center = LatLngPoint.from_s2(
+                apply_rotation(r_matrix, self.outline_circle.center.as_s2sphere())
             )
-        if self.outline_polygon is not None:
-            ref0 = self.outline_polygon.vertex_average().as_s2sphere()
-            xy = [flatten(ref0, p.as_s2sphere()) for p in self.outline_polygon.vertices]
-            ref1 = new_center.as_s2sphere()
-            vertices = [LatLngPoint.from_s2(unflatten(ref1, p)) for p in xy]
+            kwargs["outline_circle"] = Circle(
+                center=new_circle_center, radius=self.outline_circle.radius
+            )
+        if (
+            self.outline_polygon is not None
+            and self.outline_polygon.vertices is not None
+        ):
+            vertices = [
+                LatLngPoint.from_s2(apply_rotation(r_matrix, p.as_s2sphere()))
+                for p in self.outline_polygon.vertices
+            ]
             kwargs["outline_polygon"] = Polygon(vertices=vertices)
         return Volume3D(**kwargs)
 
@@ -407,7 +554,7 @@ class Volume3D(ImplicitDict):
         )
 
     @staticmethod
-    def from_f3548v21(vol: Union[f3548v21.Volume3D, dict]) -> Volume3D:
+    def from_f3548v21(vol: f3548v21.Volume3D | dict) -> Volume3D:
         if not isinstance(vol, f3548v21.Volume3D) and isinstance(vol, dict):
             vol = ImplicitDict.parse(vol, f3548v21.Volume3D)
         kwargs = {}
@@ -423,6 +570,50 @@ class Volume3D(ImplicitDict):
 
     def to_f3548v21(self) -> f3548v21.Volume3D:
         return ImplicitDict.parse(self, f3548v21.Volume3D)
+
+    def s2_vertices(self) -> list[s2sphere.LatLng]:
+        """Returns the vertices of the 2D area represented by this volume. If the underlying volume is a Polygon, its
+        original vertices are returned. If it is a Circle, the vertices of the bounding rectangle are returned.
+        """
+        if (
+            self.outline_polygon is not None
+            and self.outline_polygon.vertices is not None
+        ):
+            return [v.as_s2sphere() for v in self.outline_polygon.vertices]
+        else:
+            return get_latlngrect_vertices(make_latlng_rect(self))
+
+    def is_equivalent(
+        self,
+        other: Volume3D,
+    ) -> bool:
+        if self.altitude_lower and other.altitude_lower:
+            if not self.altitude_lower.is_equivalent(other.altitude_lower):
+                return False
+        elif self.altitude_lower or other.altitude_lower:
+            return False
+
+        if self.altitude_upper and other.altitude_upper:
+            if not self.altitude_upper.is_equivalent(other.altitude_upper):
+                return False
+        elif self.altitude_upper or other.altitude_upper:
+            return False
+
+        if self.outline_polygon and other.outline_polygon:
+            if not self.outline_polygon.is_equivalent(other.outline_polygon):
+                return False
+        elif self.outline_circle and other.outline_circle:
+            if not self.outline_circle.is_equivalent(other.outline_circle):
+                return False
+        elif (
+            self.outline_circle
+            or self.outline_polygon
+            or other.outline_circle
+            or other.outline_polygon
+        ):
+            return False
+
+        return True
 
 
 def make_latlng_rect(area) -> s2sphere.LatLngRect:
@@ -441,7 +632,7 @@ def make_latlng_rect(area) -> s2sphere.LatLngRect:
         coords = area.split(",")
         if len(coords) != 4:
             raise ValueError(
-                "Expected lat,lng,lat,lng; found %d coordinates instead" % len(coords)
+                f"Expected lat,lng,lat,lng; found {len(coords)} coordinates instead"
             )
         lat1 = validate_lat(coords[0])
         lng1 = validate_lng(coords[1])
@@ -458,7 +649,7 @@ def make_latlng_rect(area) -> s2sphere.LatLngRect:
             lng_max = max(v.lng for v in area.outline_polygon.vertices)
         elif "outline_circle" in area and area.outline_circle:
             p0 = s2sphere.LatLng.from_degrees(
-                area.outline_circle.center.lng, area.outline_circle.center.lat
+                area.outline_circle.center.lat, area.outline_circle.center.lng
             )
             lat_min = (
                 unflatten(p0, (0, -area.outline_circle.radius.value)).lat().degrees
@@ -481,6 +672,10 @@ def make_latlng_rect(area) -> s2sphere.LatLngRect:
         )
 
 
+def rect_str(rect: s2sphere.LatLngRect) -> str:
+    return f"({rect.lo().lat().degrees}, {rect.lo().lng().degrees})-({rect.hi().lat().degrees}, {rect.hi().lng().degrees})"
+
+
 def shift_rect_lng(rect: s2sphere.LatLngRect, shift: float) -> s2sphere.LatLngRect:
     """Shift a rect's longitude by the given amount of degrees"""
     return s2sphere.LatLngRect(
@@ -493,21 +688,117 @@ def shift_rect_lng(rect: s2sphere.LatLngRect, shift: float) -> s2sphere.LatLngRe
     )
 
 
-def validate_lat(lat: Union[str, float]) -> float:
+def validate_lat(lat: str | float) -> float:
     lat = float(lat)
     if lat < -90 or lat > 90:
         raise ValueError("Latitude must be in [-90, 90] range")
     return lat
 
 
-def validate_lng(lng: Union[str, float]) -> float:
+def validate_lng(lng: str | float) -> float:
     lng = float(lng)
     if lng < -180 or lng > 180:
         raise ValueError("Longitude must be in [-180, 180] range")
     return lng
 
 
-def flatten(reference: s2sphere.LatLng, point: s2sphere.LatLng) -> Tuple[float, float]:
+def make_rotation_matrix(src: s2sphere.LatLng, dst: s2sphere.LatLng) -> np.ndarray:
+    """Computes the 3D rotation matrix that rotates vector src to vector dst on a unit sphere."""
+    p_src = src.to_point()
+    p_dst = dst.to_point()
+
+    a = np.array([p_src[0], p_src[1], p_src[2]])
+    b = np.array([p_dst[0], p_dst[1], p_dst[2]])
+
+    v = np.cross(a, b)
+    c = np.dot(a, b)
+
+    if np.allclose(v, 0):
+        if c > 0:
+            return np.eye(3)
+        else:
+            # Antipodal rotation. Choose an arbitrary perpendicular axis.
+            if not np.allclose(a[1:], 0):
+                axis = np.cross(a, [1, 0, 0])
+            else:
+                axis = np.cross(a, [0, 1, 0])
+            axis = axis / np.linalg.norm(axis)
+            kmat = np.array(
+                [[0, -axis[2], axis[1]], [axis[2], 0, -axis[0]], [-axis[1], axis[0], 0]]
+            )
+            return np.eye(3) + 2 * np.dot(kmat, kmat)
+
+    kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+
+    return np.eye(3) + kmat + np.dot(kmat, kmat) * (1.0 / (1.0 + c))
+
+
+def apply_rotation(r_matrix: np.ndarray, point: s2sphere.LatLng) -> s2sphere.LatLng:
+    """Applies a 3D rotation matrix to a LatLng point on the sphere."""
+    pt = point.to_point()
+    v_arr = np.array([pt[0], pt[1], pt[2]])
+    rotated_arr = r_matrix.dot(v_arr)
+    # Re-normalize to ensure the point is on the unit sphere
+    norm = np.linalg.norm(rotated_arr)
+    if norm > 0:
+        rotated_arr = rotated_arr / norm
+    rotated_pt = s2sphere.Point(rotated_arr[0], rotated_arr[1], rotated_arr[2])
+    return s2sphere.LatLng.from_point(rotated_pt)
+
+
+def bind_transformations(
+    transformations: Iterable[Transformation], src_center: LatLngPoint
+) -> None:
+    """Binds a single explicit reference center for each transformation in a sequence
+    so all elements in the collection are transformed rigidly relative to that same center.
+    """
+
+    for xform in transformations:
+        if "relative_translation" in xform and xform.relative_translation:
+            translation = xform.relative_translation
+            meters_east = (
+                translation.meters_east
+                if "meters_east" in translation and translation.meters_east is not None
+                else 0.0
+            )
+            meters_north = (
+                translation.meters_north
+                if "meters_north" in translation
+                and translation.meters_north is not None
+                else 0.0
+            )
+            degrees_east = (
+                translation.degrees_east
+                if "degrees_east" in translation
+                and translation.degrees_east is not None
+                else 0.0
+            )
+            degrees_north = (
+                translation.degrees_north
+                if "degrees_north" in translation
+                and translation.degrees_north is not None
+                else 0.0
+            )
+
+            translation.reference_center = src_center
+
+            dst_center = src_center.offset(meters_east, meters_north)
+            dst_center.lng += degrees_east
+            dst_center.lat += degrees_north
+            src_center = dst_center
+
+        elif "absolute_translation" in xform and xform.absolute_translation:
+            translation = xform.absolute_translation
+
+            translation.reference_center = src_center
+
+            dst_center = LatLngPoint(
+                lat=translation.new_latitude, lng=translation.new_longitude
+            )
+            src_center = dst_center
+
+
+def flatten(reference: s2sphere.LatLng, point: s2sphere.LatLng) -> tuple[float, float]:
     """Locally flatten a lat-lng point to (dx, dy) in meters from reference."""
     return (
         (point.lng().degrees - reference.lng().degrees)
@@ -523,7 +814,7 @@ def flatten(reference: s2sphere.LatLng, point: s2sphere.LatLng) -> Tuple[float, 
 
 
 def unflatten(
-    reference: s2sphere.LatLng, point: Tuple[float, float]
+    reference: s2sphere.LatLng, point: tuple[float, float]
 ) -> s2sphere.LatLng:
     """Locally unflatten a (dx, dy) point to an absolute lat-lng point."""
     return s2sphere.LatLng.from_degrees(
@@ -540,12 +831,12 @@ def area_of_latlngrect(rect: s2sphere.LatLngRect) -> float:
     return EARTH_AREA_M2 * rect.area() / (4 * math.pi)
 
 
-def bounding_rect(latlngs: List[Tuple[float, float]]) -> s2sphere.LatLngRect:
+def bounding_rect(latlngs: list[tuple[float, float]]) -> s2sphere.LatLngRect:
     lat_min = 90
     lat_max = -90
     lng_min = 360
     lng_max = -360
-    for (lat, lng) in latlngs:
+    for lat, lng in latlngs:
         lat_min = min(lat_min, lat)
         lat_max = max(lat_max, lat)
         lng_min = min(lng_min, lng)
@@ -561,7 +852,7 @@ def get_latlngrect_diagonal_km(rect: s2sphere.LatLngRect) -> float:
     return rect.lo().get_distance(rect.hi()).degrees * EARTH_CIRCUMFERENCE_KM / 360
 
 
-def get_latlngrect_vertices(rect: s2sphere.LatLngRect) -> List[s2sphere.LatLng]:
+def get_latlngrect_vertices(rect: s2sphere.LatLngRect) -> list[s2sphere.LatLng]:
     """Returns the rect as a list of vertices"""
     return [
         s2sphere.LatLng.from_angles(lat=rect.lat_lo(), lng=rect.lng_lo()),
@@ -586,7 +877,33 @@ class LatLngBoundingBox(ImplicitDict):
     lng_max: float
     """Upper longitude bound (degrees)"""
 
-    def to_vertices(self) -> List[s2sphere.LatLng]:
+    @staticmethod
+    def from_latlng_rect(rect: s2sphere.LatLngRect) -> LatLngBoundingBox:
+        return LatLngBoundingBox(
+            lat_min=rect.lat_lo().degrees,
+            lat_max=rect.lat_hi().degrees,
+            lng_min=rect.lng_lo().degrees,
+            lng_max=rect.lng_hi().degrees,
+        )
+
+    def expand(
+        self,
+        north_meters: float,
+        east_meters: float,
+        south_meters: float,
+        west_meters: float,
+    ) -> LatLngBoundingBox:
+        longitude_length = EARTH_CIRCUMFERENCE_M * math.cos(
+            0.5 * math.radians(self.lat_min + self.lat_max)
+        )
+        return LatLngBoundingBox(
+            lat_min=self.lat_min - south_meters * 360 / EARTH_CIRCUMFERENCE_M,
+            lat_max=self.lat_max + north_meters * 360 / EARTH_CIRCUMFERENCE_M,
+            lng_min=self.lng_min - west_meters * 360 / longitude_length,
+            lng_max=self.lng_max + east_meters * 360 / longitude_length,
+        )
+
+    def to_vertices(self) -> list[s2sphere.LatLng]:
         return [
             s2sphere.LatLng.from_degrees(self.lat_min, self.lng_min),
             s2sphere.LatLng.from_degrees(self.lat_max, self.lng_min),
@@ -594,12 +911,21 @@ class LatLngBoundingBox(ImplicitDict):
             s2sphere.LatLng.from_degrees(self.lat_min, self.lng_max),
         ]
 
+    def to_view_str(self) -> str:
+        return f"{self.lat_min},{self.lng_min},{self.lat_max},{self.lng_max}"
+
+    def to_latlngrect(self) -> s2sphere.LatLngRect:
+        return s2sphere.LatLngRect.from_point_pair(
+            s2sphere.LatLng.from_degrees(self.lat_min, self.lng_min),
+            s2sphere.LatLng.from_degrees(self.lat_max, self.lng_max),
+        )
+
 
 def latitude_degrees(distance_meters: float) -> float:
     return 360 * distance_meters / EARTH_CIRCUMFERENCE_M
 
 
-_egm96: Optional[Spline] = None
+_egm96: Spline | None = None
 """Cached EGM96 geoid interpolation function with inverted latitude"""
 
 
@@ -632,10 +958,48 @@ def egm96_geoid_offset(p: s2sphere.LatLng) -> float:
     # degrees latitude, but Splines must have increasing X so latitudes must be
     # listed -90 to 90.  Since latitude data are symmetric, we can simply
     # convert "-90 to 90" to "90 to -90" by inverting the requested latitude.
-    return _egm96.ev(-lat, lng)
+    return _egm96.ev(-lat, lng).item()
 
 
-def generate_slight_overlap_area(in_points: List[LatLng]) -> List[LatLng]:
+def egm2008_geoid_offset(p: s2sphere.LatLng) -> float:
+    """Estimate the EGM2008 geoid height above the WGS84 ellipsoid.
+
+    Args:
+        p: Point where offset should be estimated.
+
+    Returns: Meters above WGS84 ellipsoid of the EGM2008 geoid at p.
+    """
+
+    if not pyproj.network.is_network_enabled():  # pyright:ignore[reportAttributeAccessIssue]
+        raise Exception("""
+To enable EGM2008 conversions, you must allow pyproj to download files to do the conversion. For that, please set PROJ_NETWORK=TRUE in your environment variables.
+
+Please ensure this comply with your policies, and avoid multiple downloads by mounting the directoy '/root/.local/share/proj/' to a docker volume.
+""")
+
+    transformer = pyproj.Transformer.from_crs(
+        "EPSG:4979",  # WGS 84 -- 3D
+        "EPSG:4326+3855",  # WGS 84 (2D) + EGM2008 height (vertical)
+        always_xy=True,
+    )
+
+    _, _, ortho_height = transformer.transform(p.lng().degrees, p.lat().degrees, 0)
+
+    return -ortho_height
+
+
+def center_of_mass(in_points: list[LatLng]) -> LatLng:
+    """Compute the center of mass of a polygon defined by a list of points."""
+    if len(in_points) == 0:
+        raise ValueError("Cannot compute center of mass of empty polygon")
+
+    return LatLng.from_degrees(
+        sum([point.lat().degrees for point in in_points]) / len(in_points),
+        sum([point.lng().degrees for point in in_points]) / len(in_points),
+    )
+
+
+def generate_slight_overlap_area(in_points: list[LatLng]) -> list[LatLng]:
     """
     Takes a list of LatLng points and returns a list of LatLng points that represents
     a polygon only slightly overlapping with the input, and that is roughly half the diameter of the input.
@@ -647,10 +1011,7 @@ def generate_slight_overlap_area(in_points: List[LatLng]) -> List[LatLng]:
     overlap_corner = in_points[0]  # the spot that will have a tiny overlap
 
     # Compute the center of mass of the input polygon
-    center = LatLng.from_degrees(
-        sum([point.lat().degrees for point in in_points]) / len(in_points),
-        sum([point.lng().degrees for point in in_points]) / len(in_points),
-    )
+    center = center_of_mass(in_points)
 
     delta_lat = center.lat().degrees - overlap_corner.lat().degrees
     delta_lng = center.lng().degrees - overlap_corner.lng().degrees
@@ -671,8 +1032,8 @@ def generate_slight_overlap_area(in_points: List[LatLng]) -> List[LatLng]:
 
 
 def generate_area_in_vicinity(
-    in_points: List[LatLng], relative_distance: float
-) -> List[LatLng]:
+    in_points: list[LatLng], relative_distance: float
+) -> list[LatLng]:
     """
     Takes a list of LatLng points and returns a list of LatLng points that represents
     a non-contiguous area in the vicinity of the input.

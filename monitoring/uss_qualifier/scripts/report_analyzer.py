@@ -1,17 +1,17 @@
-import sys
 import json
+import sys
 
 from implicitdict import ImplicitDict
 
 from monitoring.uss_qualifier.reports.report import (
     TestRunReport,
-    TestSuiteReport,
     TestScenarioReport,
+    TestSuiteReport,
 )
 
 
 def parse_report(path: str) -> TestRunReport:
-    with open(path, "r") as f:
+    with open(path) as f:
         report = json.load(f)
         return ImplicitDict.parse(report, TestRunReport)
 
@@ -28,10 +28,12 @@ def look_at_scenario(ts: TestScenarioReport):
         print("  has #steps: ", len(tcr.steps))
         for step in tcr.steps:
             print("   step: ", step.name)
-            print("   has #queries: ", len(step.queries)) if step.get(
-                "queries"
-            ) is not None else print("   has #queries: 0")
-            for q in step.queries if step.get("queries") is not None else []:
+            (
+                print("   has #queries: ", len(step.queries or []))
+                if step.get("queries") is not None
+                else print("   has #queries: 0")
+            )
+            for q in step.get("queries", []):
                 print(f"    {q.response.elapsed_s} - {q.request.url}")
 
 
@@ -50,19 +52,23 @@ def main():
 
     r = parse_report(sys.argv[1])
 
+    if r.report.test_suite is None:
+        print("No test_suite in report")
+        return 0
+
     for a in r.report.test_suite.actions:
         print("Types of actions (test_suite, test_scenario, action_generator): ")
-        print(a._get_applicable_report())
+        print(a.get_action_type_name())
 
     suite_reports = {
-        r.test_suite.name: r.test_suite
-        for r in r.report.test_suite.actions
-        if r.get("test_suite") is not None
+        subr.test_suite.name: subr.test_suite
+        for subr in r.report.test_suite.actions
+        if "test_suite" in subr and subr.test_suite is not None
     }
     scenario_reports = {
-        r.test_scenario.name: r.test_scenario
-        for r in r.report.test_suite.actions
-        if r.get("test_scenario") is not None
+        subr.test_scenario.name: subr.test_scenario
+        for subr in r.report.test_suite.actions
+        if "test_scenario" in subr and subr.test_scenario is not None
     }
 
     print("Available suite reports: ", suite_reports.keys())

@@ -1,20 +1,16 @@
 import datetime
-from typing import List, Optional
 
 import s2sphere
-import yaml
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
 from uas_standards.astm.f3548.v21.api import (
     OPERATIONS,
-    OperationID,
-    Subscription,
-    PutSubscriptionParameters,
     OperationalIntentReference,
+    OperationID,
+    PutSubscriptionParameters,
+    Subscription,
 )
-from yaml.representer import Representer
 
-from monitoring.monitorlib import fetch
-from monitoring.monitorlib import infrastructure, scd
+from monitoring.monitorlib import fetch, infrastructure, scd
 from monitoring.monitorlib.fetch import QueryType
 from monitoring.monitorlib.geo import Polygon
 from monitoring.monitorlib.geotemporal import Volume4D
@@ -28,32 +24,29 @@ class MutatedSubscription(fetch.Query):
         return not self.errors
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self) -> list[str]:
         if self.status_code != 200:
-            return [
-                "Failed to {} SCD Subscription ({})".format(
-                    self.mutation, self.status_code
-                )
-            ]
+            return [f"Failed to {self.mutation} SCD Subscription ({self.status_code})"]
         if self.json_result is None:
             return ["Response did not contain valid JSON"]
+        return []
 
     @property
-    def subscription(self) -> Optional[Subscription]:
-        if self.json_result is None:
+    def subscription(self) -> Subscription | None:
+        if self.json_result is None or "subscription" not in self.json_result:
             return None
         try:
             # We get a ValueError if .parse is fed a None,
             # or if the JSON can't be parsed as a Subscription.
             return ImplicitDict.parse(
-                self.json_result.get("subscription", None),
+                self.json_result["subscription"],
                 Subscription,
             )
         except ValueError:
             return None
 
     @property
-    def operational_intent_references(self) -> List[OperationalIntentReference]:
+    def operational_intent_references(self) -> list[OperationalIntentReference]:
         if self.json_result is None:
             return []
         try:
@@ -69,9 +62,6 @@ class MutatedSubscription(fetch.Query):
             return []
 
 
-yaml.add_representer(MutatedSubscription, Representer.represent_dict)
-
-
 def upsert_subscription(
     utm_client: infrastructure.UTMClientSession,
     area: s2sphere.LatLngRect,
@@ -83,8 +73,8 @@ def upsert_subscription(
     notify_for_constraints: bool,
     min_alt_m: float = 0,
     max_alt_m: float = 3048,
-    version: Optional[str] = None,
-    participant_id: Optional[str] = None,
+    version: str | None = None,
+    participant_id: str | None = None,
 ) -> MutatedSubscription:
     is_creation = version is None
     if is_creation:
@@ -124,13 +114,13 @@ def upsert_subscription(
 
 def build_upsert_subscription_params(
     area_vertices: s2sphere.LatLngRect,
-    start_time: Optional[datetime.datetime],
+    start_time: datetime.datetime | None,
     end_time: datetime.datetime,
     base_url: str,
     notify_for_op_intents: bool,
     notify_for_constraints: bool,
-    min_alt_m: float,
-    max_alt_m: float,
+    min_alt_m: float | None,
+    max_alt_m: float | None,
 ) -> PutSubscriptionParameters:
     return PutSubscriptionParameters(
         extents=Volume4D.from_values(
@@ -150,7 +140,7 @@ def delete_subscription(
     utm_client: infrastructure.UTMClientSession,
     subscription_id: str,
     version: str,
-    participant_id: Optional[str] = None,
+    participant_id: str | None = None,
 ) -> MutatedSubscription:
     op = OPERATIONS[OperationID.DeleteSubscription]
     result = MutatedSubscription(

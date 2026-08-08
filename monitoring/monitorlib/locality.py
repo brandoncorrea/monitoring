@@ -1,8 +1,8 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
+
 import inspect
 import sys
-from typing import TypeVar
+from abc import ABC, abstractmethod
 
 LocalityCode = str
 """Case-sensitive string naming a subclass of the Locality base class"""
@@ -37,11 +37,16 @@ class Locality(ABC):
         """Returns the highest priority level for ASTM F3548-21 defined by the regulator of this locality"""
         raise NotImplementedError(Locality._NOT_IMPLEMENTED_MSG)
 
+    @abstractmethod
+    def uses_cmsa(self) -> bool:
+        """Return true if the ecosystem supports CMSA operations"""
+        raise NotImplementedError(Locality._NOT_IMPLEMENTED_MSG)
+
     def __str__(self):
         return self.__class__.__name__
 
     @staticmethod
-    def from_locale(locality_code: LocalityCode) -> LocalityType:
+    def from_locale(locality_code: LocalityCode) -> Locality:
         current_module = sys.modules[__name__]
         for name, obj in inspect.getmembers(current_module, inspect.isclass):
             if issubclass(obj, Locality) and obj != Locality:
@@ -50,9 +55,6 @@ class Locality(ABC):
         raise ValueError(
             f"Could not find Locality implementation for Locality code '{locality_code}' (expected to find a subclass of the Locality astract base class where classmethod locality_code returns '{locality_code}')"
         )
-
-
-LocalityType = TypeVar("LocalityType", bound=Locality)
 
 
 class Switzerland(Locality):
@@ -72,6 +74,13 @@ class Switzerland(Locality):
     def highest_priority(self) -> int:
         return 100
 
+    def uses_cmsa(self) -> bool:
+        # Return True for now as Switzerland didn't determined yet if CMSA is
+        # used.
+        # If switched to False, ensure tests have a locality with CMSA enabled.
+        # See https://github.com/interuss/monitoring/pull/1304#pullrequestreview-3594632974
+        return True
+
 
 class UnitedStatesIndustryCollaboration(Locality):
     @classmethod
@@ -88,4 +97,7 @@ class UnitedStatesIndustryCollaboration(Locality):
         return -1
 
     def highest_priority(self) -> int:
-        return 0  # as of the time of writing this, this value has not been subject to a firm decision
+        return 100
+
+    def uses_cmsa(self) -> bool:
+        return False

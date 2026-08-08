@@ -1,19 +1,19 @@
-from typing import List, Iterable, Dict, Optional
+from collections.abc import Iterable
 
-from implicitdict import ImplicitDict
-from uas_standards.interuss.automated_testing.scd.v1.constants import Scope as ScopeSCD
+from implicitdict import ImplicitDict, Optional
 from uas_standards.interuss.automated_testing.flight_planning.v1.constants import (
     Scope as ScopeFlightPlanning,
 )
+from uas_standards.interuss.automated_testing.scd.v1.constants import Scope as ScopeSCD
 
 from monitoring.monitorlib.clients.flight_planning.client import FlightPlannerClient
 from monitoring.uss_qualifier.reports.report import ParticipantID
-from monitoring.uss_qualifier.resources.definitions import ResourceID
-from monitoring.uss_qualifier.resources.resource import Resource
 from monitoring.uss_qualifier.resources.communications import AuthAdapterResource
+from monitoring.uss_qualifier.resources.definitions import ResourceID
 from monitoring.uss_qualifier.resources.flight_planning.flight_planner import (
     FlightPlannerConfiguration,
 )
+from monitoring.uss_qualifier.resources.resource import Resource
 
 
 class FlightPlannerSpecification(ImplicitDict):
@@ -27,8 +27,10 @@ class FlightPlannerResource(Resource[FlightPlannerSpecification]):
     def __init__(
         self,
         specification: FlightPlannerSpecification,
+        resource_origin: str,
         auth_adapter: AuthAdapterResource,
     ):
+        super().__init__(specification, resource_origin)
         if (
             "scd_injection_base_url" in specification.flight_planner
             and specification.flight_planner.scd_injection_base_url
@@ -60,35 +62,39 @@ class FlightPlannerResource(Resource[FlightPlannerSpecification]):
 
 
 class FlightPlannersSpecification(ImplicitDict):
-    flight_planners: List[FlightPlannerConfiguration]
+    flight_planners: list[FlightPlannerConfiguration]
 
 
 class FlightPlannersResource(Resource[FlightPlannersSpecification]):
-    flight_planners: List[FlightPlannerResource]
+    flight_planners: list[FlightPlannerResource]
 
     def __init__(
         self,
         specification: FlightPlannersSpecification,
+        resource_origin: str,
         auth_adapter: AuthAdapterResource,
     ):
+        super().__init__(specification, resource_origin)
         self._specification = specification
         self._auth_adapter = auth_adapter
         self.flight_planners = [
             FlightPlannerResource(
-                FlightPlannerSpecification(flight_planner=p), auth_adapter
+                FlightPlannerSpecification(flight_planner=p),
+                f"instance {i + 1} in {resource_origin}",
+                auth_adapter,
             )
-            for p in specification.flight_planners
+            for i, p in enumerate(specification.flight_planners)
         ]
 
-    def make_subset(self, select_indices: Iterable[int]) -> List[FlightPlannerResource]:
+    def make_subset(self, select_indices: Iterable[int]) -> list[FlightPlannerResource]:
         return [self.flight_planners[i] for i in select_indices]
 
 
 class FlightPlannerCombinationSelectorSpecification(ImplicitDict):
-    must_include: Optional[List[ParticipantID]]
+    must_include: Optional[list[ParticipantID]]
     """The set of flight planners which must be included in every combination"""
 
-    maximum_roles: Optional[Dict[ParticipantID, int]]
+    maximum_roles: Optional[dict[ParticipantID, int]]
     """Maximum number of roles a particular participant may fill in any given combination"""
 
 
@@ -97,11 +103,16 @@ class FlightPlannerCombinationSelectorResource(
 ):
     _specification: FlightPlannerCombinationSelectorSpecification
 
-    def __init__(self, specification: FlightPlannerCombinationSelectorSpecification):
+    def __init__(
+        self,
+        specification: FlightPlannerCombinationSelectorSpecification,
+        resource_origin: str,
+    ):
+        super().__init__(specification, resource_origin)
         self._specification = specification
 
     def is_valid_combination(
-        self, flight_planners: Dict[ResourceID, FlightPlannerResource]
+        self, flight_planners: dict[ResourceID, FlightPlannerResource]
     ):
         participants = [p.participant_id for p in flight_planners.values()]
 

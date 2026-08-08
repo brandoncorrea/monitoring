@@ -1,10 +1,9 @@
-from faker import Faker
-import string
 import random
-import uuid
-from uas_standards.ansi_cta_2063_a import SerialNumber
+import string
 
-from uas_standards.astm.f3411.v19.api import LatLngPoint
+from faker import Faker
+from uas_standards.ansi_cta_2063_a import SerialNumber
+from uas_standards.interuss.automated_testing.rid.v1 import injection
 
 
 class OperatorFlightDataGenerator:
@@ -18,8 +17,10 @@ class OperatorFlightDataGenerator:
         return str(SerialNumber.generate_valid())
 
     def generate_registration_number(self, prefix="CHE"):
+        if not prefix.endswith("."):
+            prefix = f"{prefix}."
         registration_number = prefix + "".join(
-            self.random.choices(string.ascii_lowercase + string.digits, k=13)
+            self.random.choices(string.ascii_uppercase + string.digits, k=13)
         )
         return registration_number
 
@@ -38,7 +39,7 @@ class OperatorFlightDataGenerator:
 
     def generate_operator_location(self, centroid):
         # TODO: Inject operator location altitude
-        operator_location = LatLngPoint(lat=centroid.y, lng=centroid.x)
+        operator_location = injection.LatLngPoint(lat=centroid.y, lng=centroid.x)
         return operator_location
 
     def generate_operator_id(self, prefix="OP-"):

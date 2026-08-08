@@ -1,40 +1,42 @@
-import arrow
 import datetime
 from datetime import timedelta
-from typing import List, Optional
 
+import arrow
 import flask
 import s2sphere
 from uas_standards.astm.f3411.v22a.api import (
-    ErrorResponse,
-    RIDRecentAircraftPosition,
-    RIDFlight,
-    GetFlightDetailsResponse,
-    GetFlightsResponse,
-    OperationID,
     OPERATIONS,
-    RIDAircraftPosition,
-    RIDAircraftState,
-    RIDFlightDetails,
-    OperatorLocation,
-    LatLngPoint,
     UASID,
     Altitude,
+    ErrorResponse,
+    GetFlightDetailsResponse,
+    GetFlightsResponse,
+    LatLngPoint,
+    OperationID,
+    OperatorLocation,
+    RIDAircraftPosition,
+    RIDAircraftState,
+    RIDFlight,
+    RIDFlightDetails,
+    RIDRecentAircraftPosition,
 )
 from uas_standards.astm.f3411.v22a.constants import (
-    Scope,
-    NetMaxNearRealTimeDataPeriodSeconds,
     NetMaxDisplayAreaDiagonalKm,
+    NetMaxNearRealTimeDataPeriodSeconds,
+    Scope,
 )
 from uas_standards.interuss.automated_testing.rid.v1 import injection
 
-from monitoring.monitorlib import geo
-from monitoring.monitorlib.rid_automated_testing.injection_api import TestFlight
-from monitoring.mock_uss import webapp
+from monitoring.mock_uss.app import webapp
 from monitoring.mock_uss.auth import requires_scope
-from . import behavior
+from monitoring.mock_uss.logging import query_type
+from monitoring.monitorlib import geo
+from monitoring.monitorlib.fetch import QueryType
+from monitoring.monitorlib.rid import RIDVersion
+from monitoring.monitorlib.rid_automated_testing.injection_api import TestFlight
+from monitoring.monitorlib.rid_v2 import make_time
+
 from .database import db
-from ...monitorlib.rid_v2 import make_time
 
 
 def _make_position(p: injection.RIDAircraftPosition) -> RIDAircraftPosition:
@@ -57,7 +59,7 @@ def _make_state(s: injection.RIDAircraftState) -> RIDAircraftState:
 
 
 def _make_operator_location(
-    position: injection.LatLngPoint, altitude: Optional[injection.OperatorAltitude]
+    position: injection.LatLngPoint, altitude: injection.OperatorAltitude | None
 ) -> OperatorLocation:
     """Convert injection information to F3411-22a OperatorLocation"""
     operator_location = OperatorLocation(
@@ -82,7 +84,7 @@ def _make_details(p: injection.RIDFlightDetails) -> RIDFlightDetails:
         if "uas_id" in p and p.uas_id
         else UASID(
             serial_number=serial_number,
-            registration_number=registration_number,
+            registration_id=registration_number,
             utm_id=p.id,
         )
     )
@@ -107,7 +109,7 @@ def _get_report(
     t_request: datetime.datetime,
     view: s2sphere.LatLngRect,
     recent_positions_duration: float,
-) -> Optional[RIDFlight]:
+) -> RIDFlight | None:
     details = flight.get_details(t_request)
     if not details:
         return None
@@ -124,12 +126,12 @@ def _get_report(
     recent_states.sort(key=lambda p: p.timestamp)
     result = RIDFlight(
         id=details.id,
-        aircraft_type="NotDeclared",  # TODO: Include aircraft_type in TestFlight API
+        aircraft_type=flight.get_aircraft_type(RIDVersion.f3411_22a),
         current_state=_make_state(recent_states[-1]),
         simulated=True,
     )
     if recent_positions_duration > 0:
-        recent_positions: List[RIDRecentAircraftPosition] = []
+        recent_positions: list[RIDRecentAircraftPosition] = []
         now = arrow.utcnow().datetime
         for recent_state in recent_states:
             if (
@@ -151,18 +153,8 @@ def rid_v22a_operation(op_id: OperationID):
     return webapp.route("/mock/ridsp/v2" + path, methods=[op.verb])
 
 
-@rid_v22a_operation(OperationID.PostIdentificationServiceArea)
-@requires_scope(Scope.ServiceProvider)
-def ridsp_notify_isa_v22a(id: str):
-    return (
-        flask.jsonify(
-            {"message": "mock_ridsp never solicits subscription notifications"}
-        ),
-        400,
-    )
-
-
 @rid_v22a_operation(OperationID.SearchFlights)
+@query_type(QueryType.F3411v22aUSSSearchFlights)
 @requires_scope(Scope.DisplayProvider)
 def ridsp_flights_v22a():
     if "view" not in flask.request.args:
@@ -174,7 +166,7 @@ def ridsp_flights_v22a():
         view = geo.make_latlng_rect(flask.request.args["view"])
     except ValueError as e:
         return (
-            flask.jsonify(ErrorResponse(message="Error parsing view: {}".format(e))),
+            flask.jsonify(ErrorResponse(message=f"Error parsing view: {e}")),
             400,
         )
 
@@ -203,9 +195,7 @@ def ridsp_flights_v22a():
 
     diagonal = geo.get_latlngrect_diagonal_km(view)
     if diagonal > NetMaxDisplayAreaDiagonalKm:
-        msg = "Requested diagonal of {} km exceeds limit of {} km".format(
-            diagonal, NetMaxDisplayAreaDiagonalKm
-        )
+        msg = f"Requested diagonal of {diagonal} km exceeds limit of {NetMaxDisplayAreaDiagonalKm} km"
         return flask.jsonify(ErrorResponse(message=msg)), 413
 
     now = arrow.utcnow().datetime
@@ -227,6 +217,7 @@ def ridsp_flights_v22a():
 
 
 @rid_v22a_operation(OperationID.GetFlightDetails)
+@query_type(QueryType.F3411v22aUSSGetFlightDetails)
 @requires_scope(Scope.DisplayProvider)
 def ridsp_flight_details_v22a(id: str):
     now = arrow.utcnow().datetime
@@ -242,6 +233,6 @@ def ridsp_flight_details_v22a(id: str):
                     200,
                 )
     return (
-        flask.jsonify(ErrorResponse(message="Flight {} not found".format(id))),
+        flask.jsonify(ErrorResponse(message=f"Flight {id} not found")),
         404,
     )

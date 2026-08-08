@@ -1,0 +1,82 @@
+{
+  "$id": "https://github.com/interuss/monitoring/blob/main/schemas/monitoring/benchmarker/configurations/artifacts/matplotlib_figure/SubplotSpecification.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "monitoring.benchmarker.configurations.artifacts.matplotlib_figure.SubplotSpecification, as defined in monitoring/benchmarker/configurations/artifacts/matplotlib_figure.py",
+  "properties": {
+    "$ref": {
+      "description": "Path to content that replaces the $ref",
+      "type": "string"
+    },
+    "evaluation_context": {
+      "description": "Symbols available to other expressions in this subplot specification.",
+      "items": {
+        "$ref": "../../../../monitorlib/expressions/types/SymbolExpression.json"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "legend": {
+      "description": "Characteristics of the legend for this subplot.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "LegendSpecification.json"
+        }
+      ]
+    },
+    "title": {
+      "description": "Title of this subplot.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "x_axis": {
+      "description": "Characteristics of the X axis of this subplot.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "AxisSpecification.json"
+        }
+      ]
+    },
+    "xy_plots": {
+      "description": "Plots of XY data for this subplot.",
+      "items": {
+        "$ref": "XYPlotSpecification.json"
+      },
+      "type": "array"
+    },
+    "y_axes": {
+      "description": "Characteristics of the secondary, tertiary, etc Y axes of this subplot.",
+      "items": {
+        "$ref": "AxisSpecification.json"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "y_axis": {
+      "description": "Characteristics of the primary Y axis of this subplot.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "AxisSpecification.json"
+        }
+      ]
+    }
+  },
+  "required": [
+    "xy_plots"
+  ],
+  "type": "object"
+}

@@ -1,19 +1,26 @@
-from typing import Optional
+from datetime import datetime
 
-from loguru import logger
-from implicitdict import ImplicitDict
+import arrow
+from implicitdict import ImplicitDict, Optional, StringBasedDateTime
 
 from monitoring.monitorlib import fetch
 from monitoring.monitorlib.clients.flight_planning.client import FlightPlannerClient
 from monitoring.monitorlib.clients.flight_planning.client_v1 import (
     V1FlightPlannerClient,
 )
+from monitoring.monitorlib.clients.mock_uss.interactions import (
+    Interaction,
+    ListLogsResponse,
+)
 from monitoring.monitorlib.clients.mock_uss.locality import (
     GetLocalityResponse,
     PutLocalityRequest,
 )
 from monitoring.monitorlib.fetch import QueryError, QueryType
-from monitoring.monitorlib.infrastructure import AuthAdapter, UTMClientSession
+from monitoring.monitorlib.infrastructure import (
+    AuthAdapter,
+    utm_client_session_factory,
+)
 from monitoring.monitorlib.locality import LocalityCode
 from monitoring.monitorlib.scd_automated_testing.scd_injection_api import (
     SCOPE_SCD_QUALIFIER_INJECT,
@@ -21,17 +28,11 @@ from monitoring.monitorlib.scd_automated_testing.scd_injection_api import (
 from monitoring.uss_qualifier.reports.report import ParticipantID
 from monitoring.uss_qualifier.resources.communications import AuthAdapterResource
 from monitoring.uss_qualifier.resources.resource import Resource
-from monitoring.monitorlib.clients.mock_uss.interactions import (
-    Interaction,
-    ListLogsResponse,
-)
-from typing import Tuple, List
-from implicitdict import StringBasedDateTime
 
 MOCK_USS_CONFIG_SCOPE = "interuss.mock_uss.configure"
 
 
-class MockUSSClient(object):
+class MockUSSClient:
     """Means to communicate with an InterUSS mock_uss instance"""
 
     flight_planner: FlightPlannerClient
@@ -41,14 +42,19 @@ class MockUSSClient(object):
         participant_id: str,
         base_url: str,
         auth_adapter: AuthAdapter,
-        timeout_seconds: Optional[float] = None,
+        timeout_seconds: float | None = None,
     ):
         self.base_url = base_url
-        self.session = UTMClientSession(base_url, auth_adapter, timeout_seconds)
+        self.session = utm_client_session_factory.get_session(
+            base_url, auth_adapter, timeout_seconds
+        )
         self.participant_id = participant_id
         v1_base_url = base_url + "/flight_planning/v1"
         self.flight_planner = V1FlightPlannerClient(
-            UTMClientSession(v1_base_url, auth_adapter, timeout_seconds), participant_id
+            utm_client_session_factory.get_session(
+                v1_base_url, auth_adapter, timeout_seconds
+            ),
+            participant_id,
         )
 
     def get_status(self) -> fetch.Query:
@@ -60,7 +66,7 @@ class MockUSSClient(object):
             participant_id=self.participant_id,
         )
 
-    def get_locality(self) -> Tuple[Optional[LocalityCode], fetch.Query]:
+    def get_locality(self) -> tuple[LocalityCode | None, fetch.Query]:
         query = fetch.query_and_describe(
             self.session,
             "GET",
@@ -87,11 +93,27 @@ class MockUSSClient(object):
             json=PutLocalityRequest(locality_code=locality_code),
         )
 
+    def get_clock(self) -> tuple[datetime | None, fetch.Query]:
+        query = fetch.query_and_describe(
+            self.session,
+            "GET",
+            "/clock",
+            participant_id=self.participant_id,
+            query_type=QueryType.InterUSSMockUSSGetClock,
+        )
+        try:
+            result = (
+                arrow.get(query.response.body).datetime if query.response.body else None
+            )
+        except arrow.ParserError:
+            result = None
+        return result, query
+
     # TODO: Add other methods to interact with the mock USS in other ways (like starting/stopping message signing data collection)
 
     def get_interactions(
         self, from_time: StringBasedDateTime
-    ) -> Tuple[List[Interaction], fetch.Query]:
+    ) -> tuple[list[Interaction], fetch.Query]:
         """
         Requesting interuss interactions from mock_uss from a given time till now
         Args:
@@ -99,10 +121,7 @@ class MockUSSClient(object):
         Returns:
             List of Interactions
         """
-        url = "{}/mock_uss/interuss_logging/logs?from_time={}".format(
-            self.base_url, from_time
-        )
-        logger.debug(f"Getting interactions from {from_time} : {url}")
+        url = f"{self.base_url}/mock_uss/interuss_logging/logs?from_time={from_time}"
         query = fetch.query_and_describe(
             self.session,
             "GET",
@@ -119,7 +138,7 @@ class MockUSSClient(object):
             response = ImplicitDict.parse(query.response.get("json"), ListLogsResponse)
         except KeyError:
             raise QueryError(
-                msg=f"RecordedInteractionsResponse from mock_uss response did not contain JSON body",
+                msg="RecordedInteractionsResponse from mock_uss response did not contain JSON body",
                 queries=[query],
             )
         except ValueError as e:
@@ -154,8 +173,10 @@ class MockUSSResource(Resource[MockUSSSpecification]):
     def __init__(
         self,
         specification: MockUSSSpecification,
+        resource_origin: str,
         auth_adapter: AuthAdapterResource,
     ):
+        super().__init__(specification, resource_origin)
         self.mock_uss = MockUSSClient(
             specification.participant_id,
             specification.mock_uss_base_url,
@@ -165,15 +186,19 @@ class MockUSSResource(Resource[MockUSSSpecification]):
 
 
 class MockUSSsSpecification(ImplicitDict):
-    instances: List[MockUSSSpecification]
+    instances: list[MockUSSSpecification]
 
 
 class MockUSSsResource(Resource[MockUSSsSpecification]):
-    mock_uss_instances: List[MockUSSClient]
+    mock_uss_instances: list[MockUSSClient]
 
     def __init__(
-        self, specification: MockUSSsSpecification, auth_adapter: AuthAdapterResource
+        self,
+        specification: MockUSSsSpecification,
+        resource_origin: str,
+        auth_adapter: AuthAdapterResource,
     ):
+        super().__init__(specification, resource_origin)
         self.mock_uss_instances = [
             MockUSSClient(s.participant_id, s.mock_uss_base_url, auth_adapter.adapter)
             for s in specification.instances

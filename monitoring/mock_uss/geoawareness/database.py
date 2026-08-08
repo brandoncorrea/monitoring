@@ -1,12 +1,13 @@
 import json
-from typing import Dict, Optional
-from implicitdict import ImplicitDict
-from monitoring.monitorlib.multiprocessing import SynchronizedValue
+
+from implicitdict import ImplicitDict, Optional
 from uas_standards.eurocae_ed269 import ED269Schema
 from uas_standards.interuss.automated_testing.geo_awareness.v1.api import (
     CreateGeozoneSourceRequest,
     GeozoneSourceResponseResult,
 )
+
+from monitoring.monitorlib.multiprocessing import SynchronizedValue
 
 
 class ExistingRecordException(ValueError):
@@ -23,62 +24,64 @@ class SourceRecord(ImplicitDict):
 class Database(ImplicitDict):
     """Simple pseudo-database structure tracking the state of the mock system"""
 
-    sources: Dict[str, SourceRecord] = {}
-
-    @staticmethod
-    def get_source(db: SynchronizedValue, id: str) -> SourceRecord:
-        return db.value.sources.get(id, None)
-
-    @staticmethod
-    def get_sources(db: SynchronizedValue) -> SourceRecord:
-        return db.value.sources
-
-    @staticmethod
-    def insert_source(
-        db: SynchronizedValue,
-        id: str,
-        definition: CreateGeozoneSourceRequest,
-        state: GeozoneSourceResponseResult,
-        message: Optional[str] = None,
-    ) -> SourceRecord:
-        with db as tx:
-            if id in tx.sources.keys():
-                raise ExistingRecordException()
-            tx.sources[id] = SourceRecord(
-                definition=definition, state=state, message=message
-            )
-            result = tx.sources[id]
-        return result
-
-    @staticmethod
-    def update_source_state(
-        db: SynchronizedValue,
-        id: str,
-        state: GeozoneSourceResponseResult,
-        message: Optional[str] = None,
-    ):
-        with db as tx:
-            tx.sources[id]["state"] = state
-            tx.sources[id]["message"] = message
-            result = tx.sources[id]
-        return result
-
-    @staticmethod
-    def update_source_geozone_ed269(
-        db: SynchronizedValue, id: str, geozone: ED269Schema
-    ):
-        with db as tx:
-            tx.sources[id]["geozone_ed269"] = geozone
-            result = tx.sources[id]
-        return result
-
-    @staticmethod
-    def delete_source(db: SynchronizedValue, id: str):
-        with db as tx:
-            return tx.sources.pop(id, None)
+    sources: dict[str, SourceRecord] = {}
 
 
-db = SynchronizedValue(
+def get_source(
+    geo_db: SynchronizedValue[Database], source_id: str
+) -> SourceRecord | None:
+    return geo_db.value.sources.get(source_id, None)
+
+
+def get_sources(geo_db: SynchronizedValue[Database]) -> dict[str, SourceRecord]:
+    return geo_db.value.sources
+
+
+def insert_source(
+    geo_db: SynchronizedValue[Database],
+    source_id: str,
+    definition: CreateGeozoneSourceRequest,
+    state: GeozoneSourceResponseResult,
+    message: str | None = None,
+) -> SourceRecord:
+    with geo_db.transact() as tx:
+        if source_id in tx.value.sources.keys():
+            raise ExistingRecordException()
+        tx.value.sources[source_id] = SourceRecord(
+            definition=definition, state=state, message=message
+        )
+        result = tx.value.sources[source_id]
+    return result
+
+
+def update_source_state(
+    geo_db: SynchronizedValue[Database],
+    source_id: str,
+    state: GeozoneSourceResponseResult,
+    message: str | None = None,
+):
+    with geo_db.transact() as tx:
+        tx.value.sources[source_id]["state"] = state
+        tx.value.sources[source_id]["message"] = message
+        result = tx.value.sources[source_id]
+    return result
+
+
+def update_source_geozone_ed269(
+    geo_db: SynchronizedValue[Database], source_id: str, geozone: ED269Schema
+):
+    with geo_db.transact() as tx:
+        tx.value.sources[source_id]["geozone_ed269"] = geozone
+        result = tx.value.sources[source_id]
+    return result
+
+
+def delete_source(geo_db: SynchronizedValue[Database], source_id: str):
+    with geo_db.transact() as tx:
+        return tx.value.sources.pop(source_id, None)
+
+
+db = SynchronizedValue[Database](
     Database(),
     decoder=lambda b: ImplicitDict.parse(json.loads(b.decode("utf-8")), Database),
 )

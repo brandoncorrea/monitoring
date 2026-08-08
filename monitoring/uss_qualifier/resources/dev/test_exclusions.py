@@ -1,6 +1,4 @@
-from typing import Optional
-
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
 
 from monitoring.uss_qualifier.resources.resource import Resource
 
@@ -18,7 +16,9 @@ class TestExclusionsResource(Resource[TestExclusionsSpecification]):
     def __init__(
         self,
         specification: TestExclusionsSpecification,
+        resource_origin: str,
     ):
+        super().__init__(specification, resource_origin)
         self._spec = specification
 
     @property

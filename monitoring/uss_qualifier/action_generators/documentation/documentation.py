@@ -1,28 +1,26 @@
-from typing import List, Union
-
 from implicitdict import ImplicitDict
+
 from monitoring.uss_qualifier.action_generators.action_generator import (
-    action_generator_type_from_name,
     action_generator_specification_type,
+    action_generator_type_from_name,
 )
 from monitoring.uss_qualifier.action_generators.definitions import (
     ActionGeneratorDefinition,
 )
 from monitoring.uss_qualifier.action_generators.documentation.definitions import (
+    PotentialActionGeneratorAction,
     PotentialGeneratedAction,
     PotentialTestScenarioAction,
     PotentialTestSuiteAction,
-    PotentialActionGeneratorAction,
 )
 from monitoring.uss_qualifier.suites.definitions import (
     TestSuiteActionDeclaration,
-    ActionType,
 )
 
 
 def list_potential_actions_for_action_generator_definition(
-    generator_def: Union[ActionGeneratorDefinition, PotentialActionGeneratorAction]
-) -> List[PotentialGeneratedAction]:
+    generator_def: ActionGeneratorDefinition | PotentialActionGeneratorAction,
+) -> list[PotentialGeneratedAction]:
     action_generator_type = action_generator_type_from_name(
         generator_def.generator_type
     )
@@ -36,9 +34,8 @@ def list_potential_actions_for_action_generator_definition(
 
 def list_potential_actions_for_action_declaration(
     declaration: TestSuiteActionDeclaration,
-) -> List[PotentialGeneratedAction]:
-    action_type = declaration.get_action_type()
-    if action_type == ActionType.TestScenario:
+) -> list[PotentialGeneratedAction]:
+    if "test_scenario" in declaration and declaration.test_scenario:
         return [
             PotentialGeneratedAction(
                 test_scenario=PotentialTestScenarioAction(
@@ -46,7 +43,7 @@ def list_potential_actions_for_action_declaration(
                 )
             )
         ]
-    elif action_type == ActionType.TestSuite:
+    elif "test_suite" in declaration and declaration.test_suite:
         if "suite_type" in declaration.test_suite and declaration.test_suite.suite_type:
             return [
                 PotentialGeneratedAction(
@@ -66,7 +63,7 @@ def list_potential_actions_for_action_declaration(
                     )
                 )
             ]
-    elif action_type == ActionType.ActionGenerator:
+    elif "action_generator" in declaration and declaration.action_generator:
         return [
             PotentialGeneratedAction(
                 action_generator=PotentialActionGeneratorAction(
@@ -75,4 +72,4 @@ def list_potential_actions_for_action_declaration(
             )
         ]
     else:
-        raise NotImplementedError(f"Action type {action_type} is not supported")
+        raise declaration.invalid_type_error

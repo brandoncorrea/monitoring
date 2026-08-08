@@ -1,14 +1,13 @@
 import json
 import os
-from typing import Dict, Set, Optional
 
 from monitoring.monitorlib.inspection import import_submodules
 from monitoring.monitorlib.versioning import get_code_version
-from monitoring.uss_qualifier import scenarios, suites, action_generators
+from monitoring.uss_qualifier import action_generators, scenarios, suites
 from monitoring.uss_qualifier.configurations.configuration import (
     ParticipantID,
-    TestedRequirementsConfiguration,
     TestedRequirementsCollectionIdentifier,
+    TestedRequirementsConfiguration,
 )
 from monitoring.uss_qualifier.reports import jinja_env
 from monitoring.uss_qualifier.reports.report import TestRunReport
@@ -16,13 +15,13 @@ from monitoring.uss_qualifier.reports.tested_requirements.breakdown import (
     make_breakdown,
 )
 from monitoring.uss_qualifier.reports.tested_requirements.data_types import (
-    RequirementsVerificationReport,
     ParticipantVerificationInfo,
     ParticipantVerificationStatus,
+    RequirementsVerificationReport,
 )
 from monitoring.uss_qualifier.reports.tested_requirements.summaries import (
-    compute_test_run_information,
     compute_overall_status,
+    compute_test_run_information,
     find_participant_system_versions,
     get_system_version,
 )
@@ -36,8 +35,13 @@ def generate_tested_requirements(
     report: TestRunReport, config: TestedRequirementsConfiguration, output_path: str
 ) -> None:
     # Determine where the configuration to generate these tested requirements originated
+    assert report.configuration.v1 is not None
     artifacts = report.configuration.v1.artifacts
-    if "tested_requirements" in artifacts and artifacts.tested_requirements:
+    if (
+        artifacts
+        and "tested_requirements" in artifacts
+        and artifacts.tested_requirements
+    ):
         i = (
             artifacts.tested_requirements.index(config)
             if config in artifacts.tested_requirements
@@ -59,8 +63,8 @@ def generate_tested_requirements(
         config_source = "post-hoc artifact configuration"
         artifact_configuration = "post-hoc"
 
-    req_collections: Dict[
-        TestedRequirementsCollectionIdentifier, Set[RequirementID]
+    req_collections: dict[
+        TestedRequirementsCollectionIdentifier, set[RequirementID]
     ] = {}
     if "requirement_collections" in config and config.requirement_collections:
         req_collections = {
@@ -68,8 +72,8 @@ def generate_tested_requirements(
             for k, v in config.requirement_collections.items()
         }
 
-    participant_req_collections: Dict[ParticipantID, Optional[Set[RequirementID]]] = {}
-    participant_req_set_names: Dict[ParticipantID, str] = {}
+    participant_req_collections: dict[ParticipantID, set[RequirementID] | None] = {}
+    participant_req_set_names: dict[ParticipantID, str] = {}
     if "participant_requirements" in config and config.participant_requirements:
         for k, v in config.participant_requirements.items():
             if v and v not in req_collections:
@@ -89,11 +93,6 @@ def generate_tested_requirements(
     index_file = os.path.join(output_path, "index.html")
 
     all_participant_ids = list(report.report.participant_ids())
-    reported_participant_ids = list(participant_req_collections)
-    reported_participant_ids.sort()
-    template = jinja_env.get_template("tested_requirements/test_run_report.html")
-    with open(index_file, "w") as f:
-        f.write(template.render(participant_ids=reported_participant_ids))
 
     verification_report = RequirementsVerificationReport(
         test_run_information=test_run,
@@ -112,15 +111,22 @@ def generate_tested_requirements(
             matching_participants = config.aggregate_participants[participant_id]
         else:
             matching_participants = [participant_id]
-        participant_breakdown = make_breakdown(report, req_set, matching_participants)
+        participant_breakdown = make_breakdown(
+            report,
+            list(config.acceptable_findings)
+            if "acceptable_findings" in config and config.acceptable_findings
+            else [],
+            req_set,
+            matching_participants,
+        )
         overall_status = compute_overall_status(participant_breakdown)
         system_version = get_system_version(
             find_participant_system_versions(report.report, matching_participants)
         )
-        verification_report.participant_verifications[
-            participant_id
-        ] = ParticipantVerificationInfo(
-            status=overall_status, system_version=system_version
+        verification_report.participant_verifications[participant_id] = (
+            ParticipantVerificationInfo(
+                status=overall_status, system_version=system_version
+            )
         )
         participant_file = os.path.join(output_path, f"{participant_id}.html")
         other_participants = ", ".join(
@@ -139,9 +145,25 @@ def generate_tested_requirements(
                     ParticipantVerificationStatus=ParticipantVerificationStatus,
                     codebase_version=get_code_version(),
                     config_source=config_source,
+                    anchor_name_of=_anchor_name_of,
                 )
             )
+
+    reported_participant_ids = list(participant_req_collections)
+    reported_participant_ids.sort()
+    template = jinja_env.get_template("tested_requirements/test_run_report.html")
+    with open(index_file, "w") as f:
+        f.write(
+            template.render(
+                participant_ids=reported_participant_ids,
+                verification_report=verification_report,
+            )
+        )
 
     status_file = os.path.join(output_path, "status.json")
     with open(status_file, "w") as f:
         json.dump(verification_report, f, indent=2)
+
+
+def _anchor_name_of(fully_qualified_req_id: str) -> str:
+    return "req-" + fully_qualified_req_id.replace(".", "-")

@@ -3,18 +3,19 @@ USER_GROUP := $(shell id -u):$(shell id -g)
 UPSTREAM_OWNER := $(shell scripts/git/upstream_owner.sh)
 COMMIT := $(shell scripts/git/commit.sh)
 
-BLACK_EXCLUDES := "/interfaces|/venv"
-
 ifeq ($(OS),Windows_NT)
-  detected_OS := Windows
+	detected_OS := Windows
 else
-  detected_OS := $(shell uname -s)
+	detected_OS := $(shell uname -s)
 endif
 
 .PHONY: format
-format: json-schema
-	docker run --rm -v "$(CURDIR):/code" -w /code pyfound/black:22.10.0 black --exclude=$(BLACK_EXCLUDES) .
+format: image-dev
+	docker run --rm -u ${USER_GROUP} -v "$(CURDIR):/app" -w /app interuss/monitoring-dev uv run ruff format
+	docker run --rm -u ${USER_GROUP} -v "$(CURDIR):/app" -w /app interuss/monitoring-dev uv run ruff check --fix
+	docker run --rm -u ${USER_GROUP} -v "$(CURDIR):/app" -w /app interuss/monitoring-dev uv run basedpyright
 	cd monitoring && make format
+	cd schemas && make format
 
 .PHONY: lint
 lint: shell-lint python-lint
@@ -22,15 +23,18 @@ lint: shell-lint python-lint
 	cd schemas && make lint
 
 .PHONY: check-hygiene
-check-hygiene: python-lint hygiene validate-uss-qualifier-docs shell-lint json-schema-lint
+check-hygiene: image-dev lint validate-uss-qualifier-docs
+	test/repo_hygiene/repo_hygiene.sh
 
 .PHONY: python-lint
-python-lint:
-	docker run --rm -v "$(CURDIR):/code" -w /code pyfound/black:22.10.0 black --check --exclude=$(BLACK_EXCLUDES) . || (echo "Linter didn't succeed. You can use the following command to fix python linter issues: make format" && exit 1)
+python-lint: image-dev
 
-.PHONY: hygiene
-hygiene:
-	test/repo_hygiene/repo_hygiene.sh
+	docker run --rm -u ${USER_GROUP} -v "$(CURDIR):/app" -w /app interuss/monitoring-dev uv run ruff format --check || (echo "Linter didn't succeed. You can use the following command to fix python linter issues: make format" && exit 1)
+	docker run --rm -u ${USER_GROUP} -v "$(CURDIR):/app" -w /app interuss/monitoring-dev uv run ruff check || (echo "Linter didn't succeed. You can use the following command to fix python linter issues: make format" && exit 1)
+	shasum -b -a 256 .basedpyright/baseline.json > /tmp/baseline-before.hash
+	docker run --rm -u ${USER_GROUP} -v "$(CURDIR):/app" -w /app interuss/monitoring-dev uv run basedpyright || (echo "Typing check didn't succeed. Please fix issue and run make format to validate changes." && exit 1)
+	shasum -b -a 256 .basedpyright/baseline.json > /tmp/baseline-after.hash
+	diff /tmp/baseline-before.hash /tmp/baseline-after.hash || (echo "Basedpyright baseline changed, probably dues to issues that have been cleanup. Use the following command to update baseline: make format" && exit 1)
 
 .PHONY: validate-uss-qualifier-docs
 validate-uss-qualifier-docs:
@@ -38,31 +42,26 @@ validate-uss-qualifier-docs:
 
 .PHONY: shell-lint
 shell-lint:
-	find . -name '*.sh' ! -path "./interfaces/*" | xargs docker run --rm -v "$(CURDIR):/monitoring" -w /monitoring koalaman/shellcheck
+	find . -name '*.sh' ! -path "./interfaces/*" | git check-ignore --stdin --no-index -n -v --non-matching | grep '^::' | cut -f2 | xargs docker run --rm -v "$(CURDIR):/monitoring" -w /monitoring koalaman/shellcheck:v0.11.0
 
-.PHONY: json-schema
-json-schema:
-	cd schemas && make format
-
-.PHONY: json-schema-lint
-json-schema-lint:
-	cd schemas && make lint
-
-# This mirrors the hygiene-tests continuous integration workflow job (.github/workflows/ci.yml)
-.PHONY: hygiene-tests
-hygiene-tests: check-hygiene
+.PHONY: unit-test
+unit-test:
+	cd monitoring && make unit-test
 
 .PHONY: image
 image:
 	cd monitoring && make image
+
+.PHONY: image-dev
+image-dev:
+	cd monitoring && make image-dev
 
 tag:
 	scripts/tag.sh $(UPSTREAM_OWNER)/monitoring/v$(VERSION)
 
 .PHONY: start-locally
 start-locally:
-	build/dev/run_locally.sh up -d
-	build/dev/wait_for_local_infra.sh
+	build/dev/run_locally.sh up --wait
 
 .PHONY: probe-locally
 probe-locally:
@@ -99,17 +98,18 @@ stop-locally:
 down-locally:
 	build/dev/run_locally.sh down
 
+.PHONY: clean-locally
+clean-locally: down-locally
+	-docker ps -aq --filter network=interop_ecosystem_network | xargs -r docker rm -f
+	-docker ps -aq --filter network=dss_internal_network | xargs -r docker rm -f
+
 .PHONY: check-monitoring
 check-monitoring:
 	cd monitoring && make test
 
-# This mirrors the monitoring-tests continuous integration workflow job (.github/workflows/ci.yml)
-.PHONY: monitoring-tests
-monitoring-tests: check-monitoring
-
 # This reproduces the entire continuous integration workflow (.github/workflows/ci.yml)
 .PHONY: presubmit
-presubmit: hygiene-tests monitoring-tests
+presubmit: check-hygiene check-monitoring
 
 # For local development when restarts are frequently required (such as when testing changes on the DSS)
 .PHONY: restart-all
@@ -118,10 +118,3 @@ restart-all: stop-uss-mocks down-locally start-locally start-uss-mocks
 # For local development when restarts of the mock USS are frequently required
 .PHONY: restart-uss-mocks
 restart-uss-mocks: stop-uss-mocks start-uss-mocks
-
-# To be run locally whenever a direct dependency has been updated in requirements.in
-.PHONY: update-pinned-dependencies
-update-pinned-dependencies:
-	./scripts/pip_tools/pip_compile.sh --generate-hashes --output-file=requirements.txt requirements.in
-
-

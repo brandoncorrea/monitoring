@@ -1,9 +1,8 @@
 from __future__ import annotations
-from typing import Optional, List
 
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
+
 from monitoring.uss_qualifier.requirements.definitions import RequirementCollection
-
 
 CapabilityID = str
 """Identifier of a capability that uss_qualifier can verify."""
@@ -22,7 +21,7 @@ class AllConditions(SpecificCondition):
 
     Note that an empty list of conditions will result in a successful evaluation."""
 
-    conditions: List[CapabilityVerificationCondition]
+    conditions: list[CapabilityVerificationCondition]
 
 
 class AnyCondition(SpecificCondition):
@@ -30,13 +29,14 @@ class AnyCondition(SpecificCondition):
 
     Note that an empty list of conditions will result in an unsuccessful evaluation."""
 
-    conditions: List[CapabilityVerificationCondition]
+    conditions: list[CapabilityVerificationCondition]
 
 
 class RequirementsCheckedCondition(SpecificCondition):
     """Condition will only be satisfied if at least one successful check exists for all specified requirements.
 
-    Note that an empty collection of requirements will result in an unsuccessful evaluation."""
+    Note that an empty collection of requirements will result in an unsuccessful evaluation.
+    """
 
     checked: RequirementCollection
     """Each requirement contained within this collection must be covered by at least one successful check."""
@@ -45,7 +45,8 @@ class RequirementsCheckedCondition(SpecificCondition):
 class NoFailedChecksCondition(SpecificCondition):
     """Condition will only be satisfied if there are no applicable failed checks.
 
-    For a capability to be verified for a participant, only checks including the participant's ID will be considered."""
+    For a capability to be verified for a participant, only checks including the participant's ID will be considered.
+    """
 
     pass
 
@@ -53,9 +54,10 @@ class NoFailedChecksCondition(SpecificCondition):
 class CapabilityVerifiedCondition(SpecificCondition):
     """Condition will be satisfied when the specified capability is verified.
 
-    Note that a capability which do not declare any requirement will result in an unsuccessful evaluation."""
+    Note that a capability which do not declare any requirement will result in an unsuccessful evaluation.
+    """
 
-    capability_ids: List[CapabilityID]
+    capability_ids: list[CapabilityID]
     """List of identifier of capability that must be verified for this condition to be satisfied."""
 
     capability_location: Optional[JSONPathExpression]

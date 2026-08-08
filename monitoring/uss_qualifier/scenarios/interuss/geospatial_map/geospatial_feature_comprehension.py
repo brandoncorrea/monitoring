@@ -1,8 +1,3 @@
-from datetime import datetime
-from typing import Dict
-
-import arrow
-
 from monitoring.monitorlib.clients.geospatial_info.client import (
     GeospatialInfoClient,
     GeospatialInfoError,
@@ -13,8 +8,8 @@ from monitoring.monitorlib.clients.geospatial_info.querying import (
     OperationalImpact,
     SelectionOutcome,
 )
-from monitoring.monitorlib.temporal import Time, TimeDuringTest
 from monitoring.uss_qualifier.configurations.configuration import ParticipantID
+from monitoring.uss_qualifier.requirements.definitions import RequirementID
 from monitoring.uss_qualifier.resources.geospatial_info import (
     GeospatialInfoProviderResource,
 )
@@ -22,12 +17,14 @@ from monitoring.uss_qualifier.resources.interuss.geospatial_map import (
     FeatureCheckTableResource,
 )
 from monitoring.uss_qualifier.resources.interuss.geospatial_map.definitions import (
-    FeatureCheckTable,
     ExpectedFeatureCheckResult,
+    FeatureCheckTable,
 )
 from monitoring.uss_qualifier.scenarios.documentation.definitions import (
-    TestStepDocumentation,
+    TestCaseDocumentation,
     TestCheckDocumentation,
+    TestScenarioDocumentation,
+    TestStepDocumentation,
 )
 from monitoring.uss_qualifier.scenarios.scenario import TestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
@@ -58,55 +55,81 @@ class GeospatialFeatureComprehension(TestScenario):
         self.geospatial_client = geospatial_info_provider.client
         self.table = table.table
 
-    def run(self, context: ExecutionContext):
-        self.begin_test_scenario(context)
-        times = {
-            TimeDuringTest.StartOfTestRun: Time(context.start_time),
-            TimeDuringTest.StartOfScenario: Time(arrow.utcnow().datetime),
+    def _rewrite_documentation(self):
+        """The documentation in the standard, static accompanying .md file acts as a template, but the test scenario
+        dynamically adjusts its test procedure based on the FeatureCheckTable provided in configuration."""
+        original_case = self.documentation.cases[0]
+        original_step = original_case.steps[0]
+        steps = []
+
+        all_checks = {c.name: c for c in original_step.checks}
+        query_check = all_checks[_SUCCESSFUL_QUERY_CHECK_NAME]
+        outcome_checks = {
+            expected_result: all_checks[check_name]
+            for expected_result, check_name in _CHECK_NAMES.items()
         }
 
-        self.begin_test_case("Map query")
-        self._map_query(times)
-        self.end_test_case()
-
-        self.end_test_scenario()
-
-    def _map_query(self, times: Dict[TimeDuringTest, Time]):
-        query_check = [
-            c
-            for c in self._current_case.steps[0].checks
-            if c.name == _SUCCESSFUL_QUERY_CHECK_NAME
-        ][0]
         for row in self.table.rows:
             if row.expected_result not in _CHECK_NAMES:
                 raise NotImplementedError(
                     f"expected_result {row.expected_result} is not yet supported"
                 )
-            check_name = _CHECK_NAMES[row.expected_result]
-            original_check = [
-                c for c in self._current_case.steps[0].checks if c.name == check_name
-            ][0]
-            # Note that we are duck-typing a List[str] into a List[RequirementID] for applicable_requirements, but this
-            # should be ok as the requirements are only used as strings from this point.
+            original_check = outcome_checks[row.expected_result]
             check = TestCheckDocumentation(
-                name=check_name,
+                name=original_check.name,
                 url=original_check.url,
-                applicable_requirements=row.requirement_ids,
+                applicable_requirements=[RequirementID(r) for r in row.requirement_ids],
                 has_todo=original_check.has_todo,
                 severity=original_check.severity,
             )
-            doc = TestStepDocumentation(
+            step = TestStepDocumentation(
                 name=row.geospatial_check_id,
-                url=self._current_case.steps[0].url,
+                url=original_step.url,
                 checks=[query_check, check],
             )
-            self.begin_dynamic_test_step(doc)
+            steps.append(step)
+
+        case = TestCaseDocumentation(
+            name=original_case.name,
+            url=original_case.url,
+            steps=steps,
+        )
+
+        new_doc = TestScenarioDocumentation(
+            name=self.documentation.name,
+            url=self.documentation.url,
+            local_path=self.documentation.local_path,
+            cases=[case],
+        )
+        if "resources" in self.documentation:
+            new_doc.resources = self.documentation.resources
+        if "cleanup" in self.documentation:
+            new_doc.cleanup = self.documentation.cleanup
+        self.documentation = new_doc
+
+    def run(self, context: ExecutionContext):
+        self._rewrite_documentation()
+        self.begin_test_scenario(context)
+
+        self.begin_test_case("Map query")
+        self._map_query()
+        self.end_test_case()
+
+        self.end_test_scenario()
+
+    def _map_query(self):
+        for row in self.table.rows:
+            self.begin_test_step(row.geospatial_check_id)
+            if row.description:
+                self.record_note(
+                    f"{row.geospatial_check_id}.description", row.description
+                )
 
             # Populate filter set
             filter_set = GeospatialFeatureFilter()
 
-            times[TimeDuringTest.TimeOfEvaluation] = Time(arrow.utcnow().datetime)
-            concrete_volumes = [v.resolve(times) for v in row.volumes]
+            self.time_context.evaluate_now()
+            concrete_volumes = [v.resolve(self.time_context) for v in row.volumes]
             filter_set.volumes4d = concrete_volumes
 
             if row.restriction_source:
@@ -187,7 +210,7 @@ class GeospatialFeatureComprehension(TestScenario):
                         if "message" in result and result.message:
                             details += f" with message '{result.message}'"
                         check.record_failed(
-                            summary=f"Blocking and/or advisory geospatial features unexpectedly found",
+                            summary="Blocking and/or advisory geospatial features unexpectedly found",
                             details=details,
                             query_timestamps=query_timestamps,
                         )

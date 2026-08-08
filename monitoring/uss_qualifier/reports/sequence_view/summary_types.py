@@ -2,20 +2,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
-from typing import List, Dict, Optional, Union
+from enum import StrEnum
 
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
 
 from monitoring.monitorlib.fetch import Query
-from monitoring.uss_qualifier.configurations.configuration import (
-    ParticipantID,
-)
+from monitoring.uss_qualifier.configurations.configuration import ParticipantID
 from monitoring.uss_qualifier.reports.report import (
-    PassedCheck,
-    FailedCheck,
     ErrorReport,
+    FailedCheck,
+    PassedCheck,
 )
+from monitoring.uss_qualifier.resources.definitions import ResourceID
 from monitoring.uss_qualifier.scenarios.definitions import TestScenarioTypeName
 
 
@@ -25,33 +23,13 @@ class NoteEvent(ImplicitDict):
     timestamp: datetime
 
 
-class EventType(str, Enum):
-    PassedCheck = "PassedCheck"
-    FailedCheck = "FailedCheck"
-    Query = "Query"
-    Note = "Note"
-
-
 class Event(ImplicitDict):
     event_index: int = 0
     passed_check: Optional[PassedCheck] = None
     failed_check: Optional[FailedCheck] = None
-    query_events: Optional[List[Union[Event, str]]] = None
+    query_events: Optional[list[Event | str]] = None
     query: Optional[Query] = None
     note: Optional[NoteEvent] = None
-
-    @property
-    def type(self) -> EventType:
-        if self.passed_check:
-            return EventType.PassedCheck
-        elif self.failed_check:
-            return EventType.FailedCheck
-        elif self.query:
-            return EventType.Query
-        elif self.note:
-            return EventType.Note
-        else:
-            raise ValueError("Invalid Event type")
 
     @property
     def timestamp(self) -> datetime:
@@ -68,7 +46,7 @@ class Event(ImplicitDict):
 
     def get_query_links(self) -> str:
         links = []
-        for e in self.query_events:
+        for e in self.query_events or []:
             if isinstance(e, str):
                 links.append(e)
             else:
@@ -79,7 +57,7 @@ class Event(ImplicitDict):
 class TestedStep(ImplicitDict):
     name: str
     url: str
-    events: List[Event]
+    events: list[Event]
 
     @property
     def rows(self) -> int:
@@ -89,30 +67,16 @@ class TestedStep(ImplicitDict):
 class TestedCase(ImplicitDict):
     name: str
     url: str
-    steps: List[TestedStep]
+    steps: list[TestedStep]
 
     @property
     def rows(self) -> int:
         return sum(s.rows for s in self.steps)
 
 
-class EpochType(str, Enum):
-    Case = "Case"
-    Events = "Events"
-
-
 class Epoch(ImplicitDict):
     case: Optional[TestedCase] = None
-    events: Optional[List[Event]] = None
-
-    @property
-    def type(self) -> EpochType:
-        if self.case:
-            return EpochType.Case
-        elif self.events:
-            return EpochType.Events
-        else:
-            raise ValueError("Invalid Epoch did not specify case or events")
+    events: Optional[list[Event]] = None
 
     @property
     def rows(self) -> int:
@@ -125,23 +89,24 @@ class Epoch(ImplicitDict):
 
 
 @dataclass
-class TestedParticipant(object):
+class TestedParticipant:
     has_failures: bool = False
     has_infos: bool = False
-    has_successes: bool = False
+    has_passes: bool = False
     has_queries: bool = False
 
 
 @dataclass
-class TestedScenario(object):
+class TestedScenario:
     type: TestScenarioTypeName
     name: str
     url: str
     scenario_index: int
     duration: str
-    epochs: List[Epoch]
-    participants: Dict[ParticipantID, TestedParticipant]
-    execution_error: Optional[ErrorReport]
+    epochs: list[Epoch]
+    participants: dict[ParticipantID, TestedParticipant]
+    execution_error: ErrorReport | None
+    resource_origins: dict[ResourceID, str]
 
     @property
     def rows(self) -> int:
@@ -149,11 +114,11 @@ class TestedScenario(object):
 
 
 @dataclass
-class SkippedAction(object):
+class SkippedAction:
     reason: str
 
 
-class ActionNodeType(str, Enum):
+class ActionNodeType(StrEnum):
     Scenario = "Scenario"
     Suite = "Suite"
     ActionGenerator = "ActionGenerator"
@@ -163,7 +128,7 @@ class ActionNodeType(str, Enum):
 class ActionNode(ImplicitDict):
     name: str
     node_type: ActionNodeType
-    children: List[ActionNode]
+    children: list[ActionNode]
     scenario: Optional[TestedScenario] = None
     skipped_action: Optional[SkippedAction] = None
 
@@ -177,21 +142,21 @@ class ActionNode(ImplicitDict):
 
 
 @dataclass
-class Indexer(object):
+class Indexer:
     index: int = 1
 
 
 @dataclass
-class SuiteCell(object):
-    node: Optional[ActionNode]
+class SuiteCell:
+    node: ActionNode | None
     first_row: bool
     rowspan: int = 1
     colspan: int = 1
 
 
 @dataclass
-class OverviewRow(object):
-    suite_cells: List[SuiteCell]
-    scenario_node: Optional[ActionNode] = None
-    skipped_action_node: Optional[ActionNode] = None
+class OverviewRow:
+    suite_cells: list[SuiteCell]
+    scenario_node: ActionNode | None = None
+    skipped_action_node: ActionNode | None = None
     filled: bool = False

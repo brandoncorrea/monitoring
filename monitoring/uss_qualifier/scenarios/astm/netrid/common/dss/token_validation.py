@@ -1,24 +1,21 @@
 import datetime
-from typing import Optional, Dict, List
 
-import arrow
 import s2sphere
 from uas_standards.astm.f3411 import v19, v22a
 
-from monitoring.monitorlib import fetch, infrastructure
-from monitoring.monitorlib import rid_v1, rid_v2
+from monitoring.monitorlib import fetch, infrastructure, rid_v1, rid_v2
 from monitoring.monitorlib.auth import InvalidTokenSignatureAuth
-from monitoring.monitorlib.fetch import rid as rid_fetch, QueryType
+from monitoring.monitorlib.fetch import QueryType
+from monitoring.monitorlib.fetch import rid as rid_fetch
 from monitoring.monitorlib.fetch.rid import FetchedISA, FetchedISAs
 from monitoring.monitorlib.mutate import rid as mutate
 from monitoring.monitorlib.mutate.rid import (
-    ISAChange,
     ChangedISA,
+    ISAChange,
     ISAChangeNotification,
 )
 from monitoring.monitorlib.rid import RIDVersion
 from monitoring.prober.infrastructure import register_resource_type
-from monitoring.uss_qualifier.common_data_definitions import Severity
 from monitoring.uss_qualifier.resources.astm.f3411.dss import DSSInstanceResource
 from monitoring.uss_qualifier.resources.interuss.id_generator import IDGeneratorResource
 from monitoring.uss_qualifier.resources.netrid.service_area import ServiceAreaResource
@@ -45,24 +42,25 @@ class TokenValidation(GenericTestScenario):
         self._dss = dss.dss_instance
         self._dss_wrapper = DSSWrapper(self, dss.dss_instance)
         self._isa_id = id_generator.id_factory.make_id(ISASimple.ISA_TYPE)
-        self._isa_version: Optional[str] = None
-        self._isa = isa.specification
-
-        self._isa_area = [vertex.as_s2sphere() for vertex in self._isa.footprint]
+        self._isa_version: str | None = None
+        self._isa = isa
+        self._isa_area = isa.s2_vertices()
 
         # correctly formed and signed using an unrecognized private key
         # (should cause requests to be rejected)
-        self._unsigned_token_session = infrastructure.UTMClientSession(
-            self._dss.base_url, InvalidTokenSignatureAuth()
+        self._unsigned_token_session = (
+            infrastructure.utm_client_session_factory.get_session(
+                self._dss.base_url, InvalidTokenSignatureAuth()
+            )
         )
         # Session that won't provide a token at all
         # (should cause requests to be rejected)
-        self._no_token_session = infrastructure.UTMClientSession(
+        self._no_token_session = infrastructure.utm_client_session_factory.get_session(
             self._dss.base_url, None
         )
 
     def run(self, context: ExecutionContext):
-        self._shift_isa_time_relative_to_now()
+        self._resolve_isa_time_bounds()
 
         self.begin_test_scenario(context)
 
@@ -88,10 +86,10 @@ class TokenValidation(GenericTestScenario):
 
         self.end_test_scenario()
 
-    def _shift_isa_time_relative_to_now(self):
-        now = arrow.utcnow().datetime
-        self._isa_start_time = self._isa.shifted_time_start(now)
-        self._isa_end_time = self._isa.shifted_time_end(now)
+    def _resolve_isa_time_bounds(self):
+        self._isa_start_time, self._isa_end_time = self._isa.resolved_time_bounds(
+            self.time_context.evaluate_now()
+        )
 
     def _wrong_auth_put(self):
         # Try to create an ISA with a read scope
@@ -105,8 +103,7 @@ class TokenValidation(GenericTestScenario):
             if put_wrong_scope.dss_query.success:
                 check.record_failed(
                     "Read scope can create ISA",
-                    Severity.High,
-                    f"Attempting to create ISA {self._isa_id} with read scope returned {put_wrong_scope.dss_query.status_code}",
+                    details=f"Attempting to create ISA {self._isa_id} with read scope returned {put_wrong_scope.dss_query.status_code}",
                     query_timestamps=[
                         put_wrong_scope.dss_query.query.request.timestamp
                     ],
@@ -125,8 +122,7 @@ class TokenValidation(GenericTestScenario):
             if put_no_token.dss_query.success:
                 check.record_failed(
                     "Could create an ISA without a token",
-                    Severity.High,
-                    f"Attempting to create ISA {self._isa_id} with no token returned {put_no_token.dss_query.status_code}",
+                    details=f"Attempting to create ISA {self._isa_id} with no token returned {put_no_token.dss_query.status_code}",
                     query_timestamps=[put_no_token.dss_query.query.request.timestamp],
                 )
 
@@ -143,8 +139,7 @@ class TokenValidation(GenericTestScenario):
             if put_fake_token.dss_query.success:
                 check.record_failed(
                     "Could create an ISA with a fake token",
-                    Severity.High,
-                    f"Attempting to create ISA {self._isa_id} with a fake token returned {put_fake_token.dss_query.status_code}",
+                    details=f"Attempting to create ISA {self._isa_id} with a fake token returned {put_fake_token.dss_query.status_code}",
                     query_timestamps=[put_fake_token.dss_query.query.request.timestamp],
                 )
 
@@ -166,7 +161,6 @@ class TokenValidation(GenericTestScenario):
             self._isa_version = new_isa.dss_query.isa.version
 
     def _wrong_auth_get(self):
-
         get_no_token = self._get_isa_tweak_auth(self._no_token_session)
         with self.check(
             "Missing token prevents reading an ISA",
@@ -175,8 +169,7 @@ class TokenValidation(GenericTestScenario):
             if get_no_token.success:
                 check.record_failed(
                     "Could read an ISA without a token",
-                    Severity.High,
-                    f"Attempting to read ISA {self._isa_id} with no token returned {get_no_token.status_code}",
+                    details=f"Attempting to read ISA {self._isa_id} with no token returned {get_no_token.status_code}",
                     query_timestamps=[get_no_token.query.request.timestamp],
                 )
 
@@ -188,8 +181,7 @@ class TokenValidation(GenericTestScenario):
             if get_fake_token.success:
                 check.record_failed(
                     "Could read an ISA with a fake token",
-                    Severity.High,
-                    f"Attempting to read ISA {self._isa_id} with a fake token returned {get_fake_token.status_code}",
+                    details=f"Attempting to read ISA {self._isa_id} with a fake token returned {get_fake_token.status_code}",
                     query_timestamps=[get_fake_token.query.request.timestamp],
                 )
 
@@ -206,8 +198,7 @@ class TokenValidation(GenericTestScenario):
             if mutate_wrong_scope.dss_query.success:
                 check.record_failed(
                     "Read scope can mutate an ISA",
-                    Severity.High,
-                    f"Attempting to create ISA {self._isa_id} with read scope returned {mutate_wrong_scope.dss_query.status_code}",
+                    details=f"Attempting to create ISA {self._isa_id} with read scope returned {mutate_wrong_scope.dss_query.status_code}",
                     query_timestamps=[
                         mutate_wrong_scope.dss_query.query.request.timestamp
                     ],
@@ -225,8 +216,7 @@ class TokenValidation(GenericTestScenario):
             if mutate_no_token.dss_query.success:
                 check.record_failed(
                     "Could mutate an ISA without a token",
-                    Severity.High,
-                    f"Attempting to create ISA {self._isa_id} with no token returned {mutate_no_token.dss_query.status_code}",
+                    details=f"Attempting to create ISA {self._isa_id} with no token returned {mutate_no_token.dss_query.status_code}",
                     query_timestamps=[
                         mutate_no_token.dss_query.query.request.timestamp
                     ],
@@ -244,8 +234,7 @@ class TokenValidation(GenericTestScenario):
             if mutate_fake_token.dss_query.success:
                 check.record_failed(
                     "Could mutate an ISA with a fake token",
-                    Severity.High,
-                    f"Attempting to create ISA {self._isa_id} with a fake token returned {mutate_fake_token.dss_query.status_code}",
+                    details=f"Attempting to create ISA {self._isa_id} with a fake token returned {mutate_fake_token.dss_query.status_code}",
                     query_timestamps=[
                         mutate_fake_token.dss_query.query.request.timestamp
                     ],
@@ -262,8 +251,7 @@ class TokenValidation(GenericTestScenario):
             if del_wrong_scope.dss_query.success:
                 check.record_failed(
                     "Read scope can delete an ISA",
-                    Severity.High,
-                    f"Attempting to delete ISA {self._isa_id} with read scope returned {del_wrong_scope.dss_query.status_code}",
+                    details=f"Attempting to delete ISA {self._isa_id} with read scope returned {del_wrong_scope.dss_query.status_code}",
                     query_timestamps=[
                         del_wrong_scope.dss_query.query.request.timestamp
                     ],
@@ -284,8 +272,7 @@ class TokenValidation(GenericTestScenario):
             if del_no_token.dss_query.success:
                 check.record_failed(
                     "Could mutate an ISA without a token",
-                    Severity.High,
-                    f"Attempting to create ISA {self._isa_id} with no token returned {del_no_token.dss_query.status_code}",
+                    details=f"Attempting to create ISA {self._isa_id} with no token returned {del_no_token.dss_query.status_code}",
                     query_timestamps=[del_no_token.dss_query.query.request.timestamp],
                 )
 
@@ -304,8 +291,7 @@ class TokenValidation(GenericTestScenario):
             if del_fake_token.dss_query.success:
                 check.record_failed(
                     "Could delete an ISA with a fake token",
-                    Severity.High,
-                    f"Attempting to create ISA {self._isa_id} with a fake token returned {del_fake_token.dss_query.status_code}",
+                    details=f"Attempting to create ISA {self._isa_id} with a fake token returned {del_fake_token.dss_query.status_code}",
                     query_timestamps=[del_fake_token.dss_query.query.request.timestamp],
                 )
 
@@ -325,8 +311,7 @@ class TokenValidation(GenericTestScenario):
             if not search_ok.success:
                 check.record_failed(
                     "Search request failed although a valid token was used",
-                    Severity.High,
-                    f"Attempting to search ISAs with a valid token returned failure code: {search_ok.query.status_code}",
+                    details=f"Attempting to search ISAs with a valid token returned failure code: {search_ok.query.status_code}",
                     query_timestamps=[search_ok.query.request.timestamp],
                 )
 
@@ -345,8 +330,7 @@ class TokenValidation(GenericTestScenario):
             if search_wrong_token.success:
                 check.record_failed(
                     "Search endpoint returned successfully without a token",
-                    Severity.High,
-                    f"Attempting to search ISAs with invalid token returned successful query: {search_wrong_token.query.status_code}",
+                    details=f"Attempting to search ISAs with invalid token returned successful query: {search_wrong_token.query.status_code}",
                     query_timestamps=[search_wrong_token.query.request.timestamp],
                 )
 
@@ -365,8 +349,7 @@ class TokenValidation(GenericTestScenario):
             if search_no_token.success:
                 check.record_failed(
                     "Search endpoint returned successfully without a token",
-                    Severity.High,
-                    f"Attempting to search ISAs with no token returned successful query: {search_no_token.query.status_code}",
+                    details=f"Attempting to search ISAs with no token returned successful query: {search_no_token.query.status_code}",
                     query_timestamps=[search_no_token.query.request.timestamp],
                 )
 
@@ -379,8 +362,7 @@ class TokenValidation(GenericTestScenario):
             if not del_isa_ok.dss_query.success:
                 check.record_failed(
                     "Could not delete ISA with valid credentials",
-                    Severity.High,
-                    f"Attempting to delete ISA {self._isa_id} returned {del_isa_ok.dss_query.status_code}",
+                    details=f"Attempting to delete ISA {self._isa_id} returned {del_isa_ok.dss_query.status_code}",
                     query_timestamps=[del_isa_ok.dss_query.query.request.timestamp],
                 )
 
@@ -398,8 +380,7 @@ class TokenValidation(GenericTestScenario):
             if not fetched.success and fetched.status_code != 404:
                 check.record_failed(
                     "ISA information could not be retrieved",
-                    Severity.High,
-                    f"{self._dss.participant_id} DSS instance returned {fetched.status_code} when queried for ISA {self._isa_id}",
+                    details=f"{self._dss.participant_id} DSS instance returned {fetched.status_code} when queried for ISA {self._isa_id}",
                     query_timestamps=[fetched.query.request.timestamp],
                 )
 
@@ -420,13 +401,12 @@ class TokenValidation(GenericTestScenario):
                 if not deleted.dss_query.success:
                     check.record_failed(
                         "Could not delete pre-existing ISA",
-                        Severity.High,
-                        f"Attempting to delete ISA {self._isa_id} from the {self._dss.participant_id} DSS returned error {deleted.dss_query.status_code}",
+                        details=f"Attempting to delete ISA {self._isa_id} from the {self._dss.participant_id} DSS returned error {deleted.dss_query.status_code}",
                         query_timestamps=[deleted.dss_query.query.request.timestamp],
                     )
             self._verify_notifications(deleted.notifications)
 
-    def _verify_notifications(self, notifications: Dict[str, ISAChangeNotification]):
+    def _verify_notifications(self, notifications: dict[str, ISAChangeNotification]):
         for subscriber_url, notification in notifications.items():
             pid = (
                 notification.query.participant_id
@@ -437,15 +417,14 @@ class TokenValidation(GenericTestScenario):
                 if not notification.success:
                     check.record_failed(
                         "Could not notify ISA subscriber",
-                        Severity.Medium,
-                        f"Attempting to notify subscriber for ISA {self._isa_id} at {subscriber_url} resulted in {notification.status_code}",
+                        details=f"Attempting to notify subscriber for ISA {self._isa_id} at {subscriber_url} resulted in {notification.status_code}",
                         query_timestamps=[notification.query.request.timestamp],
                     )
 
     def _put_isa_tweak_auth(
         self,
         utm_client: infrastructure.UTMClientSession,
-        isa_version: Optional[str] = None,
+        isa_version: str | None = None,
         scope_intent: str = "read",
     ) -> ISAChange:
         """A local version of mutate.rid.put_isa that lets us control authentication parameters"""
@@ -524,6 +503,8 @@ class TokenValidation(GenericTestScenario):
                     **({} if query_scope is None else {"scope": query_scope}),
                 ),
             )
+        else:
+            raise Exception(f"Unknown rid_version {self._dss.rid_version}")
 
         if dss_response.success:
             isa = dss_response.isa
@@ -639,11 +620,10 @@ class TokenValidation(GenericTestScenario):
     def _search_isas_tweak_auth(
         self,
         utm_client: infrastructure.UTMClientSession,
-        area: List[s2sphere.LatLng],
-        start_time: Optional[datetime.datetime],
-        end_time: Optional[datetime.datetime],
+        area: list[s2sphere.LatLng],
+        start_time: datetime.datetime | None,
+        end_time: datetime.datetime | None,
     ) -> FetchedISAs:
-
         url_time_params = ""
         if start_time is not None:
             url_time_params += (
@@ -699,8 +679,7 @@ class TokenValidation(GenericTestScenario):
 
     def _query_scope_for_auth_params(
         self, utm_client: infrastructure.UTMClientSession, scope_intent: str
-    ) -> Optional[str]:
-
+    ) -> str | None:
         if utm_client.auth_adapter is not None:
             if self._dss.rid_version == RIDVersion.f3411_19:
                 if scope_intent == "read":

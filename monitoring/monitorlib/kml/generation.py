@@ -1,19 +1,18 @@
 import math
-from typing import List, Optional, Union
+from datetime import datetime
 
 import s2sphere
 from pykml.factory import KML_ElementMaker as kml
 
 from monitoring.monitorlib.geo import (
+    METERS_PER_FOOT,
     Altitude,
     AltitudeDatum,
     DistanceUnits,
-    egm96_geoid_offset,
     Radius,
-    METERS_PER_FOOT,
+    egm96_geoid_offset,
 )
 from monitoring.monitorlib.geotemporal import Volume4D
-
 
 # Hexadecimal colors
 GREEN = "ff00c000"
@@ -41,7 +40,7 @@ def _altitude_mode_of(altitude: Altitude) -> str:
         )
 
 
-def _distance_value_of(distance: Union[Altitude, Radius]) -> float:
+def _distance_value_of(distance: Altitude | Radius) -> float:
     if distance.units == DistanceUnits.M:
         return distance.value
     elif distance.units == DistanceUnits.FT:
@@ -50,12 +49,43 @@ def _distance_value_of(distance: Union[Altitude, Radius]) -> float:
         raise NotImplementedError(f"Distance units {distance.units} not yet supported")
 
 
+def make_basic_placemark(
+    name: str | None = None,
+    style_url: str | None = None,
+    description: str | None = None,
+    time_start: datetime | None = None,
+    time_end: datetime | None = None,
+):
+    # Create placemark
+    args = []
+    if name is not None:
+        args.append(kml.name(name))
+    if style_url is not None:
+        args.append(kml.styleUrl(style_url))
+    placemark = kml.Placemark(*args)
+    if description:
+        placemark.append(kml.description(description))
+
+    # Set time range
+    timespan = None
+    if time_start:
+        timespan = kml.TimeSpan(kml.begin(time_start.isoformat()))
+    if time_end:
+        if timespan is None:
+            timespan = kml.TimeSpan()
+        timespan.append(kml.end(time_end.isoformat()))
+    if timespan is not None:
+        placemark.append(timespan)
+
+    return placemark
+
+
 def make_placemark_from_volume(
     v4: Volume4D,
-    name: Optional[str] = None,
-    style_url: Optional[str] = None,
-    description: Optional[str] = None,
-) -> kml.Placemark:
+    name: str | None = None,
+    style_url: str | None = None,
+    description: str | None = None,
+):
     if "outline_polygon" in v4.volume and v4.volume.outline_polygon:
         vertices = v4.volume.outline_polygon.vertices
     elif "outline_circle" in v4.volume and v4.volume.outline_circle:
@@ -72,26 +102,19 @@ def make_placemark_from_volume(
     else:
         raise NotImplementedError("Volume footprint type not supported")
 
-    # Create placemark
-    args = []
-    if name is not None:
-        args.append(kml.name(name))
-    if style_url is not None:
-        args.append(kml.styleUrl(style_url))
-    placemark = kml.Placemark(*args)
-    if description:
-        placemark.append(kml.description(description))
+    if not vertices:
+        raise NotImplementedError("No vertices found")
 
-    # Set time range
-    timespan = None
-    if "time_start" in v4 and v4.time_start:
-        timespan = kml.TimeSpan(kml.begin(v4.time_start.datetime.isoformat()))
-    if "time_end" in v4 and v4.time_end:
-        if timespan is None:
-            timespan = kml.TimeSpan()
-        timespan.append(kml.end(v4.time_end.datetime.isoformat()))
-    if timespan is not None:
-        placemark.append(timespan)
+    # Create placemark
+    placemark = make_basic_placemark(
+        name=name,
+        style_url=style_url,
+        description=description,
+        time_start=v4.time_start.datetime
+        if "time_start" in v4 and v4.time_start
+        else None,
+        time_end=v4.time_end.datetime if "time_end" in v4 and v4.time_end else None,
+    )
 
     # Create top and bottom of the volume
     avg = s2sphere.LatLng.from_degrees(
@@ -123,7 +146,7 @@ def make_placemark_from_volume(
                     _altitude_mode_of(
                         v4.volume.altitude_lower
                         if v4.volume.altitude_lower
-                        else AltitudeDatum.SFC
+                        else Altitude(reference=AltitudeDatum.SFC)
                     )
                 ),
                 kml.outerBoundaryIs(
@@ -144,7 +167,7 @@ def make_placemark_from_volume(
                     _altitude_mode_of(
                         v4.volume.altitude_upper
                         if v4.volume.altitude_upper
-                        else AltitudeDatum.SFC
+                        else Altitude(reference=AltitudeDatum.SFC)
                     )
                 ),
                 kml.outerBoundaryIs(
@@ -162,6 +185,8 @@ def make_placemark_from_volume(
     # We can only create the sides of the volume if the altitude references are the same
     if (
         make_sides
+        and v4.volume.altitude_lower
+        and v4.volume.altitude_upper
         and v4.volume.altitude_lower.reference == v4.volume.altitude_upper.reference
     ):
         indices = list(range(len(vertices)))
@@ -189,7 +214,24 @@ def make_placemark_from_volume(
     return placemark
 
 
-def query_styles() -> List[kml.Style]:
+def add_point(
+    placemark,
+    lat_degrees: float,
+    lng_degrees: float,
+) -> None:
+    placemark.append(kml.Point(kml.coordinates(f"{lng_degrees},{lat_degrees},0")))
+
+
+def add_linestring(
+    placemark,
+    lng_lat_alt: list[tuple[float, float, float]],
+):
+    # Create the point
+    coord_string = " ".join(f"{lng},{lat},{alt}" for (lng, lat, alt) in lng_lat_alt)
+    placemark.append(kml.LineString(kml.tessellate(1), kml.coordinates(coord_string)))
+
+
+def query_styles() -> list:
     """Provides KML styles for query areas."""
     return [
         kml.Style(

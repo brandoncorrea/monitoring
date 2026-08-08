@@ -1,25 +1,22 @@
 import copy
 import datetime
-from typing import Optional, List, Dict, Any
+from typing import Any
 
-import arrow
 import s2sphere
-
-from monitoring.uss_qualifier.suites.suite import ExecutionContext
 from uas_standards.astm.f3411 import v19, v22a
 
-from monitoring.monitorlib.fetch import query_and_describe, QueryType
+from monitoring.monitorlib.fetch import QueryType, query_and_describe
 from monitoring.monitorlib.mutate.rid import ChangedISA
 from monitoring.monitorlib.rid import RIDVersion
 from monitoring.prober.infrastructure import register_resource_type
-from monitoring.uss_qualifier.common_data_definitions import Severity
-from monitoring.uss_qualifier.resources import VerticesResource
 from monitoring.uss_qualifier.resources.astm.f3411.dss import DSSInstanceResource
 from monitoring.uss_qualifier.resources.interuss.id_generator import IDGeneratorResource
 from monitoring.uss_qualifier.resources.netrid.service_area import ServiceAreaResource
+from monitoring.uss_qualifier.resources.volume import VolumeResource
 from monitoring.uss_qualifier.scenarios.astm.netrid.common.dss import utils
 from monitoring.uss_qualifier.scenarios.astm.netrid.dss_wrapper import DSSWrapper
 from monitoring.uss_qualifier.scenarios.scenario import GenericTestScenario
+from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
 
 class ISAValidation(GenericTestScenario):
@@ -27,7 +24,7 @@ class ISAValidation(GenericTestScenario):
 
     ISA_TYPE = register_resource_type(368, "ISA")
 
-    _huge_are: List[s2sphere.LatLng]
+    _huge_are: list[s2sphere.LatLng]
 
     create_isa_path: str
 
@@ -38,7 +35,7 @@ class ISAValidation(GenericTestScenario):
         dss: DSSInstanceResource,
         id_generator: IDGeneratorResource,
         isa: ServiceAreaResource,
-        problematically_big_area: VerticesResource,
+        problematically_big_area: VolumeResource,
     ):
         super().__init__()
         self._dss = (
@@ -46,14 +43,12 @@ class ISAValidation(GenericTestScenario):
         )  # TODO: delete once _delete_isa_if_exists updated to use dss_wrapper
         self._dss_wrapper = DSSWrapper(self, dss.dss_instance)
         self._isa_id = id_generator.id_factory.make_id(ISAValidation.ISA_TYPE)
-        self._isa_version: Optional[str] = None
-        self._isa = isa.specification
+        self._isa_version: str | None = None
+        self._isa = isa
 
-        self._isa_area = [vertex.as_s2sphere() for vertex in self._isa.footprint]
+        self._isa_area = isa.s2_vertices()
 
-        self._huge_area = [
-            v.as_s2sphere() for v in problematically_big_area.specification.vertices
-        ]
+        self._huge_area = problematically_big_area.specification.s2_vertices()
 
         if self._dss.rid_version == RIDVersion.f3411_19:
             self.create_isa_path = v19.api.OPERATIONS[
@@ -69,7 +64,7 @@ class ISAValidation(GenericTestScenario):
             ValueError(f"Unsupported RID version '{self._dss.rid_version}'")
 
     def run(self, context: ExecutionContext):
-        self._shift_isa_time_relative_to_now()
+        self._resolve_isa_time_bounds()
 
         self.begin_test_scenario(context)
 
@@ -87,15 +82,16 @@ class ISAValidation(GenericTestScenario):
 
         self._isa_missing_outline(create_isa_url, json_body)
         self._isa_missing_volume(create_isa_url, json_body)
+        self._isa_missing_extents(create_isa_url, json_body)
 
         self.end_test_step()
         self.end_test_case()
         self.end_test_scenario()
 
-    def _shift_isa_time_relative_to_now(self):
-        now = arrow.utcnow().datetime
-        self._isa_start_time = self._isa.shifted_time_start(now)
-        self._isa_end_time = self._isa.shifted_time_end(now)
+    def _resolve_isa_time_bounds(self):
+        self._isa_start_time, self._isa_end_time = self._isa.resolved_time_bounds(
+            self.time_context.evaluate_now()
+        )
 
     def _setup_case(self):
         self.begin_test_case("Setup")
@@ -121,7 +117,7 @@ class ISAValidation(GenericTestScenario):
             ignore_base_url=self._isa.base_url,
         )
 
-    def _isa_huge_area_check(self) -> (str, Dict[str, Any]):
+    def _isa_huge_area_check(self) -> (str, dict[str, Any]):
         """Returns the request's URL and json payload for subsequently re-using it.
 
         It is of the following form (note that v19 and v22a have slight differences):
@@ -157,7 +153,6 @@ class ISAValidation(GenericTestScenario):
         return q.dss_query.query.request.url, q.dss_query.query.request.json
 
     def _isa_empty_vertices_check(self):
-
         with self.check(
             "ISA empty vertices", [self._dss_wrapper.participant_id]
         ) as check:
@@ -206,15 +201,15 @@ class ISAValidation(GenericTestScenario):
                 area_vertices=self._isa_area,
                 alt_lo=self._isa.altitude_min,
                 alt_hi=self._isa.altitude_max,
-                start_time=self._isa.time_end.datetime,
-                end_time=self._isa.time_start.datetime,
+                start_time=self._isa_end_time,
+                end_time=self._isa_start_time,
                 uss_base_url=self._isa.base_url,
                 isa_id=self._isa_id,
                 isa_version=self._isa_version,
             )
 
     def _isa_vertices_are_valid(self):
-        INVALID_VERTICES: List[s2sphere.LatLng] = [
+        INVALID_VERTICES: list[s2sphere.LatLng] = [
             s2sphere.LatLng.from_degrees(lat=130, lng=-23),
             s2sphere.LatLng.from_degrees(lat=130, lng=-24),
             s2sphere.LatLng.from_degrees(lat=132, lng=-24),
@@ -230,14 +225,14 @@ class ISAValidation(GenericTestScenario):
                 area_vertices=INVALID_VERTICES,
                 alt_lo=self._isa.altitude_min,
                 alt_hi=self._isa.altitude_max,
-                start_time=self._isa.time_start.datetime,
-                end_time=self._isa.time_end.datetime,
+                start_time=self._isa_start_time,
+                end_time=self._isa_end_time,
                 uss_base_url=self._isa.base_url,
                 isa_id=self._isa_id,
                 isa_version=self._isa_version,
             )
 
-    def _isa_missing_outline(self, create_isa_url: str, json_body: Dict[str, Any]):
+    def _isa_missing_outline(self, create_isa_url: str, json_body: dict[str, Any]):
         payload = copy.deepcopy(json_body)
         if self._dss.rid_version == RIDVersion.f3411_19:
             del payload["extents"]["spatial_volume"]["footprint"]
@@ -269,10 +264,9 @@ class ISAValidation(GenericTestScenario):
                 q=rid_query,
                 fail_msg="ISA Creation with missing outline has unexpected result code",
                 required_status_code={400},
-                severity=Severity.High,
             )
 
-    def _isa_missing_volume(self, create_isa_url: str, json_body: Dict[str, Any]):
+    def _isa_missing_volume(self, create_isa_url: str, json_body: dict[str, Any]):
         payload = copy.deepcopy(json_body)
         if self._dss.rid_version == RIDVersion.f3411_19:
             del payload["extents"]["spatial_volume"]
@@ -304,10 +298,9 @@ class ISAValidation(GenericTestScenario):
                 q=rid_query,
                 fail_msg="ISA Creation with missing outline has unexpected result code",
                 required_status_code={400},
-                severity=Severity.High,
             )
 
-    def _isa_missing_extents(self, create_isa_url: str, json_body: Dict[str, Any]):
+    def _isa_missing_extents(self, create_isa_url: str, json_body: dict[str, Any]):
         payload = copy.deepcopy(json_body)
         del payload["extents"]
 
@@ -321,6 +314,7 @@ class ISAValidation(GenericTestScenario):
                 scope=self.write_scope,
                 json=payload,
                 query_type=QueryType.dss_create_isa(self._dss.rid_version),
+                participant_id=self._dss_wrapper.participant_id,
             )
             if self._dss.rid_version == RIDVersion.f3411_19:
                 rid_query = ChangedISA(v19_query=q)
@@ -334,7 +328,6 @@ class ISAValidation(GenericTestScenario):
                 q=rid_query,
                 fail_msg="ISA Creation with missing outline has unexpected result code",
                 required_status_code={400},
-                severity=Severity.High,
             )
 
     def cleanup(self):

@@ -1,5 +1,5 @@
 import json
-from typing import List, Tuple, Any, Union
+from typing import Any
 
 from implicitdict import ImplicitDict
 
@@ -18,7 +18,7 @@ Will match either 0 or 1 item.
 Example: things[2].foo.bar[0]"""
 
 
-def get_element(obj: dict, element: Union[JSONAddress, List[str]], pop=False) -> Any:
+def get_element(obj: dict, element: JSONAddress | list[str], pop=False) -> Any:
     """Get a descendant element from obj, optionally popping (removing) it from obj.
 
     Args:
@@ -62,14 +62,25 @@ def get_element(obj: dict, element: Union[JSONAddress, List[str]], pop=False) ->
         raise ValueError(f"{str(e)} at {element}")
 
 
+def get_element_or_default(
+    obj: dict, element: JSONAddress | list[str], default_value: Any
+) -> Any:
+    try:
+        return get_element(obj, element)
+    except KeyError:
+        return default_value
+    except TypeError:
+        return default_value
+
+
 class RemovedElement(ImplicitDict):
     address: JSONAddress
     value = None
 
 
 def remove_elements(
-    src: dict, elements_to_remove: List[JSONAddress]
-) -> Tuple[dict, List[RemovedElement]]:
+    src: dict, elements_to_remove: list[JSONAddress]
+) -> tuple[dict, list[RemovedElement]]:
     """Remove a list of elements from the src dict.
 
     Args:
@@ -81,7 +92,7 @@ def remove_elements(
         * A list of RemovedElements containing the values removed.
     """
     less = json.loads(json.dumps(src))
-    removed: List[RemovedElement] = []
+    removed: list[RemovedElement] = []
     for element in elements_to_remove:
         try:
             removed_value = get_element(less, element, pop=True)

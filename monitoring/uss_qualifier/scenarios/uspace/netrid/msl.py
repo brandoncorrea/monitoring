@@ -1,17 +1,12 @@
-from dataclasses import dataclass
-from datetime import datetime
-from typing import List, Dict, Set
-
-from implicitdict import ImplicitDict
 import s2sphere
-
+from implicitdict import ImplicitDict
 from uas_standards.interuss.automated_testing.rid.v1.observation import (
     AltitudeReference,
     GetDisplayDataResponse,
 )
 
 from monitoring.monitorlib.fetch import Query, QueryType
-from monitoring.monitorlib.geo import egm96_geoid_offset
+from monitoring.monitorlib.geo import egm96_geoid_offset, egm2008_geoid_offset
 from monitoring.uss_qualifier.configurations.configuration import ParticipantID
 from monitoring.uss_qualifier.resources.netrid import NetRIDObserversResource
 from monitoring.uss_qualifier.scenarios.astm.netrid.common.nominal_behavior import (
@@ -19,13 +14,12 @@ from monitoring.uss_qualifier.scenarios.astm.netrid.common.nominal_behavior impo
 )
 from monitoring.uss_qualifier.scenarios.scenario import TestScenario
 
-
 MAXIMUM_MSL_ERROR_M = 0.5  # meters maximum difference between expected MSL altitude and reported MSL altitude
 ACCEPTABLE_DATUMS = {AltitudeReference.EGM96, AltitudeReference.EGM2008}
 
 
 class MSLAltitude(TestScenario):
-    _ussps: List[ParticipantID]
+    _ussps: list[ParticipantID]
 
     def __init__(self, observers: NetRIDObserversResource):
         super().__init__()
@@ -43,8 +37,9 @@ class MSLAltitude(TestScenario):
         if not reports:
             self.record_note(
                 "Skip reason",
-                f"Nominal behavior test scenario report could not be found for any of the scenario types {', '.join(SCENARIO_TYPES)}",
+                "Nominal behavior test scenario report could not be found for any of the scenario types",
             )
+            self.end_test_case()
             self.end_test_scenario()
             return
 
@@ -57,7 +52,7 @@ class MSLAltitude(TestScenario):
 
         self.end_test_scenario()
 
-    def _evaluate_msl_altitude(self, queries: List[Query]):
+    def _evaluate_msl_altitude(self, queries: list[Query]):
         for query in queries:
             if (
                 "query_type" not in query
@@ -71,7 +66,7 @@ class MSLAltitude(TestScenario):
                 resp: GetDisplayDataResponse = ImplicitDict.parse(
                     query.response.json, GetDisplayDataResponse
                 )
-            except ValueError as e:
+            except ValueError:
                 # Invalid observation; this should already have been recorded as a failure
                 continue
             if "flights" not in resp or not resp.flights:
@@ -115,12 +110,31 @@ class MSLAltitude(TestScenario):
                     and flight.most_recent_position is not None
                 ):
                     with self.check("MSL altitude is correct", participant_id) as check:
-                        geoid_offset = egm96_geoid_offset(
-                            s2sphere.LatLng.from_degrees(
-                                flight.most_recent_position.lat,
-                                flight.most_recent_position.lng,
+                        if (
+                            flight.most_recent_position.msl_alt.reference_datum
+                            == AltitudeReference.EGM96
+                        ):
+                            geoid_offset = egm96_geoid_offset(
+                                s2sphere.LatLng.from_degrees(
+                                    flight.most_recent_position.lat,
+                                    flight.most_recent_position.lng,
+                                )
                             )
-                        )
+                        elif (
+                            flight.most_recent_position.msl_alt.reference_datum
+                            == AltitudeReference.EGM2008
+                        ):
+                            geoid_offset = egm2008_geoid_offset(
+                                s2sphere.LatLng.from_degrees(
+                                    flight.most_recent_position.lat,
+                                    flight.most_recent_position.lng,
+                                )
+                            )
+                        else:
+                            raise Exception(
+                                "Internal error: ACCEPTABLE_DATUMS of netrid/msl.py don't match the datum we can check"
+                            )
+
                         expected_msl_alt = (
                             flight.most_recent_position.alt - geoid_offset
                         )

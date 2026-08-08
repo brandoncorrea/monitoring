@@ -1,17 +1,17 @@
-from typing import Optional, List
-
-import arrow
-import s2sphere
 import datetime
+
+import s2sphere
 
 from monitoring.monitorlib.fetch import rid as fetch
 from monitoring.monitorlib.mutate import rid as mutate
 from monitoring.prober.infrastructure import register_resource_type
-from monitoring.uss_qualifier.common_data_definitions import Severity
 from monitoring.uss_qualifier.resources.astm.f3411.dss import DSSInstanceResource
 from monitoring.uss_qualifier.resources.interuss.id_generator import IDGeneratorResource
 from monitoring.uss_qualifier.resources.netrid.service_area import ServiceAreaResource
-from monitoring.uss_qualifier.resources import VerticesResource
+from monitoring.uss_qualifier.resources.volume import VolumeResource
+from monitoring.uss_qualifier.scenarios.astm.netrid.common.dss.isa_validator import (
+    ISAValidator,
+)
 from monitoring.uss_qualifier.scenarios.astm.netrid.dss_wrapper import DSSWrapper
 from monitoring.uss_qualifier.scenarios.scenario import GenericTestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
@@ -22,14 +22,14 @@ class ISASimple(GenericTestScenario):
 
     ISA_TYPE = register_resource_type(348, "ISA")
 
-    _huge_are: List[s2sphere.LatLng]
+    _huge_are: list[s2sphere.LatLng]
 
     def __init__(
         self,
         dss: DSSInstanceResource,
         id_generator: IDGeneratorResource,
         isa: ServiceAreaResource,
-        problematically_big_area: VerticesResource,
+        problematically_big_area: VolumeResource,
     ):
         super().__init__()
         self._dss = (
@@ -37,15 +37,14 @@ class ISASimple(GenericTestScenario):
         )  # TODO: delete once _delete_isa_if_exists updated to use dss_wrapper
         self._dss_wrapper = DSSWrapper(self, dss.dss_instance)
         self._isa_id = id_generator.id_factory.make_id(ISASimple.ISA_TYPE)
-        self._isa_version: Optional[str] = None
-        self._isa = isa.specification
-        self._isa_area = [vertex.as_s2sphere() for vertex in self._isa.footprint]
-        self._huge_area = [
-            v.as_s2sphere() for v in problematically_big_area.specification.vertices
-        ]
+        self._isa_version: str | None = None
+        self._isa = isa
+
+        self._isa_area = isa.s2_vertices()
+        self._huge_area = problematically_big_area.specification.s2_vertices()
 
     def run(self, context: ExecutionContext):
-        self._shift_isa_time_relative_to_now()
+        self._resolve_isa_time_bounds()
 
         self.begin_test_scenario(context)
 
@@ -56,10 +55,10 @@ class ISASimple(GenericTestScenario):
 
         self.end_test_scenario()
 
-    def _shift_isa_time_relative_to_now(self):
-        now = arrow.utcnow().datetime
-        self._isa_start_time = self._isa.shifted_time_start(now)
-        self._isa_end_time = self._isa.shifted_time_end(now)
+    def _resolve_isa_time_bounds(self):
+        self._isa_start_time, self._isa_end_time = self._isa.resolved_time_bounds(
+            self.time_context.evaluate_now()
+        )
 
     def _setup_case(self):
         self.begin_test_case("Setup")
@@ -87,8 +86,7 @@ class ISASimple(GenericTestScenario):
             if not fetched.success and fetched.status_code != 404:
                 check.record_failed(
                     "ISA information could not be retrieved",
-                    Severity.High,
-                    f"{self._dss.participant_id} DSS instance returned {fetched.status_code} when queried for ISA {self._isa_id}",
+                    details=f"{self._dss.participant_id} DSS instance returned {fetched.status_code} when queried for ISA {self._isa_id}",
                     query_timestamps=[fetched.query.request.timestamp],
                 )
 
@@ -109,8 +107,7 @@ class ISASimple(GenericTestScenario):
                 if not deleted.dss_query.success:
                     check.record_failed(
                         "Could not delete pre-existing ISA",
-                        Severity.High,
-                        f"Attempting to delete ISA {self._isa_id} from the {self._dss.participant_id} DSS returned error {deleted.dss_query.status_code}",
+                        details=f"Attempting to delete ISA {self._isa_id} from the {self._dss.participant_id} DSS returned error {deleted.dss_query.status_code}",
                         query_timestamps=[deleted.dss_query.query.request.timestamp],
                     )
             for subscriber_url, notification in deleted.notifications.items():
@@ -127,8 +124,7 @@ class ISASimple(GenericTestScenario):
                         if not notification.success:
                             check.record_failed(
                                 "Could not notify ISA subscriber",
-                                Severity.Medium,
-                                f"Attempting to notify subscriber for ISA {self._isa_id} at {subscriber_url} resulted in {notification.status_code}",
+                                details=f"Attempting to notify subscriber for ISA {self._isa_id} at {subscriber_url} resulted in {notification.status_code}",
                                 query_timestamps=[notification.query.request.timestamp],
                             )
 
@@ -149,8 +145,7 @@ class ISASimple(GenericTestScenario):
             ):
                 check.record_failed(
                     "DSS returned ISA with incorrect version",
-                    Severity.High,
-                    f"DSS should have returned an ISA with the version {self._isa_version}, but instead the ISA returned had the version {fetched.isa.version}",
+                    details=f"DSS should have returned an ISA with the version {self._isa_version}, but instead the ISA returned had the version {fetched.isa.version}",
                     query_timestamps=[fetched.query.request.timestamp],
                 )
 
@@ -192,6 +187,13 @@ class ISASimple(GenericTestScenario):
 
             self._isa_end_time = self._isa_end_time + datetime.timedelta(seconds=1)
             with self.check("ISA updated", [self._dss_wrapper.participant_id]) as check:
+                self._updated_isa_params = dict(
+                    start_time=self._isa_start_time,
+                    end_time=self._isa_end_time,
+                    uss_base_url=self._isa.base_url,
+                    alt_lo=self._isa.altitude_min,
+                    alt_hi=self._isa.altitude_max,
+                )
                 mutated_isa = self._dss_wrapper.put_isa(
                     check,
                     area_vertices=self._isa_area,
@@ -230,9 +232,20 @@ class ISASimple(GenericTestScenario):
                 if self._isa_id not in isas.isas.keys():
                     check.record_failed(
                         f"ISAs search did not return expected ISA {self._isa_id}",
-                        severity=Severity.High,
                         details=f"Search in area {self._isa_area} from time {earliest} returned ISAs {isas.isas.keys()}",
                         query_timestamps=[isas.dss_query.query.request.timestamp],
+                    )
+                else:
+                    isa_validator = ISAValidator(
+                        main_check=check,
+                        scenario=self,
+                        isa_params=self._updated_isa_params,
+                        dss_id=[self._dss.participant_id],
+                        rid_version=self._dss.rid_version,
+                    )
+
+                    isa_validator.validate_searched_isas(
+                        isas, {self._isa_id: self._isa_version}
                     )
 
             self.end_test_step()
@@ -258,7 +271,6 @@ class ISASimple(GenericTestScenario):
                 if self._isa_id in isas.isas.keys():
                     check.record_failed(
                         f"ISAs search returned unexpected ISA {self._isa_id}",
-                        severity=Severity.High,
                         details=f"Search in area {self._isa_area} from time {earliest} returned ISAs {isas.isas.keys()}",
                         query_timestamps=[isas.dss_query.query.request.timestamp],
                     )
@@ -286,9 +298,20 @@ class ISASimple(GenericTestScenario):
                 if self._isa_id not in isas.isas.keys():
                     check.record_failed(
                         f"ISAs search did not return expected ISA {self._isa_id}",
-                        severity=Severity.High,
                         details=f"Search in area {self._isa_area} to time {latest} returned ISAs {isas.isas.keys()}",
                         query_timestamps=[isas.dss_query.query.request.timestamp],
+                    )
+                else:
+                    isa_validator = ISAValidator(
+                        main_check=check,
+                        scenario=self,
+                        isa_params=self._updated_isa_params,
+                        dss_id=[self._dss.participant_id],
+                        rid_version=self._dss.rid_version,
+                    )
+
+                    isa_validator.validate_searched_isas(
+                        isas, {self._isa_id: self._isa_version}
                     )
 
             self.end_test_step()
@@ -314,7 +337,6 @@ class ISASimple(GenericTestScenario):
                 if self._isa_id in isas.isas.keys():
                     check.record_failed(
                         f"ISAs search returned unexpected ISA {self._isa_id}",
-                        severity=Severity.High,
                         details=f"Search in area {self._isa_area} to time {latest} returned ISAs {isas.isas.keys()}",
                         query_timestamps=[isas.dss_query.query.request.timestamp],
                     )
@@ -340,9 +362,20 @@ class ISASimple(GenericTestScenario):
                 if self._isa_id not in isas.isas.keys():
                     check.record_failed(
                         f"ISAs search did not return expected ISA {self._isa_id}",
-                        severity=Severity.High,
                         details=f"Search in area {self._isa_area} returned ISAs {isas.isas.keys()}",
                         query_timestamps=[isas.dss_query.query.request.timestamp],
+                    )
+                else:
+                    isa_validator = ISAValidator(
+                        main_check=check,
+                        scenario=self,
+                        isa_params=self._updated_isa_params,
+                        dss_id=[self._dss.participant_id],
+                        rid_version=self._dss.rid_version,
+                    )
+
+                    isa_validator.validate_searched_isas(
+                        isas, {self._isa_id: self._isa_version}
                     )
 
             self.end_test_step()
@@ -442,8 +475,21 @@ class ISASimple(GenericTestScenario):
             self.begin_test_step("Delete ISA")
 
             with self.check("ISA deleted", [self._dss_wrapper.participant_id]) as check:
-                _ = self._dss_wrapper.del_isa(
+                deleted_isa = self._dss_wrapper.del_isa(
                     check, isa_id=self._isa_id, isa_version=self._isa_version
+                )
+
+                # We repeat the validation that happened in del_isa with the known params of the ISA.
+                isa_validator = ISAValidator(
+                    main_check=check,
+                    scenario=self,
+                    isa_params=self._updated_isa_params,
+                    dss_id=[self._dss.participant_id],
+                    rid_version=self._dss.rid_version,
+                )
+
+                isa_validator.validate_deleted_isa(
+                    self._isa_id, deleted_isa.dss_query, self._isa_version
                 )
 
             self.end_test_step()
@@ -483,7 +529,6 @@ class ISASimple(GenericTestScenario):
                 if self._isa_id in isas.isas.keys():
                     check.record_failed(
                         f"ISAs search returned deleted ISA {self._isa_id}",
-                        severity=Severity.High,
                         details=f"Search in area {self._isa_area} returned ISAs {isas.isas.keys()}",
                         query_timestamps=[isas.dss_query.query.request.timestamp],
                     )

@@ -1,5 +1,4 @@
 from datetime import timedelta
-from typing import Optional, Dict, List
 
 import arrow
 
@@ -7,41 +6,38 @@ from monitoring.monitorlib.clients.flight_planning.client import (
     FlightPlannerClient,
     PlanningActivityError,
 )
-from monitoring.monitorlib.geotemporal import Volume4DCollection, Volume4D
-from monitoring.monitorlib.temporal import Time, TimeDuringTest
-from monitoring.uss_qualifier.common_data_definitions import Severity
+from monitoring.monitorlib.geotemporal import Volume4D, Volume4DCollection
+from monitoring.monitorlib.temporal import TestTimeContext, Time
 from monitoring.uss_qualifier.configurations.configuration import ParticipantID
 from monitoring.uss_qualifier.resources.flight_planning import (
-    FlightPlannersResource,
     FlightIntentsResource,
+    FlightPlannersResource,
 )
+from monitoring.uss_qualifier.resources.interuss.mock_uss.client import MockUSSResource
 from monitoring.uss_qualifier.scenarios.scenario import TestScenario
-from monitoring.uss_qualifier.resources.interuss.mock_uss.client import (
-    MockUSSResource,
-)
 
 MAX_TEST_DURATION = timedelta(minutes=45)
 """The maximum time the tests depending on the area being clear might last."""
 
 
 class PrepareFlightPlannersScenario(TestScenario):
-    areas: List[Volume4D]
-    flight_planners: Dict[ParticipantID, FlightPlannerClient]
+    areas: list[Volume4D]
+    flight_planners: dict[ParticipantID, FlightPlannerClient]
 
     def __init__(
         self,
         flight_planners: FlightPlannersResource,
         flight_intents: FlightIntentsResource,
-        mock_uss: Optional[MockUSSResource] = None,
-        flight_intents2: Optional[FlightIntentsResource] = None,
-        flight_intents3: Optional[FlightIntentsResource] = None,
-        flight_intents4: Optional[FlightIntentsResource] = None,
+        mock_uss: MockUSSResource | None = None,
+        flight_intents2: FlightIntentsResource | None = None,
+        flight_intents3: FlightIntentsResource | None = None,
+        flight_intents4: FlightIntentsResource | None = None,
     ):
         super().__init__()
         now = Time(arrow.utcnow().datetime)
-        times_now = {t: now for t in TimeDuringTest}
+        times_now = TestTimeContext.all_times_are(now)
         later = now.offset(MAX_TEST_DURATION)
-        times_later = {t: later for t in TimeDuringTest}
+        times_later = TestTimeContext.all_times_are(later)
         self.areas = []
         for intents in (
             flight_intents,
@@ -96,7 +92,6 @@ class PrepareFlightPlannersScenario(TestScenario):
                     check.record_failed(
                         summary=f"Error while determining readiness of {participant_id}",
                         details=str(e),
-                        severity=Severity.Medium,
                         query_timestamps=[q.request.timestamp for q in e.queries],
                     )
                     continue
@@ -107,7 +102,6 @@ class PrepareFlightPlannersScenario(TestScenario):
                     check.record_failed(
                         summary=f"Errors in {participant_id} readiness",
                         details="\n".join("* " + e for e in resp.errors),
-                        severity=Severity.Medium,
                         query_timestamps=[q.request.timestamp for q in resp.queries],
                     )
 
@@ -125,7 +119,6 @@ class PrepareFlightPlannersScenario(TestScenario):
                         check.record_failed(
                             summary=f"Error while instructing {participant_id} to clear area",
                             details=str(e),
-                            severity=Severity.Medium,
                             query_timestamps=[q.request.timestamp for q in e.queries],
                         )
                         continue
@@ -136,7 +129,6 @@ class PrepareFlightPlannersScenario(TestScenario):
                         check.record_failed(
                             summary=f"Errors when {participant_id} was clearing the area",
                             details="\n".join("* " + e for e in resp.errors),
-                            severity=Severity.Medium,
                             query_timestamps=[
                                 q.request.timestamp for q in resp.queries
                             ],

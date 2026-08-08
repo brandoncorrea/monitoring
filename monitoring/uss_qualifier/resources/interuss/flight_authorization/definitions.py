@@ -1,14 +1,14 @@
-from enum import Enum
-from typing import List
+from enum import StrEnum
 
 from implicitdict import ImplicitDict
+
 from monitoring.monitorlib.clients.flight_planning.flight_info import ExecutionStyle
 from monitoring.uss_qualifier.resources.flight_planning.flight_intent import (
     FlightIntentID,
 )
 
 
-class AcceptanceExpectation(str, Enum):
+class AcceptanceExpectation(StrEnum):
     MustBeRejected = "MustBeRejected"
     """When a flight planner service provider is requested to accept the flight described in this step, the service provider must decline to create the flight.  Accepting the flight successfully will cause a failed check."""
 
@@ -19,7 +19,7 @@ class AcceptanceExpectation(str, Enum):
     """The service provider may choose to accept the flight or not.  Presumably this option would be accompanied by a specific conditions_expectation to ensure that conditions were present (or absent) if the flight were accepted."""
 
 
-class ConditionsExpectation(str, Enum):
+class ConditionsExpectation(StrEnum):
     Irrelevant = "Irrelevant"
     """Whether conditions accompanying the flight planning attempt are present is irrelevant to this feature check."""
 
@@ -34,7 +34,7 @@ class FlightCheck(ImplicitDict):
     flight_check_id: str
     """Unique (within table) test step/row identifier."""
 
-    requirement_ids: List[str]
+    requirement_ids: list[str]
     """Jurisdictional identifiers of the requirements this test step is evaluating."""
 
     description: str
@@ -54,4 +54,4 @@ class FlightCheck(ImplicitDict):
 
 
 class FlightCheckTable(ImplicitDict):
-    rows: List[FlightCheck]
+    rows: list[FlightCheck]

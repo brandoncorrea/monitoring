@@ -1,11 +1,10 @@
 import base64
-from typing import Optional, List, Dict
 
 from implicitdict import StringBasedDateTime
 from uas_standards.astm.f3548.v21.api import (
-    OperationalIntentDetails,
     ExchangeRecord,
     ExchangeRecordRecorderRole,
+    OperationalIntentDetails,
     Time,
 )
 from uas_standards.astm.f3548.v21.constants import Scope
@@ -35,7 +34,7 @@ def priority_of(details: OperationalIntentDetails) -> int:
 
 
 def make_exchange_record(query: Query, msg_problem: str) -> ExchangeRecord:
-    def str_headers(headers: Optional[Dict[str, str]]) -> List[str]:
+    def str_headers(headers: dict[str, str] | None) -> list[str]:
         if headers is None:
             return []
         return [f"{h_name}: {h_val}" for h_name, h_val in headers.items()]
@@ -45,9 +44,11 @@ def make_exchange_record(query: Query, msg_problem: str) -> ExchangeRecord:
         method=query.request.method,
         headers=str_headers(query.request.headers)
         + str_headers(query.response.headers),
-        recorder_role=ExchangeRecordRecorderRole.Client
-        if query.request.outgoing
-        else ExchangeRecordRecorderRole.Server,
+        recorder_role=(
+            ExchangeRecordRecorderRole.Client
+            if query.request.outgoing
+            else ExchangeRecordRecorderRole.Server
+        ),
         request_time=Time(value=StringBasedDateTime(query.request.timestamp)),
         response_time=Time(value=StringBasedDateTime(query.response.reported)),
         response_code=query.status_code,

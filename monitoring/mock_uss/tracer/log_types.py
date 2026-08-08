@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 import sys
-from typing import Optional, Type
+from abc import abstractmethod
 
-from implicitdict import ImplicitDict, StringBasedDateTime
-from monitoring.monitorlib.fetch import rid as rid_fetch, RequestDescription, summarize
+from implicitdict import ImplicitDict, Optional, StringBasedDateTime
+
+from monitoring.monitorlib.fetch import RequestDescription, summarize
+from monitoring.monitorlib.fetch import rid as rid_fetch
 from monitoring.monitorlib.fetch import scd as scd_fetch
 from monitoring.monitorlib.fetch.rid import FetchedISAs
 from monitoring.monitorlib.mutate import rid as rid_mutate
@@ -27,7 +28,7 @@ class TracerLogEntry(ImplicitDict):
     def __init__(self, *args, **kwargs):
         kwargs = kwargs.copy()
         kwargs["object_type"] = type(self).__name__
-        super(TracerLogEntry, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     @staticmethod
     @abstractmethod
@@ -42,7 +43,7 @@ class TracerLogEntry(ImplicitDict):
         return self
 
     @staticmethod
-    def entry_type(type_name: Optional[str]) -> Optional[Type]:
+    def entry_type(type_name: str | None) -> type | None:
         matches = [
             cls
             for name, cls in sys.modules[__name__].__dict__.items()
@@ -59,13 +60,13 @@ class TracerLogEntry(ImplicitDict):
         return matches[0]
 
     @staticmethod
-    def entry_type_from_prefix(prefix_code: str) -> Optional[Type[TracerLogEntry]]:
+    def entry_type_from_prefix(prefix_code: str) -> type[TracerLogEntry] | None:
         matches = [
             cls
             for name, cls in sys.modules[__name__].__dict__.items()
             if isinstance(cls, type)
             and issubclass(cls, TracerLogEntry)
-            and not cls is TracerLogEntry
+            and cls is not TracerLogEntry
             and cls.prefix_code() == prefix_code
         ]
         if not matches:

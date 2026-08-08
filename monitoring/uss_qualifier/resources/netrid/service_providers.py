@@ -1,17 +1,19 @@
 import datetime
-from typing import List, Optional
 from urllib.parse import urlparse
 
 from implicitdict import ImplicitDict
+from loguru import logger
+from uas_standards.interuss.automated_testing.rid.v1.injection import (
+    QueryUserNotificationsResponse,
+)
 
 from monitoring.monitorlib import fetch, infrastructure
-from monitoring.monitorlib.rid import RIDVersion
 from monitoring.monitorlib.rid_automated_testing.injection_api import (
-    CreateTestParameters,
     SCOPE_RID_QUALIFIER_INJECT,
+    CreateTestParameters,
 )
-from monitoring.uss_qualifier.resources.resource import Resource
 from monitoring.uss_qualifier.resources.communications import AuthAdapterResource
+from monitoring.uss_qualifier.resources.resource import Resource
 
 
 class ServiceProviderConfiguration(ImplicitDict):
@@ -32,10 +34,10 @@ class ServiceProviderConfiguration(ImplicitDict):
 
 
 class NetRIDServiceProvidersSpecification(ImplicitDict):
-    service_providers: List[ServiceProviderConfiguration]
+    service_providers: list[ServiceProviderConfiguration]
 
 
-class NetRIDServiceProvider(object):
+class NetRIDServiceProvider:
     participant_id: str
     injection_base_url: str
     injection_client: infrastructure.UTMClientSession
@@ -48,7 +50,7 @@ class NetRIDServiceProvider(object):
     ):
         self.participant_id = participant_id
         self.injection_base_url = injection_base_url
-        self.injection_client = infrastructure.UTMClientSession(
+        self.injection_client = infrastructure.utm_client_session_factory.get_session(
             injection_base_url, auth_adapter
         )
 
@@ -73,15 +75,47 @@ class NetRIDServiceProvider(object):
             query_type=fetch.QueryType.InterussRIDAutomatedTestingV1DeleteTest,
         )
 
+    def get_user_notifications(
+        self,
+        after: datetime.datetime,
+        before: datetime.datetime,
+    ) -> tuple[QueryUserNotificationsResponse | None, fetch.Query]:
+        q = fetch.query_and_describe(
+            self.injection_client,
+            "GET",
+            url="/user_notifications",
+            scope=SCOPE_RID_QUALIFIER_INJECT,
+            participant_id=self.participant_id,
+            query_type=fetch.QueryType.InterussRIDAutomatedTestingV1UserNotifications,
+            params={
+                "after": after.isoformat(),
+                "before": before.isoformat(),
+            },
+        )
+
+        if q.error_message:
+            return None, q
+
+        try:
+            return (
+                ImplicitDict.parse(q.response.json, QueryUserNotificationsResponse),
+                q,
+            )
+        except ValueError as e:
+            logger.error("Error parsing user notifications response: {}", e)
+            return None, q
+
 
 class NetRIDServiceProviders(Resource[NetRIDServiceProvidersSpecification]):
-    service_providers: List[NetRIDServiceProvider]
+    service_providers: list[NetRIDServiceProvider]
 
     def __init__(
         self,
         specification: NetRIDServiceProvidersSpecification,
+        resource_origin: str,
         auth_adapter: AuthAdapterResource,
     ):
+        super().__init__(specification, resource_origin)
         auth_adapter.assert_scopes_available(
             scopes_required={
                 SCOPE_RID_QUALIFIER_INJECT: "inject RID test flight data into USSs under test"

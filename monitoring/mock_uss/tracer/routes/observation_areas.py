@@ -1,15 +1,14 @@
 import os
 import uuid
-from datetime import datetime, UTC
-from typing import Tuple, List, Union
+from datetime import UTC, datetime
 
 import arrow
 import flask
 import s2sphere
+from implicitdict import ImplicitDict, StringBasedDateTime
 from loguru import logger
 
-from implicitdict import ImplicitDict, StringBasedDateTime
-from monitoring.mock_uss import webapp
+from monitoring.mock_uss.app import webapp
 from monitoring.mock_uss.tracer import context
 from monitoring.mock_uss.tracer.database import db
 from monitoring.mock_uss.tracer.log_types import (
@@ -17,32 +16,33 @@ from monitoring.mock_uss.tracer.log_types import (
     TracerShutdown,
 )
 from monitoring.mock_uss.tracer.observation_area_operations import (
-    redact_observation_area,
-    delete_observation_area,
     create_observation_area,
+    delete_observation_area,
+    redact_observation_area,
 )
 from monitoring.mock_uss.tracer.observation_areas import (
-    ListObservationAreasResponse,
-    PutObservationAreaRequest,
-    ObservationAreaResponse,
-    ObservationArea,
-    ImportObservationAreasRequest,
     F3411ObservationArea,
+    ImportObservationAreasRequest,
+    ListObservationAreasResponse,
+    ObservationArea,
+    ObservationAreaResponse,
+    PutObservationAreaRequest,
 )
 from monitoring.mock_uss.tracer.tracer_poll import TASK_POLL_OBSERVATION_AREAS
 from monitoring.mock_uss.ui import auth as ui_auth
-from monitoring.monitorlib import fetch
-import monitoring.monitorlib.fetch.rid
+from monitoring.monitorlib.fetch import rid
 from monitoring.monitorlib.geo import Volume3D
 from monitoring.monitorlib.geotemporal import Volume4D
 
 
 @webapp.route("/tracer/observation_areas", methods=["GET"])
-@ui_auth.login_required
+@ui_auth.login_required()
 def tracer_list_observation_areas() -> flask.Response:
-    with db as tx:
+    with db.transact() as tx:
         result = ListObservationAreasResponse(
-            areas=[redact_observation_area(a) for a in tx.observation_areas.values()]
+            areas=[
+                redact_observation_area(a) for a in tx.value.observation_areas.values()
+            ]
         )
     return flask.jsonify(result)
 
@@ -51,38 +51,37 @@ def tracer_list_observation_areas() -> flask.Response:
 @ui_auth.login_required(role="admin")
 def tracer_upsert_observation_area(
     area_id: str,
-) -> Union[Tuple[str, int], flask.Response]:
+) -> tuple[str, int] | flask.Response:
     try:
         req_body = flask.request.json
         if req_body is None:
             raise ValueError("Request did not contain a JSON payload")
-        import json
 
         request: PutObservationAreaRequest = ImplicitDict.parse(
             req_body, PutObservationAreaRequest
         )
     except ValueError as e:
-        msg = "Upsert observation area for tracer unable to parse JSON: {}".format(e)
+        msg = f"Upsert observation area for tracer unable to parse JSON: {e}"
         return msg, 400
 
-    with db as tx:
+    with db.transact() as tx:
         # Determine if this observation area triggers the need to start polling
-        if tx.observation_areas:
-            poll_interval = tx.polling_interval.timedelta
-            for a in tx.observation_areas.values():
+        if tx.value.observation_areas:
+            poll_interval = tx.value.polling_interval.timedelta
+            for a in tx.value.observation_areas.values():
                 if a.polls:
                     poll_interval = None
                     break
         else:
             poll_interval = (
-                tx.polling_interval.timedelta if request.area.polls else None
+                tx.value.polling_interval.timedelta if request.area.polls else None
             )
 
-        if area_id in tx.observation_areas:
+        if area_id in tx.value.observation_areas:
             # Request is to mutate an existing observation area, so we'll first just delete the existing area
-            delete_observation_area(tx.observation_areas[area_id])
+            delete_observation_area(tx.value.observation_areas[area_id])
         created = create_observation_area(area_id, request.area)
-        tx.observation_areas[area_id] = created
+        tx.value.observation_areas[area_id] = created
 
     if poll_interval is not None:
         webapp.set_task_period(TASK_POLL_OBSERVATION_AREAS, poll_interval)
@@ -93,14 +92,14 @@ def tracer_upsert_observation_area(
 @ui_auth.login_required(role="admin")
 def tracer_delete_observation_area(
     area_id: str,
-) -> Union[Tuple[str, int], flask.Response]:
-    with db as tx:
-        if area_id not in tx.observation_areas:
+) -> tuple[str, int] | flask.Response:
+    with db.transact() as tx:
+        if area_id not in tx.value.observation_areas:
             return "Specified observation area not in system", 404
-        area = tx.observation_areas.pop(area_id)
+        area = tx.value.observation_areas.pop(area_id)
         area = delete_observation_area(area)
         remaining_polling_areas = sum(
-            1 if a.polls else 0 for a in tx.observation_areas.values()
+            1 if a.polls else 0 for a in tx.value.observation_areas.values()
         )
 
     if not remaining_polling_areas:
@@ -110,18 +109,17 @@ def tracer_delete_observation_area(
 
 @webapp.route("/tracer/observation_areas/import_requests", methods=["POST"])
 @ui_auth.login_required(role="admin")
-def tracer_import_observation_areas() -> Union[Tuple[str, int], flask.Response]:
+def tracer_import_observation_areas() -> tuple[str, int] | flask.Response:
     try:
         req_body = flask.request.json
         if req_body is None:
             raise ValueError("Request did not contain a JSON payload")
-        import json
 
         request: ImportObservationAreasRequest = ImplicitDict.parse(
             req_body, ImportObservationAreasRequest
         )
     except ValueError as e:
-        msg = "Import observation area for tracer unable to parse JSON: {}".format(e)
+        msg = f"Import observation area for tracer unable to parse JSON: {e}"
         return msg, 400
 
     auth_spec = context.resolve_auth_spec(None)
@@ -135,7 +133,7 @@ def tracer_import_observation_areas() -> Union[Tuple[str, int], flask.Response]:
         elif request.area.volume.outline_polygon:
             points = [
                 s2sphere.LatLng.from_degrees(p.lat, p.lng)
-                for p in request.area.volume.outline_polygon.vertices
+                for p in request.area.volume.outline_polygon.vertices or []
             ]
         else:
             raise NotImplementedError(
@@ -143,7 +141,7 @@ def tracer_import_observation_areas() -> Union[Tuple[str, int], flask.Response]:
             )
         dss_base_url = context.resolve_rid_dss_base_url("", request.f3411)
         rid_client = context.get_client(auth_spec, dss_base_url)
-        rid_subscriptions = fetch.rid.subscriptions(
+        rid_subscriptions = rid.subscriptions(
             area=points,
             rid_version=request.f3411,
             session=rid_client,
@@ -184,11 +182,13 @@ def tracer_import_observation_areas() -> Union[Tuple[str, int], flask.Response]:
             "Import of F3548 subscriptions into observation areas is not yet implemented"
         )
 
-    with db as tx:
+    with db.transact() as tx:
         new_obs_areas = []
 
         f3411_subscription_ids = {
-            a.f3411.subscription_id for a in tx.observation_areas.values() if a.f3411
+            a.f3411.subscription_id
+            for a in tx.value.observation_areas.values()
+            if a.f3411
         }
         new_obs_areas.extend(
             a
@@ -197,7 +197,9 @@ def tracer_import_observation_areas() -> Union[Tuple[str, int], flask.Response]:
         )
 
         f3548_subscription_ids = {
-            a.f3548.subscription_id for a in tx.observation_areas.values() if a.f3548
+            a.f3548.subscription_id
+            for a in tx.value.observation_areas.values()
+            if a.f3548
         }
         new_obs_areas.extend(
             a
@@ -206,7 +208,7 @@ def tracer_import_observation_areas() -> Union[Tuple[str, int], flask.Response]:
         )
 
         for obs_area in new_obs_areas:
-            tx.observation_areas[obs_area.id] = obs_area
+            tx.value.observation_areas[obs_area.id] = obs_area
 
     return flask.jsonify(
         ListObservationAreasResponse(
@@ -221,9 +223,9 @@ def _shutdown():
         f"Cleaning up observation areas from PID {os.getpid()} at {datetime.now(UTC)}..."
     )
 
-    with db as tx:
-        observation_areas: List[ObservationArea] = [v for _, v in tx.observation_areas]
-        tx.observation_areas.clear()
+    with db.transact() as tx:
+        observation_areas = list(tx.value.observation_areas.values())
+        tx.value.observation_areas.clear()
 
     for area in observation_areas:
         delete_observation_area(area)

@@ -1,10 +1,9 @@
 from __future__ import annotations
-from typing import Optional, List
 
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
+
 from monitoring.monitorlib.dicts import JSONAddress
 from monitoring.uss_qualifier.common_data_definitions import Severity
-
 
 # ===== Shared logic =====
 
@@ -54,14 +53,14 @@ class SkippedCheckApplicability(ImplicitDict):
 class AllCriteriaApplicability(ImplicitDict):
     """All criteria must be met for an element to be applicable."""
 
-    criteria: List[ValidationCriterionApplicability]
+    criteria: list[ValidationCriterionApplicability]
     """Criteria that must all be met."""
 
 
 class AnyCriteriaApplicability(ImplicitDict):
     """Any criterion or criteria must be met for an element to be applicable."""
 
-    criteria: List[ValidationCriterionApplicability]
+    criteria: list[ValidationCriterionApplicability]
     """Options for criterion/criteria to meet."""
 
 
@@ -115,14 +114,14 @@ class ElementGroupCondition(ImplicitDict):
 class AllPassConditions(ImplicitDict):
     """All specific conditions must be met."""
 
-    conditions: List[PassCondition]
+    conditions: list[PassCondition]
     """Conditions that all must be met."""
 
 
 class AnyPassCondition(ImplicitDict):
     """Any specific condition must be met."""
 
-    conditions: List[PassCondition]
+    conditions: list[PassCondition]
     """Options for conditions to meet."""
 
 
@@ -161,5 +160,5 @@ class ValidationCriterion(ImplicitDict):
 class ValidationConfiguration(ImplicitDict):
     """Complete set of validation criteria that a test run report must satisfy."""
 
-    criteria: List[ValidationCriterion]
+    criteria: list[ValidationCriterion]
     """Set of criteria which must all pass in order to pass validation."""

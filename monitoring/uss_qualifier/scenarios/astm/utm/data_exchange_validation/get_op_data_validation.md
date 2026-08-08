@@ -30,6 +30,10 @@ DSSInstanceResource that provides access to a DSS instance where flight creation
 
 ### mock_uss plans flight 2 test step
 
+#### [Note mock_uss clock](../../../interuss/mock_uss/get_clock.md)
+
+We need to know mock_uss's clock time to later request observed interactions after the planning time.
+
 #### [Plan successfully](../../../flight_planning/plan_flight_intent.md)
 
 Flight 2 should be successfully planned by mock_uss.
@@ -38,6 +42,10 @@ Flight 2 should be successfully planned by mock_uss.
 
 ### tested_uss plans flight 1 test step
 
+#### [Note mock_uss clock](../../../interuss/mock_uss/get_clock.md)
+
+We need to know mock_uss's clock time to later request observed interactions after the planning time.
+
 #### [Plan successfully](../../../flight_planning/plan_flight_intent.md)
 
 The test driver instructs tested_uss to attempt to plan flight 1. tested_uss checks if any conflicts with flight 2
@@ -45,16 +53,10 @@ which is of equal priority and came first.
 
 #### [Validate operational intent is shared](../validate_shared_operational_intent.md)
 
-### Check for notification to tested_uss due to subscription in flight 2 area test step
-In the following test step, we want to assert that tested_uss must have retrieved operational intent details from
-mock_uss via a GET request.  This assertion is only valid, however, if tested_uss did not obtain the  operational
-intent details in a different way -- specifically, a notification due to a pre-existing subscription.  In this test
-step, we determine if tested_uss had a pre-existing subscription by:
-
-#### [checking if mock_uss sent a notification to tested_uss](test_steps/query_mock_uss_interactions.md)
-
-### [Validate flight2 GET interaction, if no notification test step](test_steps/validate_get_operational_intent.md)
-This step is skipped if a notification to tested_uss was found in the previous step since tested_uss obtained the operational intent details of flight 2 without needing to perform a GET interaction.
+### [Validate that tested_uss obtained flight2 details test step](test_steps/validate_operational_intent_details_obtained.md)
+Validate that tested_uss obtained flight2 details from mock_uss, by means of either
+a notification pushed by mock_uss to tested_uss due to the pre-existing subscription, or
+direct retrieval by tested_uss from mock_uss.
 
 ### [Validate flight1 Notification sent to mock_uss test step](test_steps/validate_notification_operational_intent.md)
 tested_uss notifies mock_uss of flight 1, due to mock_uss's subscription covering flight 2 (which is necessarily relevant to flight 1 per test design).
@@ -73,6 +75,10 @@ In this test case, mock_uss is manipulated to share invalid operational intent d
 
 ### mock_uss plans flight 2, sharing invalid operational intent data test step
 
+#### [Note mock_uss clock](../../../interuss/mock_uss/get_clock.md)
+
+We need to know mock_uss's clock time to later request observed interactions after the planning time.
+
 #### [Plan successfully](../../../flight_planning/plan_flight_intent.md)
 
 Flight 2 should be successfully planned by the mock_uss.
@@ -82,6 +88,10 @@ Flight 2 should be successfully planned by the mock_uss.
 The mock_uss is instructed to share invalid data with other USS, for negative test.
 
 ### tested_uss attempts to plan flight 1, expect failure test step
+
+#### [Note mock_uss clock](../../../interuss/mock_uss/get_clock.md)
+
+We need to know mock_uss's clock time to later request observed interactions after the planning time.
 
 #### [Plan unsuccessfully](test_steps/plan_flight_intent_expect_failed.md)
 
@@ -93,16 +103,10 @@ The planning attempt should fail because tested_uss will be unable to obtain val
 
 Validate flight 1 is not shared with DSS, as plan failed.
 
-### Check for notification to tested_uss due to subscription in flight 2 area test step
-In the following test step, we want to assert that tested_uss must have retrieved operational intent details from
-mock_uss via a GET request.  This assertion is only valid, however, if tested_uss did not obtain the  operational
-intent details in a different way -- specifically, a notification due to a pre-existing subscription.  In this test
-step, we determine if tested_uss had a pre-existing subscription by:
-
-#### [Check if mock_uss sent a notification to tested_uss](test_steps/query_mock_uss_interactions.md)
-
-### [Validate flight2 GET interaction, if no notification test step](test_steps/validate_get_operational_intent.md)
-This step is skipped if a notification to tested_uss was found in the previous step.
+### [Validate that tested_uss obtained flight2 details test step](test_steps/validate_operational_intent_details_obtained.md)
+Validate that tested_uss obtained flight2 details from mock_uss, by means of either
+a notification pushed by mock_uss to tested_uss due to the pre-existing subscription, or
+direct retrieval by tested_uss from mock_uss.
 
 ### [Validate flight 1 Notification not sent to mock_uss test step](test_steps/validate_no_notification_operational_intent.md)
 
@@ -110,6 +114,7 @@ This step is skipped if a notification to tested_uss was found in the previous s
 Teardown
 
 ## Cleanup
-### Successful flight deletion check
+
+### ⚠️ Successful flight deletion check
 This cleanup is for both - after testcase ends and after test scenario ends
 **[interuss.automated_testing.flight_planning.DeleteFlightSuccess](../../../../requirements/interuss/automated_testing/flight_planning.md)**

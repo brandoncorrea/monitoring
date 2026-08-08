@@ -1,18 +1,16 @@
-from typing import List, Optional
-
 from requests.exceptions import RequestException
 from s2sphere import LatLngRect
 
 from monitoring.monitorlib.errors import stacktrace_string
 from monitoring.monitorlib.rid import RIDVersion
-from monitoring.uss_qualifier.common_data_definitions import Severity
 from monitoring.uss_qualifier.resources.astm.f3411.dss import DSSInstancesResource
 from monitoring.uss_qualifier.resources.netrid import (
-    FlightDataResource,
-    NetRIDServiceProviders,
-    NetRIDObserversResource,
     EvaluationConfigurationResource,
+    FlightDataResource,
+    NetRIDObserversResource,
+    NetRIDServiceProviders,
 )
+from monitoring.uss_qualifier.resources.netrid.observers import RIDSystemObserver
 from monitoring.uss_qualifier.scenarios.astm.netrid import (
     display_data_evaluator,
     injection,
@@ -34,24 +32,24 @@ from monitoring.uss_qualifier.suites.suite import ExecutionContext
 class NominalBehavior(GenericTestScenario):
     _flights_data: FlightDataResource
     _service_providers: NetRIDServiceProviders
-    _observers: NetRIDObserversResource
+    _observers: list[RIDSystemObserver]
     _evaluation_configuration: EvaluationConfigurationResource
 
-    _injected_flights: List[InjectedFlight]
-    _injected_tests: List[InjectedTest]
+    _injected_flights: list[InjectedFlight]
+    _injected_tests: list[InjectedTest]
 
     def __init__(
         self,
         flights_data: FlightDataResource,
         service_providers: NetRIDServiceProviders,
-        observers: NetRIDObserversResource,
         evaluation_configuration: EvaluationConfigurationResource,
-        dss_pool: Optional[DSSInstancesResource] = None,
+        observers: NetRIDObserversResource | None = None,
+        dss_pool: DSSInstancesResource | None = None,
     ):
         super().__init__()
         self._flights_data = flights_data
         self._service_providers = service_providers
-        self._observers = observers
+        self._observers = observers.observers if observers else []
         self._evaluation_configuration = evaluation_configuration
         self._dss_pool = dss_pool
         self._injected_tests = []
@@ -87,7 +85,10 @@ class NominalBehavior(GenericTestScenario):
             repeat_query_rect_period=config.repeat_query_rect_period,
             min_query_diagonal_m=config.min_query_diagonal,
             relevant_past_data_period=self._rid_version.realtime_period
-            + config.max_propagation_latency.timedelta,
+            + config.max_propagation_latency.timedelta
+            # add two 'min_polling_interval' to make sure we poll at least once after flights are over
+            + (config.min_polling_interval.timedelta * 2),
+            sleep=self.sleep,
         )
         evaluator = display_data_evaluator.RIDObservationEvaluator(
             self,
@@ -98,7 +99,7 @@ class NominalBehavior(GenericTestScenario):
         )
 
         def poll_fct(rect: LatLngRect) -> bool:
-            evaluator.evaluate_system_instantaneously(self._observers.observers, rect)
+            evaluator.evaluate_system_instantaneously(self._observers, rect)
             return False
 
         virtual_observer.start_polling(
@@ -139,7 +140,6 @@ class NominalBehavior(GenericTestScenario):
                 stacktrace = stacktrace_string(e)
                 check.record_failed(
                     summary="Error while trying to delete test flight",
-                    severity=Severity.Medium,
                     details=f"While trying to delete a test flight from {sp.participant_id}, encountered error:\n{stacktrace}",
                 )
         self.end_cleanup()

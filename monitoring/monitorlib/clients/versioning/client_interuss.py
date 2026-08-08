@@ -1,26 +1,24 @@
-from typing import Optional
-
 from implicitdict import ImplicitDict
-from monitoring.uss_qualifier.configurations.configuration import ParticipantID
 from uas_standards.interuss.automated_testing.versioning import api
 from uas_standards.interuss.automated_testing.versioning.constants import Scope
 
 from monitoring.monitorlib.clients.versioning.client import (
+    GetVersionResponse,
     VersioningClient,
     VersionQueryError,
-    GetVersionResponse,
 )
-from monitoring.monitorlib.fetch import query_and_describe, QueryType
+from monitoring.monitorlib.fetch import QueryType, query_and_describe
 from monitoring.monitorlib.infrastructure import UTMClientSession
+from monitoring.uss_qualifier.configurations.configuration import ParticipantID
 
 
 class InterUSSVersioningClient(VersioningClient):
     def __init__(self, session: UTMClientSession, participant_id: ParticipantID):
-        super(InterUSSVersioningClient, self).__init__(participant_id)
+        super().__init__(participant_id)
         self._session = session
         self._participant_id = participant_id
 
-    def get_version(self, version_type: Optional[str]) -> GetVersionResponse:
+    def get_version(self, version_type: str | None) -> GetVersionResponse:
         op = api.OPERATIONS[api.OperationID.GetVersion]
         kwargs = {
             "client": self._session,
@@ -45,6 +43,17 @@ class InterUSSVersioningClient(VersioningClient):
             raise VersionQueryError(
                 f"Response to get version could not be parsed: {str(e)}", query
             )
+
+        if not resp.has_field_with_value("system_identity"):
+            raise VersionQueryError(
+                "Response to get version didn't return a system identity"
+            )
+
+        if not resp.has_field_with_value("system_version"):
+            raise VersionQueryError(
+                "Response to get version didn't return a system version"
+            )
+
         if resp.system_identity != version_type:
             raise VersionQueryError(
                 f"Response to get version indicated version for system '{resp.system_identity}' when the version for system '{version_type}' was requested"

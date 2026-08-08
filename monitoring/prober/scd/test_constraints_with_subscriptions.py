@@ -1,30 +1,29 @@
 """Basic Constraint-Subscription interaction tests:
 
-  - make sure the Constraint doesn't exist with get or query
-  - create the Constraint with a 60 minute length
-  - get by ID
-  - search with earliest_time and latest_time
-  - mutate
-  - delete
+- make sure the Constraint doesn't exist with get or query
+- create the Constraint with a 60 minute length
+- get by ID
+- search with earliest_time and latest_time
+- mutate
+- delete
 """
 
 import datetime
-from typing import Dict
 
+from monitoring.monitorlib import scd
 from monitoring.monitorlib.geo import Circle
 from monitoring.monitorlib.geotemporal import Volume4D
 from monitoring.monitorlib.infrastructure import default_scope
-from monitoring.monitorlib import scd
-from monitoring.monitorlib.scd import SCOPE_CM, SCOPE_SC, SCOPE_CP
+from monitoring.monitorlib.scd import SCOPE_CM, SCOPE_CP, SCOPE_SC
+from monitoring.monitorlib.testing import make_fake_url
 from monitoring.prober.infrastructure import for_api_versions, register_resource_type
 from monitoring.prober.scd import actions
 
-
-CONSTRAINT_BASE_URL_1 = "https://example.interuss.org/con1/uss"
-CONSTRAINT_BASE_URL_2 = "https://example.interuss.org/con2/uss"
-CONSTRAINT_BASE_URL_3 = "https://example.interuss.org/con3/uss"
-SUB_BASE_URL_A = "https://example.interuss.org/sub1/uss"
-SUB_BASE_URL_B = "https://example.interuss.org/sub2/uss"
+CONSTRAINT_BASE_URL_1 = make_fake_url("con1/uss")
+CONSTRAINT_BASE_URL_2 = make_fake_url("con2/uss")
+CONSTRAINT_BASE_URL_3 = make_fake_url("con3/uss")
+SUB_BASE_URL_A = make_fake_url("sub1/uss")
+SUB_BASE_URL_B = make_fake_url("sub2/uss")
 
 CONSTRAINT_TYPE = register_resource_type(2, "Single constraint")
 SUB1_TYPE = register_resource_type(3, "Constraint subscription 1")
@@ -50,7 +49,7 @@ def _make_c1_request():
     }
 
 
-def _make_sub_req(base_url: str, notify_ops: bool, notify_constraints: bool) -> Dict:
+def _make_sub_req(base_url: str, notify_ops: bool, notify_constraints: bool) -> dict:
     time_start = datetime.datetime.now(datetime.UTC)
     time_end = time_start + datetime.timedelta(minutes=60)
     return {
@@ -67,9 +66,9 @@ def _make_sub_req(base_url: str, notify_ops: bool, notify_constraints: bool) -> 
 
 def _read_both_scope(scd_api: str) -> str:
     if scd_api == scd.API_0_3_17:
-        return "{} {}".format(SCOPE_SC.value, SCOPE_CP.value)
+        return f"{SCOPE_SC.value} {SCOPE_CP.value}"
     else:
-        raise NotImplementedError("Unsupported API version {}".format(scd_api))
+        raise NotImplementedError(f"Unsupported API version {scd_api}")
 
 
 def _read_ops_scope(scd_api: str) -> str:
@@ -83,7 +82,7 @@ def _read_constraints_scope(scd_api: str) -> str:
     if scd_api == scd.API_0_3_17:
         return SCOPE_CP
     else:
-        raise NotImplementedError("Unsupported API version {}".format(scd_api))
+        raise NotImplementedError(f"Unsupported API version {scd_api}")
 
 
 @for_api_versions(scd.API_0_3_17)
@@ -105,11 +104,11 @@ def test_subs_do_not_exist(ids, scd_api, scd_session, scd_session2):
 
     sub_scope = _read_subs_scope(scd_api)
 
-    resp = scd_session.get("/subscriptions/{}".format(ids(SUB1_TYPE)), scope=sub_scope)
+    resp = scd_session.get(f"/subscriptions/{ids(SUB1_TYPE)}", scope=sub_scope)
     assert resp.status_code == 404, resp.content
-    resp = scd_session.get("/subscriptions/{}".format(ids(SUB2_TYPE)), scope=sub_scope)
+    resp = scd_session.get(f"/subscriptions/{ids(SUB2_TYPE)}", scope=sub_scope)
     assert resp.status_code == 404, resp.content
-    resp = scd_session.get("/subscriptions/{}".format(ids(SUB3_TYPE)), scope=sub_scope)
+    resp = scd_session.get(f"/subscriptions/{ids(SUB3_TYPE)}", scope=sub_scope)
     assert resp.status_code == 404, resp.content
 
 
@@ -122,7 +121,7 @@ def test_create_subs(ids, scd_api, scd_session, scd_session2):
 
     req = _make_sub_req(SUB_BASE_URL_A, notify_ops=True, notify_constraints=False)
     resp = scd_session2.put(
-        "/subscriptions/{}".format(ids(SUB1_TYPE)),
+        f"/subscriptions/{ids(SUB1_TYPE)}",
         json=req,
         scope=_read_ops_scope(scd_api),
     )
@@ -130,7 +129,7 @@ def test_create_subs(ids, scd_api, scd_session, scd_session2):
 
     req = _make_sub_req(SUB_BASE_URL_B, notify_ops=False, notify_constraints=True)
     resp = scd_session2.put(
-        "/subscriptions/{}".format(ids(SUB2_TYPE)),
+        f"/subscriptions/{ids(SUB2_TYPE)}",
         json=req,
         scope=_read_constraints_scope(scd_api),
     )
@@ -138,7 +137,7 @@ def test_create_subs(ids, scd_api, scd_session, scd_session2):
 
     req = _make_sub_req(SUB_BASE_URL_B, notify_ops=True, notify_constraints=True)
     resp = scd_session2.put(
-        "/subscriptions/{}".format(ids(SUB3_TYPE)),
+        f"/subscriptions/{ids(SUB3_TYPE)}",
         json=req,
         scope=_read_both_scope(scd_api),
     )
@@ -150,7 +149,7 @@ def test_create_subs(ids, scd_api, scd_session, scd_session2):
 @for_api_versions(scd.API_0_3_17)
 @default_scope(SCOPE_CM)
 def test_constraint_does_not_exist(ids, scd_api, scd_session, scd_session2):
-    resp = scd_session.get("/constraint_references/{}".format(ids(CONSTRAINT_TYPE)))
+    resp = scd_session.get(f"/constraint_references/{ids(CONSTRAINT_TYPE)}")
     assert resp.status_code == 404, resp.content
 
 
@@ -158,11 +157,11 @@ def test_constraint_does_not_exist(ids, scd_api, scd_session, scd_session2):
 # Mutations: Constraint ids(CONSTRAINT_ID) created by scd_session user
 @for_api_versions(scd.API_0_3_17)
 @default_scope(SCOPE_CM)
-def test_create_constraint(ids, scd_api, scd_session, scd_session2):
+def test_create_constraint(
+    ids, scd_api, scd_session, scd_session2, time_based_notification_index
+):
     req = _make_c1_request()
-    resp = scd_session.put(
-        "/constraint_references/{}".format(ids(CONSTRAINT_TYPE)), json=req
-    )
+    resp = scd_session.put(f"/constraint_references/{ids(CONSTRAINT_TYPE)}", json=req)
     assert resp.status_code == 201, resp.content
 
     data = resp.json()
@@ -188,13 +187,15 @@ def test_create_constraint(ids, scd_api, scd_session, scd_session2):
         for subscription in subscriberb["subscriptions"]
         if subscription["subscription_id"] == ids(SUB2_TYPE)
     ][0]
-    assert sub2_index == 1, subscriberb
+    if not time_based_notification_index:
+        assert sub2_index == 1, subscriberb
     sub3_index = [
         subscription["notification_index"]
         for subscription in subscriberb["subscriptions"]
         if subscription["subscription_id"] == ids(SUB3_TYPE)
     ][0]
-    assert sub3_index == 1, subscriberb
+    if not time_based_notification_index:
+        assert sub3_index == 1, subscriberb
 
 
 # Preconditions:
@@ -203,10 +204,12 @@ def test_create_constraint(ids, scd_api, scd_session, scd_session2):
 #   * Constraint ids(CONSTRAINT_ID) created by scd_session user
 # Mutations: Constraint ids(CONSTRAINT_ID) mutated to second version
 @for_api_versions(scd.API_0_3_17)
-def test_mutate_constraint(ids, scd_api, scd_session, scd_session2):
+def test_mutate_constraint(
+    ids, scd_api, scd_session, scd_session2, time_based_notification_index
+):
     # GET current constraint
     resp = scd_session.get(
-        "/constraint_references/{}".format(ids(CONSTRAINT_TYPE)),
+        f"/constraint_references/{ids(CONSTRAINT_TYPE)}",
         scope=_read_constraints_scope(scd_api),
     )
     assert resp.status_code == 200, resp.content
@@ -230,7 +233,7 @@ def test_mutate_constraint(ids, scd_api, scd_session, scd_session2):
             scope=SCOPE_CM,
         )
     else:
-        raise NotImplementedError("Unsupported API version {}".format(scd_api))
+        raise NotImplementedError(f"Unsupported API version {scd_api}")
     assert resp.status_code == 200, resp.content
 
     data = resp.json()
@@ -256,13 +259,15 @@ def test_mutate_constraint(ids, scd_api, scd_session, scd_session2):
         for subscription in subscriberb["subscriptions"]
         if subscription["subscription_id"] == ids(SUB2_TYPE)
     ][0]
-    assert sub2_index == 2, subscriberb
+    if not time_based_notification_index:
+        assert sub2_index == 2, subscriberb
     sub3_index = [
         subscription["notification_index"]
         for subscription in subscriberb["subscriptions"]
         if subscription["subscription_id"] == ids(SUB3_TYPE)
     ][0]
-    assert sub3_index == 2, subscriberb
+    if not time_based_notification_index:
+        assert sub3_index == 2, subscriberb
 
 
 # Preconditions: {Sub1, Sub2, Sub3} created by scd_session2 user
@@ -271,7 +276,7 @@ def test_mutate_constraint(ids, scd_api, scd_session, scd_session2):
 def test_mutate_subs(ids, scd_api, scd_session2, scd_session):
     # GET current sub1 before mutation
     resp = scd_session2.get(
-        "/subscriptions/{}".format(ids(SUB1_TYPE)), scope=_read_subs_scope(scd_api)
+        f"/subscriptions/{ids(SUB1_TYPE)}", scope=_read_subs_scope(scd_api)
     )
     assert resp.status_code == 200, resp.content
     existing_sub = resp.json().get("subscription", None)
@@ -287,7 +292,7 @@ def test_mutate_subs(ids, scd_api, scd_session2, scd_session):
         )
         key = "constraint_references"
     else:
-        raise NotImplementedError("Unsupported API version {}".format(scd_api))
+        raise NotImplementedError(f"Unsupported API version {scd_api}")
     assert resp.status_code == 200, resp.content
 
     data = resp.json()
@@ -297,7 +302,7 @@ def test_mutate_subs(ids, scd_api, scd_session2, scd_session):
 
     # GET current sub3 before mutation
     resp = scd_session2.get(
-        "/subscriptions/{}".format(ids(SUB3_TYPE)), scope=_read_subs_scope(scd_api)
+        f"/subscriptions/{ids(SUB3_TYPE)}", scope=_read_subs_scope(scd_api)
     )
     assert resp.status_code == 200, resp.content
     existing_sub = resp.json().get("subscription", None)
@@ -313,14 +318,14 @@ def test_mutate_subs(ids, scd_api, scd_session2, scd_session):
             scope=_read_both_scope(scd_api),
         )
     else:
-        raise NotImplementedError("Unsupported API version {}".format(scd_api))
+        raise NotImplementedError(f"Unsupported API version {scd_api}")
     assert resp.status_code == 200, resp.content
 
     data = resp.json()
     if scd_api == scd.API_0_3_17:
         assert not data.get("constraint_references", []), data
     else:
-        raise NotImplementedError("Unsupported API version {}".format(scd_api))
+        raise NotImplementedError(f"Unsupported API version {scd_api}")
 
 
 # Preconditions:
@@ -331,9 +336,11 @@ def test_mutate_subs(ids, scd_api, scd_session2, scd_session):
 # Mutations: Constraint ids(CONSTRAINT_ID) mutated to third version
 @for_api_versions(scd.API_0_3_17)
 @default_scope(SCOPE_CM)
-def test_mutate_constraint2(ids, scd_api, scd_session, scd_session2):
+def test_mutate_constraint2(
+    ids, scd_api, scd_session, scd_session2, time_based_notification_index
+):
     # GET current constraint
-    resp = scd_session.get("/constraint_references/{}".format(ids(CONSTRAINT_TYPE)))
+    resp = scd_session.get(f"/constraint_references/{ids(CONSTRAINT_TYPE)}")
     assert resp.status_code == 200, resp.content
     existing_constraint = resp.json().get("constraint_reference", None)
     assert existing_constraint is not None
@@ -355,7 +362,7 @@ def test_mutate_constraint2(ids, scd_api, scd_session, scd_session2):
             scope=SCOPE_CM,
         )
     else:
-        raise NotImplementedError("Unsupported API version {}".format(scd_api))
+        raise NotImplementedError(f"Unsupported API version {scd_api}")
     assert resp.status_code == 200, resp.content
 
     data = resp.json()
@@ -379,7 +386,8 @@ def test_mutate_constraint2(ids, scd_api, scd_session, scd_session2):
         for subscription in subscribera["subscriptions"]
         if subscription["subscription_id"] == ids(SUB1_TYPE)
     ][0]
-    assert sub1_index == 1, subscribera
+    if not time_based_notification_index:
+        assert sub1_index == 1, subscribera
 
     subscriberb = [
         subscriber
@@ -399,7 +407,8 @@ def test_mutate_constraint2(ids, scd_api, scd_session, scd_session2):
         for subscription in subscriberb["subscriptions"]
         if subscription["subscription_id"] == ids(SUB2_TYPE)
     ][0]
-    assert sub2_index == 3, subscriberb
+    if not time_based_notification_index:
+        assert sub2_index == 3, subscriberb
 
 
 # Preconditions: Constraint ids(CONSTRAINT_ID) mutated to second version
@@ -408,7 +417,7 @@ def test_mutate_constraint2(ids, scd_api, scd_session, scd_session2):
 @default_scope(SCOPE_CM)
 def test_delete_constraint(ids, scd_api, scd_session, scd_session2):
     if scd_api == scd.API_0_3_17:
-        resp = scd_session.get("/constraint_references/{}".format(ids(CONSTRAINT_TYPE)))
+        resp = scd_session.get(f"/constraint_references/{ids(CONSTRAINT_TYPE)}")
         assert resp.status_code == 200, resp.content
         existing_constraint = resp.json().get("constraint_reference", None)
         resp = scd_session.delete(
@@ -417,7 +426,7 @@ def test_delete_constraint(ids, scd_api, scd_session, scd_session2):
             )
         )
     else:
-        raise NotImplementedError("Unsupported API version {}".format(scd_api))
+        raise NotImplementedError(f"Unsupported API version {scd_api}")
     assert resp.status_code == 200, resp.content
 
 
@@ -430,7 +439,7 @@ def test_delete_subs(ids, scd_api, scd_session2, scd_session):
     for sub_id in (ids(SUB1_TYPE), ids(SUB2_TYPE), ids(SUB3_TYPE)):
         if scd_api == scd.API_0_3_17:
             resp = scd_session2.get(
-                "/subscriptions/{}".format(sub_id), scope=_read_both_scope(scd_api)
+                f"/subscriptions/{sub_id}", scope=_read_both_scope(scd_api)
             )
             assert resp.status_code == 200, resp.content
             sub = resp.json().get("subscription", None)
@@ -439,7 +448,7 @@ def test_delete_subs(ids, scd_api, scd_session2, scd_session):
                 scope=_read_both_scope(scd_api),
             )
         else:
-            raise NotImplementedError("Unsupported API version {}".format(scd_api))
+            raise NotImplementedError(f"Unsupported API version {scd_api}")
         assert resp.status_code == 200, resp.content
 
 

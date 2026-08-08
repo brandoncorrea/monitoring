@@ -1,4 +1,5 @@
-from typing import Callable
+from collections.abc import Callable
+
 from monitoring.uss_qualifier.scenarios.definitions import TestScenarioDeclaration
 from monitoring.uss_qualifier.scenarios.scenario import GenericTestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
@@ -12,6 +13,7 @@ class UnitTestScenario(GenericTestScenario):
             scenario_type="scenarios.interuss.unit_test.UnitTestScenario",
         )
         super().__init__()
+        self.resource_origins = {}
 
     def run(self, context: ExecutionContext):
         self.begin_test_scenario(context)
@@ -23,7 +25,7 @@ class UnitTestScenario(GenericTestScenario):
         self.end_test_scenario()
 
     def execute_unit_test(self):
-        context = ExecutionContext(None)
+        context = ExecutionContext(None, [])
         self.run(context)
         self.cleanup()
         return self

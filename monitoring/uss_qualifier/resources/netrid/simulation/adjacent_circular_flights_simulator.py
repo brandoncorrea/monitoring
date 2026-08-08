@@ -1,38 +1,24 @@
 import random
 from datetime import timedelta
-from typing import List
 
 import arrow
-from pyproj import Geod, Transformer, Proj
 import shapely.geometry
-from shapely.geometry import Point, Polygon
-
 from implicitdict import ImplicitDict
+from pyproj import Geod, Proj, Transformer
+from shapely.geometry import Point, Polygon
+from uas_standards.interuss.automated_testing.rid.v1 import injection
+
 from monitoring.uss_qualifier.resources.netrid.flight_data import (
-    FullFlightRecord,
-    FlightRecordCollection,
     AdjacentCircularFlightsSimulatorConfiguration,
+    FlightRecordCollection,
+    FullFlightRecord,
 )
-from monitoring.uss_qualifier.resources.netrid.simulation import (
-    operator_flight_details,
-)
-from uas_standards.astm.f3411.v19.api import (
-    HorizontalAccuracy,
-    VerticalAccuracy,
-    RIDAircraftPosition,
-    RIDAircraftState,
-    RIDHeight,
-    RIDFlightDetails,
-)
-from .utils import (
-    QueryBoundingBox,
-    FlightPoint,
-    GridCellFlight,
-)
+from monitoring.uss_qualifier.resources.netrid.simulation import operator_flight_details
+
+from .utils import FlightPoint, GridCellFlight, QueryBoundingBox
 
 
 class AdjacentCircularFlightsSimulator:
-
     """A class to generate Flight Paths given a bounding box, this is the main module to generate flight path datasets, the data is generated as latitude / longitude pairs with assoiated with the flights. Additional flight metadata e.g. flight id, altitude, registration number can also be generated"""
 
     def __init__(self, config: AdjacentCircularFlightsSimulatorConfiguration) -> None:
@@ -54,16 +40,22 @@ class AdjacentCircularFlightsSimulator:
         self.maxx = config.maxx
         self.maxy = config.maxy
         self.utm_zone = config.utm_zone
+        if config.num_flights < 1:
+            raise ValueError("num_flights must be at least 1")
+        if config.duration < 1:
+            raise ValueError("duration must be at least 1 second")
+        self.num_flights = config.num_flights
+        self.duration = config.duration
 
         self.altitude_agl = 50.0
 
-        self.grid_cells_flight_tracks: List[GridCellFlight] = []
+        self.grid_cells_flight_tracks: list[GridCellFlight] = []
 
         # This object holds the name and the polygon object of the query boxes. The number of bboxes are controlled by the `box_diagonals` variable
-        self.query_bboxes: List[QueryBoundingBox] = []
+        self.query_bboxes: list[QueryBoundingBox] = []
 
-        self.flights: List[FullFlightRecord] = []
-        self.bbox_center: List[shapely.geometry.Point] = []
+        self.flights: list[FullFlightRecord] = []
+        self.bbox_center: list[shapely.geometry.Point] = []
 
         self.geod = Geod(ellps="WGS84")
 
@@ -149,8 +141,8 @@ class AdjacentCircularFlightsSimulator:
             )
 
     def generate_flight_speed_bearing(
-        self, adjacent_points: List, delta_time_secs: int
-    ) -> List[float]:
+        self, adjacent_points: list, delta_time_secs: int
+    ) -> list[float]:
         """A method to generate flight speed, assume that the flight has to traverse two adjecent points in x number of seconds provided, calculating speed in meters / second. It also generates bearing between this and next point, this is used to populate the 'track' paramater in the Aircraft State JSON."""
 
         first_point = adjacent_points[0]
@@ -161,7 +153,7 @@ class AdjacentCircularFlightsSimulator:
         )
 
         speed_mts_per_sec = adjacent_point_distance_mts / delta_time_secs
-        speed_mts_per_sec = float("{:.2f}".format(speed_mts_per_sec))
+        speed_mts_per_sec = float(f"{speed_mts_per_sec:.2f}")
 
         if fwd_azimuth < 0:
             fwd_azimuth = 360 + fwd_azimuth
@@ -186,9 +178,7 @@ class AdjacentCircularFlightsSimulator:
         elif point_or_polygon == "Point":
             new_coordinates = proj(*coordinates, inverse=inverse)
         else:
-            raise RuntimeError(
-                "Unexpected geo_interface type: {}".format(point_or_polygon)
-            )
+            raise RuntimeError(f"Unexpected geo_interface type: {point_or_polygon}")
 
         return shapely.geometry.shape(
             {"type": point_or_polygon, "coordinates": tuple(new_coordinates)}
@@ -198,15 +188,18 @@ class AdjacentCircularFlightsSimulator:
         self, altitude_of_ground_level_wgs_84: float
     ):
         """Generate a series of boxes (grid) within the given bounding box to have areas for different flight tracks within each box"""
-        # Compute the box where the flights will be created. For a the sample bounds given, over Bern, Switzerland, a division by 2 produces a cell_size of 0.0025212764739985793, a division of 3 is 0.0016808509826657196 and division by 4 0.0012606382369992897. As the cell size goes smaller more number of flights can be accomodated within the grid. For the study area bounds we build a 3x2 box for six flights by creating 3 column 2 row grid.
-        N_COLS = 3
-        N_ROWS = 2
-        cell_size_x = (self.maxx - self.minx) / (N_COLS)  # create three columns
-        cell_size_y = (self.maxy - self.miny) / (N_ROWS)  # create two rows
+        # Arrange cells into a compact grid. The default 6 flights preserves the
+        # previous 3-column by 2-row layout.
+        n_rows = round(self.num_flights**0.5)
+        n_cols = -(-self.num_flights // n_rows)
+        cell_size_x = (self.maxx - self.minx) / n_cols
+        cell_size_y = (self.maxy - self.miny) / n_rows
         grid_cells = []
-        for u0 in range(0, N_COLS):  # 3 columns
+        for u0 in range(0, n_cols):
             x0 = self.minx + (u0 * cell_size_x)
-            for v0 in range(0, N_ROWS):  # 2 rows
+            for v0 in range(0, n_rows):
+                if len(grid_cells) >= self.num_flights:
+                    break
                 y0 = self.miny + (v0 * cell_size_y)
                 x1 = x0 + cell_size_x
                 y1 = y0 + cell_size_y
@@ -254,7 +247,7 @@ class AdjacentCircularFlightsSimulator:
 
         self.grid_cells_flight_tracks = all_grid_cell_tracks
 
-    def generate_flight_details(self, id: str) -> RIDFlightDetails:
+    def generate_flight_details(self, id: str) -> injection.RIDFlightDetails:
         """This class generates details of flights and operator details for a flight, this data is required for identifying flight, operator and operation"""
 
         my_flight_details_generator = (
@@ -262,7 +255,7 @@ class AdjacentCircularFlightsSimulator:
         )
 
         # TODO: Put operator_location in center of circle rather than stacking operators of all flights on top of each other
-        return RIDFlightDetails(
+        return injection.RIDFlightDetails(
             id=id,
             serial_number=my_flight_details_generator.generate_serial_number(),
             operation_description=my_flight_details_generator.generate_operation_description(),
@@ -280,7 +273,7 @@ class AdjacentCircularFlightsSimulator:
 
 
         """
-        all_flight_telemetry: List[List[RIDAircraftState]] = []
+        all_flight_telemetry: list[list[injection.RIDAircraftState]] = []
         flight_track_details = {}  # Develop a index of flight length and their index
         # Store where on the track the current index is, since the tracks are circular, once the end of the track is reached, the index is reset to 0 to indicate beginning of the track again.
         flight_current_index = {}
@@ -320,19 +313,19 @@ class AdjacentCircularFlightsSimulator:
                     flight_point = self.grid_cells_flight_tracks[k].track[
                         flight_current_index[k]
                     ]
-                    aircraft_position = RIDAircraftPosition(
+                    aircraft_position = injection.RIDAircraftPosition(
                         lat=flight_point.lat,
                         lng=flight_point.lng,
                         alt=flight_point.alt,
-                        accuracy_h=HorizontalAccuracy.HAUnknown,
-                        accuracy_v=VerticalAccuracy.VAUnknown,
+                        accuracy_h=injection.HorizontalAccuracy.HAUnknown,
+                        accuracy_v=injection.VerticalAccuracy.VAUnknown,
                         extrapolated=False,
                     )
-                    aircraft_height = RIDHeight(
+                    aircraft_height = injection.RIDHeight(
                         distance=self.altitude_agl, reference="TakeoffLocation"
                     )
 
-                    rid_aircraft_state = RIDAircraftState(
+                    rid_aircraft_state = injection.RIDAircraftState(
                         timestamp=timestamp_isoformat,
                         operational_status="Airborne",
                         position=aircraft_position,
@@ -372,7 +365,7 @@ def generate_aircraft_states(
     )
     my_path_generator.generate_query_bboxes()
 
-    my_path_generator.generate_rid_state(duration=30)
+    my_path_generator.generate_rid_state(duration=my_path_generator.duration)
     flights = my_path_generator.flights
 
     result = FlightRecordCollection(flights=flights)

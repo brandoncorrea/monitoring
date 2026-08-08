@@ -1,8 +1,6 @@
-from typing import List, Optional, Tuple
-
-from loguru import logger
 import s2sphere
 from implicitdict import ImplicitDict
+from loguru import logger
 from uas_standards.interuss.automated_testing.rid.v1 import (
     observation as observation_api,
 )
@@ -10,13 +8,11 @@ from uas_standards.interuss.automated_testing.rid.v1.constants import Scope
 
 from monitoring.monitorlib import fetch, infrastructure
 from monitoring.monitorlib.fetch import QueryType
-from monitoring.monitorlib.infrastructure import UTMClientSession
-from monitoring.monitorlib.rid import RIDVersion
-from monitoring.uss_qualifier.resources.resource import Resource
 from monitoring.uss_qualifier.resources.communications import AuthAdapterResource
+from monitoring.uss_qualifier.resources.resource import Resource
 
 
-class RIDSystemObserver(object):
+class RIDSystemObserver:
     participant_id: str
     base_url: str
     session: infrastructure.UTMClientSession
@@ -27,19 +23,16 @@ class RIDSystemObserver(object):
         base_url: str,
         auth_adapter: infrastructure.AuthAdapter,
     ):
-        self.session = UTMClientSession(base_url, auth_adapter)
+        self.session = infrastructure.utm_client_session_factory.get_session(
+            base_url, auth_adapter
+        )
         self.participant_id = participant_id
         self.base_url = base_url
 
     def observe_system(
         self, rect: s2sphere.LatLngRect
-    ) -> Tuple[Optional[observation_api.GetDisplayDataResponse], fetch.Query]:
-        url = "/display_data?view={},{},{},{}".format(
-            rect.lo().lat().degrees,
-            rect.lo().lng().degrees,
-            rect.hi().lat().degrees,
-            rect.hi().lng().degrees,
-        )
+    ) -> tuple[observation_api.GetDisplayDataResponse | None, fetch.Query]:
+        url = f"/display_data?view={rect.lo().lat().degrees},{rect.lo().lng().degrees},{rect.hi().lat().degrees},{rect.hi().lng().degrees}"
         query = fetch.query_and_describe(
             self.session,
             "GET",
@@ -63,7 +56,7 @@ class RIDSystemObserver(object):
 
     def observe_flight_details(
         self, flight_id: str
-    ) -> Tuple[Optional[observation_api.GetDetailsResponse], fetch.Query]:
+    ) -> tuple[observation_api.GetDetailsResponse | None, fetch.Query]:
         query = fetch.query_and_describe(
             self.session,
             "GET",
@@ -97,17 +90,19 @@ class ObserverConfiguration(ImplicitDict):
 
 
 class NetRIDObserversSpecification(ImplicitDict):
-    observers: List[ObserverConfiguration]
+    observers: list[ObserverConfiguration]
 
 
 class NetRIDObserversResource(Resource[NetRIDObserversSpecification]):
-    observers: List[RIDSystemObserver]
+    observers: list[RIDSystemObserver]
 
     def __init__(
         self,
         specification: NetRIDObserversSpecification,
+        resource_origin: str,
         auth_adapter: AuthAdapterResource,
     ):
+        super().__init__(specification, resource_origin)
         auth_adapter.assert_scopes_available(
             scopes_required={
                 Scope.Observe: "observe RID flights visible to user from USSs under test"

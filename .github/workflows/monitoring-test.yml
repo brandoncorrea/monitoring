@@ -16,6 +16,8 @@ jobs:
   monitoring-test:
     runs-on: ubuntu-latest
     name: ${{ inputs.name }} test
+    permissions:
+      contents: read
     steps:
     - name: Job information
       run: |
@@ -25,15 +27,19 @@ jobs:
         echo "Repository: ${{ github.repository }}"
         echo "Branch: ${{ github.ref }}"
         docker images
+        docker version
+        docker compose version
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         submodules: true
+    - name: Load monitoring image
+      uses: ./.github/actions/load-image
     - name: Run ${{ inputs.name }} test
       run: ${{ inputs.script }}
     - name: Save containers and tracer logs as artifact
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: monitoring-test-${{ inputs.name }}-logs
         path: |
@@ -41,7 +47,7 @@ jobs:
           monitoring/mock_uss/output
     - name: Save USS qualifier reports as artifact
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: monitoring-test-${{ inputs.name }}-reports
         path: |

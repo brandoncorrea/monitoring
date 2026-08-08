@@ -1,11 +1,13 @@
 from __future__ import annotations
+
 import glob
 import inspect
 import os
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Iterator, Optional, List, Union, Dict
 
 from implicitdict import ImplicitDict
+
 from monitoring.uss_qualifier.action_generators.action_generator import (
     action_generator_type_from_name,
 )
@@ -13,24 +15,22 @@ from monitoring.uss_qualifier.action_generators.definitions import (
     ActionGeneratorDefinition,
 )
 from monitoring.uss_qualifier.action_generators.documentation.definitions import (
-    PotentialGeneratedAction,
     PotentialActionGeneratorAction,
+    PotentialGeneratedAction,
 )
 from monitoring.uss_qualifier.action_generators.documentation.documentation import (
     list_potential_actions_for_action_generator_definition,
 )
-
 from monitoring.uss_qualifier.fileio import (
-    load_dict_with_references,
     get_package_name,
+    load_dict_with_references,
     resolve_filename,
-    FileReference,
 )
 from monitoring.uss_qualifier.requirements.definitions import RequirementID
 from monitoring.uss_qualifier.scenarios.definitions import TestScenarioTypeName
 from monitoring.uss_qualifier.scenarios.documentation.definitions import (
-    TestScenarioDocumentation,
     TestCheckDocumentation,
+    TestScenarioDocumentation,
 )
 from monitoring.uss_qualifier.scenarios.documentation.parsing import (
     get_documentation,
@@ -39,43 +39,40 @@ from monitoring.uss_qualifier.scenarios.documentation.parsing import (
 from monitoring.uss_qualifier.scenarios.scenario import get_scenario_type_by_name
 from monitoring.uss_qualifier.suites import suite as suite_module
 from monitoring.uss_qualifier.suites.definitions import (
-    TestSuiteDefinition,
-    ActionType,
     TestSuiteActionDeclaration,
+    TestSuiteDefinition,
     TestSuiteTypeName,
 )
 
 
 @dataclass
-class TestSuiteRenderContext(object):
+class TestSuiteRenderContext:
     parent_yaml_file: str
     parent_doc_file: str
     base_path: str
     list_index: int
     indent: int
-    test_suites: Dict[str, str]
+    test_suites: dict[str, str]
 
 
-def find_test_suites(start_path: Optional[str] = None) -> Iterator[str]:
+def find_test_suites(start_path: str | None = None) -> Iterator[str]:
     if start_path is None:
         start_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    for yaml in glob.glob(os.path.join(start_path, "*.yaml")):
-        yield yaml
+    yield from glob.glob(os.path.join(start_path, "*.yaml"))
     for subfolder in os.listdir(start_path):
         full_path = os.path.join(start_path, subfolder)
         if not os.path.isdir(full_path):
             continue
-        for suite in find_test_suites(full_path):
-            yield suite
+        yield from find_test_suites(full_path)
 
 
 def make_test_suite_documentation(
     suite_def: TestSuiteDefinition,
     suite_yaml_file: str,
     suite_doc_file: str,
-    parent_suite_doc: Optional[str] = None,
-) -> Dict[str, str]:
-    test_suites: Dict[str, str] = {}
+    parent_suite_doc: str | None = None,
+) -> dict[str, str]:
+    test_suites: dict[str, str] = {}
 
     lines = []
     lines.append(
@@ -140,8 +137,8 @@ def make_test_suite_documentation(
         )
         lines.append("  </tr>")
 
-        req_ids_by_package: Dict[str, List[RequirementID]] = {}
-        for req_id, req in reqs.items():
+        req_ids_by_package: dict[str, list[RequirementID]] = {}
+        for req_id in reqs.keys():
             package = req_ids_by_package.get(req_id.package(), [])
             if req_id not in package:
                 package.append(req_id)
@@ -199,7 +196,7 @@ def make_test_suite_documentation(
 
 def _render_scenario(
     scenario_type_name: TestScenarioTypeName, context: TestSuiteRenderContext
-) -> List[str]:
+) -> list[str]:
     lines = []
     scenario_type = get_scenario_type_by_name(scenario_type_name)
     py_rel_path = os.path.relpath(inspect.getfile(scenario_type), context.base_path)
@@ -213,7 +210,7 @@ def _render_scenario(
 
 def _render_suite_by_type(
     suite_type: TestSuiteTypeName, context: TestSuiteRenderContext
-) -> List[str]:
+) -> list[str]:
     lines = []
     suite_def = ImplicitDict.parse(
         load_dict_with_references(suite_type),
@@ -231,7 +228,7 @@ def _render_suite_by_type(
 
 def _render_suite_by_definition(
     suite_def: TestSuiteDefinition, context: TestSuiteRenderContext
-) -> List[str]:
+) -> list[str]:
     doc_path = (
         os.path.splitext(context.parent_doc_file)[0] + f"_suite{context.list_index}.md"
     )
@@ -250,9 +247,9 @@ def _render_suite_by_definition(
 
 
 def _render_action_generator(
-    generator_def: Union[ActionGeneratorDefinition, PotentialActionGeneratorAction],
+    generator_def: ActionGeneratorDefinition | PotentialActionGeneratorAction,
     context: TestSuiteRenderContext,
-) -> List[str]:
+) -> list[str]:
     lines = []
     action_generator_type = action_generator_type_from_name(
         generator_def.generator_type
@@ -284,13 +281,12 @@ def _render_action_generator(
 
 
 def _render_action(
-    action: Union[TestSuiteActionDeclaration, PotentialGeneratedAction],
+    action: TestSuiteActionDeclaration | PotentialGeneratedAction,
     context: TestSuiteRenderContext,
-) -> List[str]:
-    action_type = action.get_action_type()
-    if action_type == ActionType.TestScenario:
+) -> list[str]:
+    if "test_scenario" in action and action.test_scenario:
         return _render_scenario(action.test_scenario.scenario_type, context)
-    elif action_type == ActionType.TestSuite:
+    elif "test_suite" in action and action.test_suite:
         if "suite_type" in action.test_suite and action.test_suite.suite_type:
             return _render_suite_by_type(action.test_suite.suite_type, context)
         elif (
@@ -304,21 +300,21 @@ def _render_action(
             raise ValueError(
                 f"Test suite action {context.list_index} missing suite type or definition"
             )
-    elif action_type == ActionType.ActionGenerator:
+    elif "action_generator" in action and action.action_generator:
         return _render_action_generator(action.action_generator, context)
     else:
-        raise NotImplementedError(f"Unsupported test suite action type: {action_type}")
+        raise action.invalid_type_error
 
 
 @dataclass
-class SuiteLocation(object):
+class SuiteLocation:
     scenario: TestScenarioDocumentation
     check: TestCheckDocumentation
 
 
 @dataclass
-class RequirementInSuite(object):
-    checked_in: List[SuiteLocation]
+class RequirementInSuite:
+    checked_in: list[SuiteLocation]
 
     def extend(self, other: RequirementInSuite):
         self.checked_in.extend(other.checked_in)
@@ -326,10 +322,10 @@ class RequirementInSuite(object):
 
 def _collect_requirements_from_suite_def(
     suite_def: TestSuiteDefinition,
-) -> Dict[RequirementID, RequirementInSuite]:
-    reqs: Dict[RequirementID, RequirementInSuite] = {}
+) -> dict[RequirementID, RequirementInSuite]:
+    reqs: dict[RequirementID, RequirementInSuite] = {}
 
-    def combine(new_reqs: Dict[RequirementID, RequirementInSuite]) -> None:
+    def combine(new_reqs: dict[RequirementID, RequirementInSuite]) -> None:
         for req_id, req in new_reqs.items():
             if req_id not in reqs:
                 reqs[req_id] = req
@@ -342,12 +338,11 @@ def _collect_requirements_from_suite_def(
 
 
 def _collect_requirements_from_action(
-    action: Union[TestSuiteActionDeclaration, PotentialGeneratedAction]
-) -> Dict[RequirementID, RequirementInSuite]:
-    action_type = action.get_action_type()
-    if action_type == ActionType.TestScenario:
+    action: TestSuiteActionDeclaration | PotentialGeneratedAction,
+) -> dict[RequirementID, RequirementInSuite]:
+    if "test_scenario" in action and action.test_scenario:
         return _collect_requirements_from_scenario(action.test_scenario.scenario_type)
-    elif action_type == ActionType.TestSuite:
+    elif "test_suite" in action and action.test_suite:
         if "suite_type" in action.test_suite and action.test_suite.suite_type:
             suite_def = ImplicitDict.parse(
                 load_dict_with_references(action.test_suite.suite_type),
@@ -365,19 +360,17 @@ def _collect_requirements_from_action(
             raise ValueError(
                 "Neither suite_type nor suite_definition specified in test_suite action"
             )
-    elif action_type == ActionType.ActionGenerator:
+    elif "action_generator" in action and action.action_generator:
         return _collect_requirements_from_action_generator(action.action_generator)
     else:
-        raise NotImplementedError(
-            f"Test suite action type {action_type} not yet supported"
-        )
+        raise action.invalid_type_error
 
 
 def _collect_requirements_from_scenario(
     scenario_type: TestScenarioTypeName,
-) -> Dict[RequirementID, RequirementInSuite]:
+) -> dict[RequirementID, RequirementInSuite]:
     docs = get_documentation_by_name(scenario_type)
-    reqs: Dict[RequirementID, RequirementInSuite] = {}
+    reqs: dict[RequirementID, RequirementInSuite] = {}
 
     def add_req(req_id: RequirementID, check: TestCheckDocumentation) -> None:
         req = reqs.get(req_id, RequirementInSuite(checked_in=[]))
@@ -397,13 +390,13 @@ def _collect_requirements_from_scenario(
 
 
 def _collect_requirements_from_action_generator(
-    generator_def: Union[ActionGeneratorDefinition, PotentialActionGeneratorAction]
-) -> Dict[RequirementID, RequirementInSuite]:
+    generator_def: ActionGeneratorDefinition | PotentialActionGeneratorAction,
+) -> dict[RequirementID, RequirementInSuite]:
     potential_actions = list_potential_actions_for_action_generator_definition(
         generator_def
     )
 
-    reqs: Dict[RequirementID, RequirementInSuite] = {}
+    reqs: dict[RequirementID, RequirementInSuite] = {}
     for potential_action in potential_actions:
         new_reqs = _collect_requirements_from_action(potential_action)
         for req_id, req in new_reqs.items():

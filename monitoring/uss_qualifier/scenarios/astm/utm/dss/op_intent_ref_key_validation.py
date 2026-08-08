@@ -1,31 +1,26 @@
 from datetime import datetime, timedelta
-from typing import Dict, List
 
 from uas_standards.astm.f3548.v21.api import (
+    AirspaceConflictResponse,
     EntityID,
     OperationalIntentReference,
     OperationalIntentState,
-    AirspaceConflictResponse,
 )
 from uas_standards.astm.f3548.v21.constants import Scope
 
 from monitoring.monitorlib import fetch, schema_validation
 from monitoring.monitorlib.fetch import QueryError
-from monitoring.monitorlib.geotemporal import Volume4D
 from monitoring.monitorlib.schema_validation import F3548_21
 from monitoring.prober.infrastructure import register_resource_type
-from monitoring.uss_qualifier.resources.astm.f3548.v21 import PlanningAreaResource
+from monitoring.uss_qualifier.resources import PlanningAreaResource
 from monitoring.uss_qualifier.resources.astm.f3548.v21.dss import (
-    DSSInstanceResource,
     DSSInstance,
+    DSSInstanceResource,
 )
 from monitoring.uss_qualifier.resources.communications import ClientIdentityResource
 from monitoring.uss_qualifier.resources.interuss.id_generator import IDGeneratorResource
 from monitoring.uss_qualifier.scenarios.astm.utm.dss import test_step_fragments
-from monitoring.uss_qualifier.scenarios.scenario import (
-    TestScenario,
-    PendingCheck,
-)
+from monitoring.uss_qualifier.scenarios.scenario import PendingCheck, TestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
 
@@ -51,10 +46,11 @@ class OIRKeyValidation(TestScenario):
 
     _dss: DSSInstance
 
-    _oir_ids: List[EntityID]
+    _oir_ids: list[EntityID]
 
     # Keep track of the current OIR state
-    _current_oirs: Dict[EntityID, OperationalIntentReference]
+    _current_oirs: dict[EntityID, OperationalIntentReference]
+    _planning_area: PlanningAreaResource
 
     def __init__(
         self,
@@ -83,11 +79,13 @@ class OIRKeyValidation(TestScenario):
 
         self._expected_manager = client_identity.subject()
 
-        self._planning_area = planning_area.specification
+        self._planning_area = planning_area
 
-        self._planning_area_volume4d = Volume4D(
-            volume=self._planning_area.volume,
+        self._planning_area_volume4d = self._planning_area.resolved_volume4d_with_times(
+            None, None
         )
+
+        self._current_oirs = {}
 
     def run(self, context: ExecutionContext):
         self.begin_test_scenario(context)
@@ -111,7 +109,7 @@ class OIRKeyValidation(TestScenario):
         first_oir_params = self._planning_area.get_new_operational_intent_ref_params(
             key=[],
             state=OperationalIntentState.Accepted,
-            uss_base_url=self._planning_area.base_url,
+            uss_base_url=self._planning_area.specification.get_base_url(),
             time_start=datetime.now() - timedelta(seconds=10),
             time_end=datetime.now() + timedelta(minutes=20),
             subscription_id=None,
@@ -121,7 +119,7 @@ class OIRKeyValidation(TestScenario):
         second_oir_params = self._planning_area.get_new_operational_intent_ref_params(
             key=[],
             state=OperationalIntentState.Accepted,
-            uss_base_url=self._planning_area.base_url,
+            uss_base_url=self._planning_area.specification.get_base_url(),
             time_start=datetime.now() + timedelta(hours=1, minutes=20),
             time_end=datetime.now() + timedelta(hours=1, minutes=40),
             subscription_id=None,
@@ -175,7 +173,7 @@ class OIRKeyValidation(TestScenario):
         self.end_test_step()
 
     def _attempt_creation_expect_conflict(
-        self, oir_id: EntityID, oir_params, conflicting_ids: List[EntityID]
+        self, oir_id: EntityID, oir_params, conflicting_ids: list[EntityID]
     ):
         with self.check(
             "Create operational intent reference with missing OVN fails", self._pid
@@ -191,13 +189,13 @@ class OIRKeyValidation(TestScenario):
                 self.record_query(q)
                 check.record_failed(
                     summary="Operational intent reference with OVN missing in key was created",
-                    details=f"Was expecting an HTTP 409 response because of a conflict with OIR {conflicting_ids}, but got a successful response ({q.status_code}) instead",
+                    details=f"Was expecting an HTTP 409 response because of a conflict with OIR {conflicting_ids}, but got {q.status_code}",
                     query_timestamps=[q.request.timestamp],
                 )
                 return
             except QueryError as qe:
                 self.record_queries(qe.queries)
-                _expect_conflict_code(check, conflicting_ids, qe.cause)
+                _expect_conflict_code(check, conflicting_ids, qe)
                 conflicting_query = qe.cause
 
         self._validate_conflict_response(conflicting_ids, conflicting_query)
@@ -206,7 +204,7 @@ class OIRKeyValidation(TestScenario):
         self,
         oir_id: EntityID,
         oir_params,
-        conflicting_ids: List[EntityID],
+        conflicting_ids: list[EntityID],
         ovn: EntityID,
     ):
         with self.check(
@@ -224,13 +222,13 @@ class OIRKeyValidation(TestScenario):
                 self.record_query(q)
                 check.record_failed(
                     summary="Operational intent reference with OVN missing in key was mutated",
-                    details=f"Was expecting an HTTP 409 response because of a conflict with OIR {conflicting_ids}, but got a successful response ({q.status_code}) instead",
+                    details=f"Was expecting an HTTP 409 response because of a conflict with OIR {conflicting_ids}, but got {q.status_code}",
                     query_timestamps=[q.request.timestamp],
                 )
                 return
             except QueryError as qe:
                 self.record_queries(qe.queries)
-                _expect_conflict_code(check, conflicting_ids, qe.cause)
+                _expect_conflict_code(check, conflicting_ids, qe)
                 conflicting_query = qe.cause
 
         self._validate_conflict_response(conflicting_ids, conflicting_query)
@@ -245,7 +243,7 @@ class OIRKeyValidation(TestScenario):
         conflict_first = self._planning_area.get_new_operational_intent_ref_params(
             key=[],
             state=OperationalIntentState.Accepted,
-            uss_base_url=self._planning_area.base_url,
+            uss_base_url=self._planning_area.specification.get_base_url(),
             time_start=first_oir.time_start.value.datetime,
             time_end=first_oir.time_end.value.datetime,
             subscription_id=None,
@@ -260,7 +258,7 @@ class OIRKeyValidation(TestScenario):
         conflict_second = self._planning_area.get_new_operational_intent_ref_params(
             key=[],
             state=OperationalIntentState.Accepted,
-            uss_base_url=self._planning_area.base_url,
+            uss_base_url=self._planning_area.specification.get_base_url(),
             time_start=second_oir.time_start.value.datetime,
             time_end=second_oir.time_end.value.datetime,
             subscription_id=None,
@@ -275,7 +273,7 @@ class OIRKeyValidation(TestScenario):
         conflict_both = self._planning_area.get_new_operational_intent_ref_params(
             key=[],
             state=OperationalIntentState.Accepted,
-            uss_base_url=self._planning_area.base_url,
+            uss_base_url=self._planning_area.specification.get_base_url(),
             time_start=first_oir.time_start.value.datetime,
             time_end=second_oir.time_end.value.datetime,
             subscription_id=None,
@@ -316,10 +314,11 @@ class OIRKeyValidation(TestScenario):
         self._current_oirs[third_oir.id] = third_oir
 
     def _validate_conflict_response(
-        self, conflicting_ids: List[EntityID], query: fetch.Query
+        self, conflicting_ids: list[EntityID], query: fetch.Query
     ):
         """Checks that the conflict response body is as specified.
-        If the missing_operational_intents field is defined, its content is checked against the list of passed conflicting ids."""
+        If the missing_operational_intents field is defined, its content is checked against the list of passed conflicting ids.
+        """
 
         with self.check(
             "Failure response due to conflict has proper format", self._pid
@@ -407,16 +406,12 @@ class OIRKeyValidation(TestScenario):
 
     def _setup_case(self):
         self.begin_test_case("Setup")
-        # Multiple runs of the scenario seem to rely on the same instance of it:
-        # thus we need to reset the state of the scenario before running it.
-        self._current_oirs = {}
         self.begin_test_step("Ensure clean workspace")
         self._ensure_clean_workspace_step()
         self.end_test_step()
         self.end_test_case()
 
     def _ensure_clean_workspace_step(self):
-
         # Delete any active OIR we might own
         test_step_fragments.cleanup_active_oirs(
             self,
@@ -429,11 +424,6 @@ class OIRKeyValidation(TestScenario):
         for oir_id in self._oir_ids:
             test_step_fragments.cleanup_op_intent(self, self._dss, oir_id)
 
-        # Also drop any subs we might own and that could interfere
-        test_step_fragments.cleanup_active_subs(
-            self, self._dss, self._planning_area_volume4d.to_f3548v21()
-        )
-
     def cleanup(self):
         self.begin_cleanup()
         self._ensure_clean_workspace_step()
@@ -441,11 +431,11 @@ class OIRKeyValidation(TestScenario):
 
 
 def _expect_conflict_code(
-    check: PendingCheck, conflicting_ids: List[EntityID], query: fetch.Query
+    check: PendingCheck, conflicting_ids: list[EntityID], qe: fetch.QueryError
 ):
-    if query.status_code != 409:
+    if qe.cause_status_code != 409:
         check.record_failed(
             summary="OIR Creation failed for the unexpected reason",
-            details=f"Was expecting an HTTP 409 response because of a conflict with OIR {conflicting_ids}, but got a {query.status_code} instead",
-            query_timestamps=[query.request.timestamp],
+            details=f"Was expecting an HTTP 409 response because of a conflict with OIR {conflicting_ids}, but got {qe.cause_status_code}: {qe.msg}",
+            query_timestamps=qe.query_timestamps,
         )

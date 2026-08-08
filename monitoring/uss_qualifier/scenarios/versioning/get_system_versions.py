@@ -1,5 +1,4 @@
 from monitoring.monitorlib.clients.versioning.client import VersionQueryError
-from monitoring.uss_qualifier.common_data_definitions import Severity
 from monitoring.uss_qualifier.resources.versioning import SystemIdentityResource
 from monitoring.uss_qualifier.resources.versioning.client import (
     VersionProvidersResource,
@@ -14,7 +13,7 @@ class GetSystemVersions(TestScenario):
         version_providers: VersionProvidersResource,
         system_identity: SystemIdentityResource,
     ):
-        super(GetSystemVersions, self).__init__()
+        super().__init__()
         self._version_providers = version_providers.version_providers
         self._system_identity = system_identity.system_identity
 
@@ -40,7 +39,6 @@ class GetSystemVersions(TestScenario):
                     check.record_failed(
                         summary="Error querying version",
                         details=str(e),
-                        severity=Severity.High,
                         query_timestamps=[q.request.timestamp for q in e.queries],
                     )
 

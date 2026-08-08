@@ -18,7 +18,7 @@ A [resources.astm.f3548.v21.DSSInstancesResource](../../../../resources/astm/f35
 
 ### planning_area
 
-A [resources.astm.f3548.v21.PlanningAreaResource](../../../../resources/astm/f3548/v21/planning_area.py) containing a planning area that covers the area of interest for this
+A [resources.PlanningAreaResource](../../../../resources/planning_area.py) containing a planning area that covers the area of interest for this
 
 ### test_exclusions
 
@@ -29,12 +29,12 @@ This resource is optional.
 
 ### Test environment requirements test step
 
-#### 🛑 DSS instance is publicly addressable check
+#### ⚠️ DSS instance is publicly addressable check
 
 As per **[astm.f3548.v21.DSS0300](../../../../requirements/astm/f3548/v21.md)** the DSS instance should be publicly addressable.
 As such, this check will fail if the resolved IP of the DSS host is a private IP address.
 This check is skipped if the test exclusion `allow_private_addresses` is set to `True`.
 
-#### 🛑 DSS instance is reachable check
+#### ⚠️ DSS instance is reachable check
 As per **[astm.f3548.v21.DSS0300](../../../../requirements/astm/f3548/v21.md)** the DSS instance should be publicly addressable.
 As such, this check will fail if the DSS is not reachable with a dummy query.

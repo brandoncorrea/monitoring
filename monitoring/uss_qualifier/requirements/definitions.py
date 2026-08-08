@@ -1,8 +1,8 @@
 from __future__ import annotations
-import os
-from typing import Optional, List
 
-from implicitdict import ImplicitDict
+import os
+
+from implicitdict import ImplicitDict, Optional
 
 
 class RequirementID(str):
@@ -16,7 +16,7 @@ class RequirementID(str):
     `astm.f3548.v21`.
 
     NAME is an identifier defined in the file described by PACKAGE by enclosing it
-    in a <tt> tag; for instance: `<tt>USS0105</tt>`.
+    in a <tt> tag; for instance: `<tt>USS0105,1</tt>`.
     """
 
     def __new__(cls, value):
@@ -120,13 +120,13 @@ class RequirementSetID(str):
 
 
 class RequirementCollection(ImplicitDict):
-    requirements: Optional[List[RequirementID]]
+    requirements: Optional[list[RequirementID]]
     """This collection includes all of these requirements."""
 
-    requirement_sets: Optional[List[RequirementSetID]]
+    requirement_sets: Optional[list[RequirementSetID]]
     """This collection includes all requirements in all of these requirement sets."""
 
-    requirement_collections: Optional[List[RequirementCollection]]
+    requirement_collections: Optional[list[RequirementCollection]]
     """This collection includes all of the requirements in all of these requirement collections."""
 
     exclude: Optional[RequirementCollection]

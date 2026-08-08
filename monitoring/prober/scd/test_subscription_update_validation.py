@@ -1,14 +1,14 @@
 """Subscription update validation tests:
 
-  - make sure Operation doesn't exist by ID
-  - create Operation with implicit Subscription
-  - make sure implicit Subscription is created
-  - try mutate Subscription by shrinking 2d area which does not cover Operation
-  - try mutate Subscription by shrinking altitude range which does not cover Operation
-  - try mutate Subscription by shrinking time range  which does not cover Operation
-  - mutate Subscription with the same 2d area
-  - delete Operation
-  - delete Subscription
+- make sure Operation doesn't exist by ID
+- create Operation with implicit Subscription
+- make sure implicit Subscription is created
+- try mutate Subscription by shrinking 2d area which does not cover Operation
+- try mutate Subscription by shrinking altitude range which does not cover Operation
+- try mutate Subscription by shrinking time range  which does not cover Operation
+- mutate Subscription with the same 2d area
+- delete Operation
+- delete Subscription
 """
 
 import datetime
@@ -18,7 +18,7 @@ from monitoring.monitorlib.geo import Circle
 from monitoring.monitorlib.geotemporal import Volume4D
 from monitoring.monitorlib.infrastructure import default_scope
 from monitoring.monitorlib.scd import SCOPE_SC
-from monitoring.monitorlib.testing import assert_datetimes_are_equal
+from monitoring.monitorlib.testing import assert_datetimes_are_equal, make_fake_url
 from monitoring.prober.infrastructure import (
     depends_on,
     for_api_versions,
@@ -26,8 +26,7 @@ from monitoring.prober.infrastructure import (
 )
 from monitoring.prober.scd import actions
 
-
-BASE_URL = "https://example.interuss.org/uss"
+BASE_URL = make_fake_url()
 OP_TYPE = register_resource_type(221, "Operational intent")
 sub_id = None
 
@@ -77,7 +76,7 @@ def test_ensure_clean_workspace(ids, scd_api, scd_session):
 def test_create_op(ids, scd_api, scd_session):
     entity_name = "operational_intent_reference"
     req = _make_op_req()
-    resp = scd_session.put("/{}s/{}".format(entity_name, ids(OP_TYPE)), json=req)
+    resp = scd_session.put(f"/{entity_name}s/{ids(OP_TYPE)}", json=req)
     assert resp.status_code == 201, resp.content
 
     data = resp.json()
@@ -99,7 +98,7 @@ def test_create_op(ids, scd_api, scd_session):
     global sub_id
     sub_id = op["subscription_id"]
 
-    resp = scd_session.get("/subscriptions/{}".format(sub_id))
+    resp = scd_session.get(f"/subscriptions/{sub_id}")
     assert resp.status_code == 200, resp.content
 
 
@@ -109,7 +108,7 @@ def test_create_op(ids, scd_api, scd_session):
 @depends_on(test_create_op)
 def test_mutate_sub_shrink_2d(scd_api, scd_session):
     # GET current sub before mutation
-    resp = scd_session.get("/subscriptions/{}".format(sub_id))
+    resp = scd_session.get(f"/subscriptions/{sub_id}")
     assert resp.status_code == 200, resp.content
     existing_sub = resp.json().get("subscription", None)
     assert existing_sub is not None
@@ -131,7 +130,7 @@ def test_mutate_sub_shrink_2d(scd_api, scd_session):
 @depends_on(test_create_op)
 def test_mutate_sub_shrink_altitude(scd_api, scd_session):
     # GET current sub before mutation
-    resp = scd_session.get("/subscriptions/{}".format(sub_id))
+    resp = scd_session.get(f"/subscriptions/{sub_id}")
     assert resp.status_code == 200, resp.content
     existing_sub = resp.json().get("subscription", None)
     assert existing_sub is not None
@@ -153,7 +152,7 @@ def test_mutate_sub_shrink_altitude(scd_api, scd_session):
 @depends_on(test_create_op)
 def test_mutate_sub_shrink_time(scd_api, scd_session):
     # GET current sub before mutation
-    resp = scd_session.get("/subscriptions/{}".format(sub_id))
+    resp = scd_session.get(f"/subscriptions/{sub_id}")
     assert resp.status_code == 200, resp.content
     existing_sub = resp.json().get("subscription", None)
     assert existing_sub is not None
@@ -175,7 +174,7 @@ def test_mutate_sub_shrink_time(scd_api, scd_session):
 @depends_on(test_create_op)
 def test_mutate_sub_not_shrink(scd_api, scd_session):
     # GET current sub before mutation
-    resp = scd_session.get("/subscriptions/{}".format(sub_id))
+    resp = scd_session.get(f"/subscriptions/{sub_id}")
     assert resp.status_code == 200, resp.content
     existing_sub = resp.json().get("subscription", None)
     assert existing_sub is not None
@@ -204,12 +203,10 @@ def test_mutate_sub_not_shrink(scd_api, scd_session):
 @default_scope(SCOPE_SC)
 @depends_on(test_mutate_sub_not_shrink)
 def test_delete_op(ids, scd_api, scd_session):
-    resp = scd_session.get("/operational_intent_references/{}".format(ids(OP_TYPE)))
+    resp = scd_session.get(f"/operational_intent_references/{ids(OP_TYPE)}")
     assert resp.status_code == 200, resp.content
     ovn = resp.json()["operational_intent_reference"]["ovn"]
-    resp = scd_session.delete(
-        "/operational_intent_references/{}/{}".format(ids(OP_TYPE), ovn)
-    )
+    resp = scd_session.delete(f"/operational_intent_references/{ids(OP_TYPE)}/{ovn}")
     assert resp.status_code == 200, resp.content
 
 
@@ -217,7 +214,7 @@ def test_delete_op(ids, scd_api, scd_session):
 @default_scope(SCOPE_SC)
 @depends_on(test_delete_op)
 def test_get_deleted_op_by_id(ids, scd_api, scd_session):
-    resp = scd_session.get("/operational_intent_references/{}".format(ids(OP_TYPE)))
+    resp = scd_session.get(f"/operational_intent_references/{ids(OP_TYPE)}")
     assert resp.status_code == 404, resp.content
 
 
@@ -225,10 +222,10 @@ def test_get_deleted_op_by_id(ids, scd_api, scd_session):
 @default_scope(SCOPE_SC)
 @depends_on(test_create_op)
 def test_delete_sub(scd_api, scd_session):
-    resp = scd_session.get("/subscriptions/{}".format(sub_id))
+    resp = scd_session.get(f"/subscriptions/{sub_id}")
     assert resp.status_code == 200, resp.content
     version = resp.json()["subscription"]["version"]
-    resp = scd_session.delete("/subscriptions/{}/{}".format(sub_id, version))
+    resp = scd_session.delete(f"/subscriptions/{sub_id}/{version}")
     assert resp.status_code == 200, resp.content
 
 
@@ -236,7 +233,7 @@ def test_delete_sub(scd_api, scd_session):
 @default_scope(SCOPE_SC)
 @depends_on(test_create_op)
 def test_get_deleted_sub_by_id(scd_api, scd_session):
-    resp = scd_session.get("/subscriptions/{}".format(sub_id))
+    resp = scd_session.get(f"/subscriptions/{sub_id}")
     assert resp.status_code == 404, resp.content
 
 

@@ -1,6 +1,4 @@
-from typing import Optional, List
-
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
 
 from monitoring.monitorlib.geotemporal import Volume4D
 from monitoring.monitorlib.infrastructure import AuthSpec
@@ -69,7 +67,9 @@ class ObservationArea(ImplicitDict):
     @property
     def polls(self) -> bool:
         """Whether any of the observation activity involves periodic polling."""
-        return (self.f3411 and self.f3411.poll) or (self.f3548 and self.f3548.poll)
+        return bool(self.f3411 and self.f3411.poll) or bool(
+            self.f3548 and self.f3548.poll
+        )
 
 
 class F3411ObservationAreaRequest(ImplicitDict):
@@ -136,13 +136,15 @@ class ObservationAreaRequest(ImplicitDict):
     @property
     def polls(self) -> bool:
         """Whether any of the observation activity requested involves periodic polling."""
-        return (self.f3411 and self.f3411.poll) or (self.f3548 and self.f3548.poll)
+        return bool(self.f3411 and self.f3411.poll) or bool(
+            self.f3548 and self.f3548.poll
+        )
 
 
 class ListObservationAreasResponse(ImplicitDict):
     """Response to list observation areas."""
 
-    areas: List[ObservationArea]
+    areas: list[ObservationArea]
     """Observation areas that exist in the system."""
 
 

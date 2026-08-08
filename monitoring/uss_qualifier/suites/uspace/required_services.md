@@ -18,10 +18,15 @@
     <th><a href="../README.md#checked-in">Checked in</a></th>
   </tr>
   <tr>
-    <td rowspan="87" style="vertical-align:top;"><a href="../../requirements/astm/f3411/v22a.md">astm<br>.f3411<br>.v22a</a></td>
+    <td rowspan="122" style="vertical-align:top;"><a href="../../requirements/astm/f3411/v22a.md">astm<br>.f3411<br>.v22a</a></td>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0010</a></td>
     <td>Implemented</td>
     <td><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">DSS0020</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss/endpoint_encryption.md">ASTM NetRID DSS: Endpoint encryption</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0030</a></td>
@@ -31,7 +36,7 @@
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0030,a</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/dss_interoperability.md">ASTM F3411-22a NetRID DSS interoperability</a><br><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_validation.md">ASTM NetRID DSS: Submitted ISA Validations</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss_interoperability.md">ASTM F3411-22a NetRID DSS interoperability</a><br><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_validation.md">ASTM NetRID DSS: Submitted ISA Validations</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dp_behavior.md">ASTM NetRID Display Provider behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0030,b</a></td>
@@ -41,22 +46,22 @@
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0030,c</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_simple.md">ASTM NetRID DSS: Subscription Simple</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_validation.md">ASTM NetRID DSS: Subscription Validation</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_simple.md">ASTM NetRID DSS: Subscription Simple</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_validation.md">ASTM NetRID DSS: Subscription Validation</a><br><a href="../../scenarios/astm/netrid/v22a/sp_notification_behavior.md">ASTM NetRID Service Provider notification behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0030,d</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_validation.md">ASTM NetRID DSS: Submitted ISA Validations</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_simple.md">ASTM NetRID DSS: Subscription Simple</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_validation.md">ASTM NetRID DSS: Subscription Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_validation.md">ASTM NetRID DSS: Submitted ISA Validations</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_simple.md">ASTM NetRID DSS: Subscription Simple</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_validation.md">ASTM NetRID DSS: Subscription Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dp_behavior.md">ASTM NetRID Display Provider behavior</a><br><a href="../../scenarios/astm/netrid/v22a/sp_notification_behavior.md">ASTM NetRID Service Provider notification behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0030,e</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_validation.md">ASTM NetRID DSS: Submitted ISA Validations</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_simple.md">ASTM NetRID DSS: Subscription Simple</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_validation.md">ASTM NetRID DSS: Subscription Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss_interoperability.md">ASTM F3411-22a NetRID DSS interoperability</a><br><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_validation.md">ASTM NetRID DSS: Submitted ISA Validations</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_simple.md">ASTM NetRID DSS: Subscription Simple</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_validation.md">ASTM NetRID DSS: Subscription Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dp_behavior.md">ASTM NetRID Display Provider behavior</a><br><a href="../../scenarios/astm/netrid/v22a/sp_notification_behavior.md">ASTM NetRID Service Provider notification behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0030,f</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_validation.md">ASTM NetRID DSS: Submitted ISA Validations</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_simple.md">ASTM NetRID DSS: Subscription Simple</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_validation.md">ASTM NetRID DSS: Subscription Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_validation.md">ASTM NetRID DSS: Submitted ISA Validations</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_simple.md">ASTM NetRID DSS: Subscription Simple</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_validation.md">ASTM NetRID DSS: Subscription Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dp_behavior.md">ASTM NetRID Display Provider behavior</a><br><a href="../../scenarios/astm/netrid/v22a/sp_notification_behavior.md">ASTM NetRID Service Provider notification behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0050</a></td>
@@ -76,12 +81,17 @@
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0110</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/dss/crdb_access.md">ASTM NetRID DSS: Direct CRDB access</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss/datastore_access.md">ASTM NetRID DSS: Direct datastore access</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0120</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/dss/crdb_access.md">ASTM NetRID DSS: Direct CRDB access</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss/datastore_access.md">ASTM NetRID DSS: Direct datastore access</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">DSS0130,1</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss_interoperability.md">ASTM F3411-22a NetRID DSS interoperability</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0130,2,a</a></td>
@@ -100,6 +110,11 @@
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0130,2,d</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss_interoperability.md">ASTM F3411-22a NetRID DSS interoperability</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">DSS0130,2,e</a></td>
     <td>Implemented</td>
     <td><a href="../../scenarios/astm/netrid/v22a/dss_interoperability.md">ASTM F3411-22a NetRID DSS interoperability</a></td>
   </tr>
@@ -175,7 +190,7 @@
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">DSS0130,A2-6-1,3c</a></td>
-    <td>Implemented + TODO</td>
+    <td>Implemented</td>
     <td><a href="../../scenarios/astm/netrid/v22a/dss_interoperability.md">ASTM F3411-22a NetRID DSS interoperability</a></td>
   </tr>
   <tr>
@@ -210,13 +225,13 @@
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0030</a></td>
-    <td>TODO</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/operator_interactions.md">ASTM NetRID: Operator interactions</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_missing_fields.md">ASTM NetRID Service Provider operator notification on missing fields</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0040</a></td>
-    <td>TODO</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/operator_interactions.md">ASTM NetRID: Operator interactions</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_slow_update.md">ASTM NetRID Service Provider operator notification under slow update rate</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0210</a></td>
@@ -230,8 +245,18 @@
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0240</a></td>
-    <td>TODO</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/aggregate_checks.md">ASTM F3411-22a NetRID aggregate checks</a></td>
+    <td>Implemented + TODO</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/aggregate_checks.md">ASTM F3411-22a NetRID aggregate checks</a><br><a href="../../scenarios/astm/netrid/v22a/dp_behavior.md">ASTM NetRID Display Provider behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0250</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/misbehavior.md">ASTM NetRID SP clients misbehavior handling</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,NearRealTime</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,NetSpDataResponseTime95thPercentile</a></td>
@@ -251,12 +276,12 @@
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,10</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,11</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,12</a></td>
@@ -264,7 +289,67 @@
     <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,14</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,15</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,16</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,17</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,18</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,19</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,1a</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,1b</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,1c</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,1d</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,2</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,20</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,21</a></td>
     <td>Implemented</td>
     <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
@@ -289,6 +374,26 @@
     <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,3</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,4</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,5</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,6</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0260,Table1,7</a></td>
     <td>Implemented</td>
     <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
@@ -309,9 +414,14 @@
     <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0320</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a></td>
+  </tr>
+  <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0340</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_slow_update.md">ASTM NetRID Service Provider operator notification under slow update rate</a><br><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0420</a></td>
@@ -321,7 +431,7 @@
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0430</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dp_behavior.md">ASTM NetRID Display Provider behavior</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0440</a></td>
@@ -359,7 +469,32 @@
     <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,12</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,14</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,15</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,16</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,17</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,18</a></td>
     <td>Implemented</td>
     <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
@@ -374,7 +509,32 @@
     <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,1b</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,1c</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,1d</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,2</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,20</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,21</a></td>
     <td>Implemented</td>
     <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
@@ -399,7 +559,22 @@
     <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,3</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,4</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,5</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0470,Table1,6</a></td>
     <td>Implemented</td>
     <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
@@ -426,58 +601,58 @@
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0500</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/misbehavior.md">ASTM NetRID SP clients misbehavior handling</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/misbehavior.md">ASTM NetRID SP clients misbehavior handling</a><br><a href="../../scenarios/astm/netrid/v22a/sp_notification_behavior.md">ASTM NetRID Service Provider notification behavior</a><br><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_missing_fields.md">ASTM NetRID Service Provider operator notification on missing fields</a><br><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_slow_update.md">ASTM NetRID Service Provider operator notification under slow update rate</a><br><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0610</a></td>
-    <td>Implemented + TODO</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a><br><a href="../../scenarios/astm/netrid/v22a/operator_interactions.md">ASTM NetRID: Operator interactions</a></td>
-  </tr>
-  <tr>
-    <td><a href="../../requirements/astm/f3411/v22a.md">NET0620</a></td>
-    <td>TODO</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/operator_interactions.md">ASTM NetRID: Operator interactions</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0710,1</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/misbehavior.md">ASTM NetRID SP clients misbehavior handling</a><br><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_slow_update.md">ASTM NetRID Service Provider operator notification under slow update rate</a><br><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0710,2</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_slow_update.md">ASTM NetRID Service Provider operator notification under slow update rate</a><br><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3411/v22a.md">NET0730</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_validation.md">ASTM NetRID DSS: Submitted ISA Validations</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_simple.md">ASTM NetRID DSS: Subscription Simple</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_validation.md">ASTM NetRID DSS: Subscription Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_validation.md">ASTM NetRID DSS: Submitted ISA Validations</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_simple.md">ASTM NetRID DSS: Subscription Simple</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_validation.md">ASTM NetRID DSS: Subscription Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dp_behavior.md">ASTM NetRID Display Provider behavior</a><br><a href="../../scenarios/astm/netrid/v22a/sp_notification_behavior.md">ASTM NetRID Service Provider notification behavior</a></td>
   </tr>
   <tr>
-    <td rowspan="78" style="vertical-align:top;"><a href="../../requirements/astm/f3548/v21.md">astm<br>.f3548<br>.v21</a></td>
+    <td><a href="../../requirements/astm/f3411/v22a.md">NET0740</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/sp_notification_behavior.md">ASTM NetRID Service Provider notification behavior</a></td>
+  </tr>
+  <tr>
+    <td rowspan="85" style="vertical-align:top;"><a href="../../requirements/astm/f3548/v21.md">astm<br>.f3548<br>.v21</a></td>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0005,1</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/prep_planners.md">ASTM F3548 flight planners preparation</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_access_control.md">ASTM F3548-21 UTM DSS Operational Intent Reference Access Control</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_state_transitions.md">ASTM F3548-21 UTM DSS Operational Intent Reference State Transitions</a><br><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/authentication/authentication_validation.md">ASTM SCD DSS: Interfaces authentication</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_key_validation.md">ASTM SCD DSS: Operational Intent Reference Key Validation</a><br><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_simple.md">ASTM SCD DSS: Subscription Simple</a><br><a href="../../scenarios/astm/utm/dss/synchronization/subscription_synchronization.md">ASTM SCD DSS: Subscription Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_validation.md">ASTM SCD DSS: Subscription Validation</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions_deletion.md">ASTM SCD DSS: Subscription and entity deletion interaction</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions.md">ASTM SCD DSS: Subscription and entity interaction</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss_equal_priority_not_permitted.md">Off-Nominal planning: down USS with equal priority conflicts not permitted</a><br><a href="../../scenarios/astm/utm/nominal_planning/solo_happy_path.md">Solo happy path</a></td>
+    <td><a href="../../scenarios/astm/utm/prep_planners.md">ASTM F3548 flight planners preparation</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_access_control.md">ASTM F3548-21 UTM DSS Operational Intent Reference Access Control</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_state_transitions.md">ASTM F3548-21 UTM DSS Operational Intent Reference State Transitions</a><br><a href="../../scenarios/astm/utm/dss/oir_implicit_sub_handling.md">ASTM SCD DSS: Implicit Subscription handling</a><br><a href="../../scenarios/astm/utm/dss/authentication/authentication_validation.md">ASTM SCD DSS: Interfaces authentication</a><br><a href="../../scenarios/astm/utm/dss/oir_explicit_sub_handling.md">ASTM SCD DSS: Operational Intent Explicit Subscription handling</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_key_validation.md">ASTM SCD DSS: Operational Intent Reference Key Validation</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_simple.md">ASTM SCD DSS: Operational Intent Reference Simple</a><br><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions_deletion.md">ASTM SCD DSS: Subscription and entity deletion interaction</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions.md">ASTM SCD DSS: Subscription and entity interaction</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/interuss/ovn_request/dss_ovn_request.md">OVN Request Optional Extension to ASTM F3548-21</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss_equal_priority_not_permitted.md">Off-Nominal planning: down USS with equal priority conflicts not permitted</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0005,2</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/prep_planners.md">ASTM F3548 flight planners preparation</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_access_control.md">ASTM F3548-21 UTM DSS Operational Intent Reference Access Control</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_state_transitions.md">ASTM F3548-21 UTM DSS Operational Intent Reference State Transitions</a><br><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/authentication/authentication_validation.md">ASTM SCD DSS: Interfaces authentication</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_key_validation.md">ASTM SCD DSS: Operational Intent Reference Key Validation</a><br><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_simple.md">ASTM SCD DSS: Subscription Simple</a><br><a href="../../scenarios/astm/utm/dss/synchronization/subscription_synchronization.md">ASTM SCD DSS: Subscription Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_validation.md">ASTM SCD DSS: Subscription Validation</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions_deletion.md">ASTM SCD DSS: Subscription and entity deletion interaction</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions.md">ASTM SCD DSS: Subscription and entity interaction</a><br><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss_equal_priority_not_permitted.md">Off-Nominal planning: down USS with equal priority conflicts not permitted</a><br><a href="../../scenarios/astm/utm/nominal_planning/solo_happy_path.md">Solo happy path</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
+    <td><a href="../../scenarios/astm/utm/prep_planners.md">ASTM F3548 flight planners preparation</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_access_control.md">ASTM F3548-21 UTM DSS Operational Intent Reference Access Control</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_state_transitions.md">ASTM F3548-21 UTM DSS Operational Intent Reference State Transitions</a><br><a href="../../scenarios/astm/utm/dss/oir_implicit_sub_handling.md">ASTM SCD DSS: Implicit Subscription handling</a><br><a href="../../scenarios/astm/utm/dss/authentication/authentication_validation.md">ASTM SCD DSS: Interfaces authentication</a><br><a href="../../scenarios/astm/utm/dss/oir_explicit_sub_handling.md">ASTM SCD DSS: Operational Intent Explicit Subscription handling</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_key_validation.md">ASTM SCD DSS: Operational Intent Reference Key Validation</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_simple.md">ASTM SCD DSS: Operational Intent Reference Simple</a><br><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions_deletion.md">ASTM SCD DSS: Subscription and entity deletion interaction</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions.md">ASTM SCD DSS: Subscription and entity interaction</a><br><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/interuss/ovn_request/dss_ovn_request.md">OVN Request Optional Extension to ASTM F3548-21</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss_equal_priority_not_permitted.md">Off-Nominal planning: down USS with equal priority conflicts not permitted</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0005,3</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/prep_planners.md">ASTM F3548 flight planners preparation</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_access_control.md">ASTM F3548-21 UTM DSS Operational Intent Reference Access Control</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_state_transitions.md">ASTM F3548-21 UTM DSS Operational Intent Reference State Transitions</a><br><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/authentication/authentication_validation.md">ASTM SCD DSS: Interfaces authentication</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_key_validation.md">ASTM SCD DSS: Operational Intent Reference Key Validation</a><br><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_simple.md">ASTM SCD DSS: Subscription Simple</a><br><a href="../../scenarios/astm/utm/dss/synchronization/subscription_synchronization.md">ASTM SCD DSS: Subscription Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_validation.md">ASTM SCD DSS: Subscription Validation</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions_deletion.md">ASTM SCD DSS: Subscription and entity deletion interaction</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions.md">ASTM SCD DSS: Subscription and entity interaction</a></td>
+    <td><a href="../../scenarios/astm/utm/dss/constraint_ref_simple.md">ASTM SCD DSS: Constraint Reference Simple</a><br><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/authentication/authentication_validation.md">ASTM SCD DSS: Interfaces authentication</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0005,4</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/prep_planners.md">ASTM F3548 flight planners preparation</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_access_control.md">ASTM F3548-21 UTM DSS Operational Intent Reference Access Control</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_state_transitions.md">ASTM F3548-21 UTM DSS Operational Intent Reference State Transitions</a><br><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/authentication/authentication_validation.md">ASTM SCD DSS: Interfaces authentication</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_key_validation.md">ASTM SCD DSS: Operational Intent Reference Key Validation</a><br><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_simple.md">ASTM SCD DSS: Subscription Simple</a><br><a href="../../scenarios/astm/utm/dss/synchronization/subscription_synchronization.md">ASTM SCD DSS: Subscription Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_validation.md">ASTM SCD DSS: Subscription Validation</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions_deletion.md">ASTM SCD DSS: Subscription and entity deletion interaction</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions.md">ASTM SCD DSS: Subscription and entity interaction</a></td>
+    <td><a href="../../scenarios/astm/utm/dss/constraint_ref_simple.md">ASTM SCD DSS: Constraint Reference Simple</a><br><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/authentication/authentication_validation.md">ASTM SCD DSS: Interfaces authentication</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0005,5</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/prep_planners.md">ASTM F3548 flight planners preparation</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_access_control.md">ASTM F3548-21 UTM DSS Operational Intent Reference Access Control</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_state_transitions.md">ASTM F3548-21 UTM DSS Operational Intent Reference State Transitions</a><br><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/authentication/authentication_validation.md">ASTM SCD DSS: Interfaces authentication</a><br><a href="../../scenarios/astm/utm/dss/op_intent_ref_key_validation.md">ASTM SCD DSS: Operational Intent Reference Key Validation</a><br><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_simple.md">ASTM SCD DSS: Subscription Simple</a><br><a href="../../scenarios/astm/utm/dss/synchronization/subscription_synchronization.md">ASTM SCD DSS: Subscription Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_validation.md">ASTM SCD DSS: Subscription Validation</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions_deletion.md">ASTM SCD DSS: Subscription and entity deletion interaction</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions.md">ASTM SCD DSS: Subscription and entity interaction</a></td>
+    <td><a href="../../scenarios/astm/utm/dss/oir_implicit_sub_handling.md">ASTM SCD DSS: Implicit Subscription handling</a><br><a href="../../scenarios/astm/utm/dss/authentication/authentication_validation.md">ASTM SCD DSS: Interfaces authentication</a><br><a href="../../scenarios/astm/utm/dss/oir_explicit_sub_handling.md">ASTM SCD DSS: Operational Intent Explicit Subscription handling</a><br><a href="../../scenarios/astm/utm/dss/subscription_simple.md">ASTM SCD DSS: Subscription Simple</a><br><a href="../../scenarios/astm/utm/dss/synchronization/subscription_synchronization.md">ASTM SCD DSS: Subscription Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_validation.md">ASTM SCD DSS: Subscription Validation</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions_deletion.md">ASTM SCD DSS: Subscription and entity deletion interaction</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions.md">ASTM SCD DSS: Subscription and entity interaction</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0015</a></td>
@@ -486,13 +661,13 @@
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0020</a></td>
-    <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/synchronization/subscription_synchronization.md">ASTM SCD DSS: Subscription Synchronization</a><br><a href="../../scenarios/astm/utm/dss/synchronization/uss_availability_synchronization.md">ASTM SCD DSS: USS Availability Synchronization</a></td>
+    <td>Implemented + TODO</td>
+    <td><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/synchronization/subscription_synchronization.md">ASTM SCD DSS: Subscription Synchronization</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions_deletion.md">ASTM SCD DSS: Subscription and entity deletion interaction</a><br><a href="../../scenarios/astm/utm/dss/subscription_interactions.md">ASTM SCD DSS: Subscription and entity interaction</a><br><a href="../../scenarios/astm/utm/dss/synchronization/uss_availability_synchronization.md">ASTM SCD DSS: USS Availability Synchronization</a><br><a href="../../scenarios/astm/utm/dss/pool_info.md">DSS pool information</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0100,1</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/dss/authentication/authentication_validation.md">ASTM SCD DSS: Interfaces authentication</a><br><a href="../../scenarios/astm/utm/dss/synchronization/uss_availability_synchronization.md">ASTM SCD DSS: USS Availability Synchronization</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss_equal_priority_not_permitted.md">Off-Nominal planning: down USS with equal priority conflicts not permitted</a></td>
+    <td><a href="../../scenarios/astm/utm/dss/uss_availability_mutation.md">ASTM Availability DSS: USS Availability Mutation</a><br><a href="../../scenarios/astm/utm/dss/authentication/authentication_validation.md">ASTM SCD DSS: Interfaces authentication</a><br><a href="../../scenarios/astm/utm/dss/synchronization/uss_availability_synchronization.md">ASTM SCD DSS: USS Availability Synchronization</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss_equal_priority_not_permitted.md">Off-Nominal planning: down USS with equal priority conflicts not permitted</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0100,2</a></td>
@@ -502,12 +677,12 @@
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0200</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/dss/crdb_access.md">ASTM UTM DSS: Direct CRDB access</a></td>
+    <td><a href="../../scenarios/astm/utm/dss/datastore_access.md">ASTM UTM DSS: Direct datastore access</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0205</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/dss/crdb_access.md">ASTM UTM DSS: Direct CRDB access</a></td>
+    <td><a href="../../scenarios/astm/utm/dss/datastore_access.md">ASTM UTM DSS: Direct datastore access</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0210,1a</a></td>
@@ -642,12 +817,22 @@
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0210,A2-7-2,3a</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a></td>
+    <td><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0210,A2-7-2,3b</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a><br><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a></td>
+    <td><a href="../../scenarios/astm/utm/dss/synchronization/op_intent_ref_synchronization.md">ASTM SCD DSS: Operational Intent Reference Synchronization</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3548/v21.md">DSS0210,A2-7-2,3c</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3548/v21.md">DSS0210,A2-7-2,3d</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/utm/dss/synchronization/constraint_ref_synchronization.md">ASTM SCD DSS: Constraint Reference Synchronization</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">DSS0210,A2-7-2,4a</a></td>
@@ -737,17 +922,17 @@
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">OPIN0015</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/solo_happy_path.md">Solo happy path</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
+    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">OPIN0020</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/solo_happy_path.md">Solo happy path</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
+    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">OPIN0025</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/solo_happy_path.md">Solo happy path</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
+    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">OPIN0030</a></td>
@@ -830,6 +1015,16 @@
     <td><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a></td>
   </tr>
   <tr>
+    <td><a href="../../requirements/astm/f3548/v21.md">SCD0090</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/utm/aggregate_checks.md">ASTM F3548 UTM aggregate checks</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3548/v21.md">SCD0095</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/utm/aggregate_checks.md">ASTM F3548 UTM aggregate checks</a></td>
+  </tr>
+  <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">SCD0100</a></td>
     <td>Implemented</td>
     <td><a href="../../scenarios/astm/utm/dss/op_intent_ref_state_transitions.md">ASTM F3548-21 UTM DSS Operational Intent Reference State Transitions</a></td>
@@ -837,12 +1032,27 @@
   <tr>
     <td><a href="../../requirements/astm/f3548/v21.md">USS0005</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/solo_happy_path.md">Solo happy path</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
+    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
   </tr>
   <tr>
-    <td><a href="../../requirements/astm/f3548/v21.md">USS0105</a></td>
+    <td><a href="../../requirements/astm/f3548/v21.md">USS0105,1</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/solo_happy_path.md">Solo happy path</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
+    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3548/v21.md">USS0105,2</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3548/v21.md">USS0105,3</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/astm/f3548/v21.md">USS0105,4</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/utm/make_uss_report.md">ASTM F3548 makeUssReport</a></td>
   </tr>
   <tr>
     <td rowspan="6" style="vertical-align:top;"><a href="../../requirements/interuss/automated_testing/flight_planning.md">interuss<br>.automated_testing<br>.flight_planning</a></td>
@@ -853,22 +1063,22 @@
   <tr>
     <td><a href="../../requirements/interuss/automated_testing/flight_planning.md">DeleteFlightSuccess</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/uspace/flight_auth/validation.md">Flight authorisation validation</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss_equal_priority_not_permitted.md">Off-Nominal planning: down USS with equal priority conflicts not permitted</a><br><a href="../../scenarios/astm/utm/nominal_planning/solo_happy_path.md">Solo happy path</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
+    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/uspace/flight_auth/validation.md">Flight authorisation validation</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss_equal_priority_not_permitted.md">Off-Nominal planning: down USS with equal priority conflicts not permitted</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/interuss/automated_testing/flight_planning.md">ExpectedBehavior</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/uspace/flight_auth/validation.md">Flight authorisation validation</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss_equal_priority_not_permitted.md">Off-Nominal planning: down USS with equal priority conflicts not permitted</a><br><a href="../../scenarios/astm/utm/nominal_planning/solo_happy_path.md">Solo happy path</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
+    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/uspace/flight_auth/validation.md">Flight authorisation validation</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss_equal_priority_not_permitted.md">Off-Nominal planning: down USS with equal priority conflicts not permitted</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/interuss/automated_testing/flight_planning.md">FlightCoveredByOperationalIntent</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/solo_happy_path.md">Solo happy path</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
+    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_equal_priority_not_permitted/conflict_equal_priority_not_permitted.md">Nominal planning: not permitted conflict with equal priority</a><br><a href="../../scenarios/astm/utm/off_nominal_planning/down_uss.md">Off-Nominal planning: down USS</a><br><a href="../../scenarios/astm/utm/flight_intent_validation/flight_intent_validation.md">Validation of operational intents</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/interuss/automated_testing/flight_planning.md">ImplementAPI</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/prep_planners.md">ASTM F3548 flight planners preparation</a><br><a href="../../scenarios/flight_planning/prep_planners.md">Generic flight planners preparation</a></td>
+    <td><a href="../../scenarios/astm/utm/prep_planners.md">ASTM F3548 flight planners preparation</a><br><a href="../../scenarios/flight_planning/prep_planners.md">Generic flight planners preparation</a><br><a href="../../scenarios/astm/utm/nominal_planning/conflict_higher_priority/conflict_higher_priority.md">Nominal planning: conflict with higher priority</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/interuss/automated_testing/flight_planning.md">Readiness</a></td>
@@ -876,31 +1086,36 @@
     <td><a href="../../scenarios/astm/utm/prep_planners.md">ASTM F3548 flight planners preparation</a><br><a href="../../scenarios/flight_planning/prep_planners.md">Generic flight planners preparation</a></td>
   </tr>
   <tr>
-    <td rowspan="4" style="vertical-align:top;"><a href="../../requirements/interuss/automated_testing/rid/injection.md">interuss<br>.automated_testing<br>.rid<br>.injection</a></td>
+    <td rowspan="5" style="vertical-align:top;"><a href="../../requirements/interuss/automated_testing/rid/injection.md">interuss<br>.automated_testing<br>.rid<br>.injection</a></td>
     <td><a href="../../requirements/interuss/automated_testing/rid/injection.md">DeleteTestSuccess</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/misbehavior.md">ASTM NetRID SP clients misbehavior handling</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/misbehavior.md">ASTM NetRID SP clients misbehavior handling</a><br><a href="../../scenarios/astm/netrid/v22a/sp_notification_behavior.md">ASTM NetRID Service Provider notification behavior</a><br><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_missing_fields.md">ASTM NetRID Service Provider operator notification on missing fields</a><br><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_slow_update.md">ASTM NetRID Service Provider operator notification under slow update rate</a><br><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/interuss/automated_testing/rid/injection.md">ExpectedBehavior</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/interuss/automated_testing/rid/injection.md">UpsertTestResult</a></td>
     <td>TODO</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/misbehavior.md">ASTM NetRID SP clients misbehavior handling</a><br><a href="../../scenarios/astm/netrid/v22a/sp_notification_behavior.md">ASTM NetRID Service Provider notification behavior</a><br><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_missing_fields.md">ASTM NetRID Service Provider operator notification on missing fields</a><br><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_slow_update.md">ASTM NetRID Service Provider operator notification under slow update rate</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/interuss/automated_testing/rid/injection.md">UpsertTestSuccess</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/misbehavior.md">ASTM NetRID SP clients misbehavior handling</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/misbehavior.md">ASTM NetRID SP clients misbehavior handling</a><br><a href="../../scenarios/astm/netrid/v22a/sp_notification_behavior.md">ASTM NetRID Service Provider notification behavior</a><br><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_missing_fields.md">ASTM NetRID Service Provider operator notification on missing fields</a><br><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_slow_update.md">ASTM NetRID Service Provider operator notification under slow update rate</a><br><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+  </tr>
+  <tr>
+    <td><a href="../../requirements/interuss/automated_testing/rid/injection.md">UserNotificationsSuccess</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_missing_fields.md">ASTM NetRID Service Provider operator notification on missing fields</a><br><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_slow_update.md">ASTM NetRID Service Provider operator notification under slow update rate</a></td>
   </tr>
   <tr>
     <td rowspan="2" style="vertical-align:top;"><a href="../../requirements/interuss/automated_testing/rid/observation.md">interuss<br>.automated_testing<br>.rid<br>.observation</a></td>
     <td><a href="../../requirements/interuss/automated_testing/rid/observation.md">ObservationSuccess</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dp_behavior.md">ASTM NetRID Display Provider behavior</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/interuss/automated_testing/rid/observation.md">UniqueFlights</a></td>
@@ -908,15 +1123,21 @@
     <td><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
+    <td rowspan="1" style="vertical-align:top;"><a href="../../requirements/interuss/dss/hosting.md">interuss<br>.dss<br>.hosting</a></td>
+    <td><a href="../../requirements/interuss/dss/hosting.md">ExposeAux</a></td>
+    <td>Implemented + TODO</td>
+    <td><a href="../../scenarios/astm/utm/dss/pool_info.md">DSS pool information</a></td>
+  </tr>
+  <tr>
     <td rowspan="2" style="vertical-align:top;"><a href="../../requirements/interuss/f3411/dss_endpoints.md">interuss<br>.f3411<br>.dss_endpoints</a></td>
     <td><a href="../../requirements/interuss/f3411/dss_endpoints.md">GetISA</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_validation.md">ASTM NetRID DSS: Submitted ISA Validations</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_simple.md">ASTM NetRID DSS: Subscription Simple</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_validation.md">ASTM NetRID DSS: Subscription Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_subscription_interactions.md">ASTM NetRID DSS: ISA Subscription Interactions</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_validation.md">ASTM NetRID DSS: Submitted ISA Validations</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_simple.md">ASTM NetRID DSS: Subscription Simple</a><br><a href="../../scenarios/astm/netrid/v22a/dss/subscription_validation.md">ASTM NetRID DSS: Subscription Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a><br><a href="../../scenarios/astm/netrid/v22a/dp_behavior.md">ASTM NetRID Display Provider behavior</a><br><a href="../../scenarios/astm/netrid/v22a/sp_notification_behavior.md">ASTM NetRID Service Provider notification behavior</a></td>
   </tr>
   <tr>
     <td><a href="../../requirements/interuss/f3411/dss_endpoints.md">SearchISAs</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dss/heavy_traffic_concurrent.md">ASTM NetRID DSS: Concurrent Requests</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_expiry.md">ASTM NetRID DSS: ISA Expiry</a><br><a href="../../scenarios/astm/netrid/v22a/dss/isa_simple.md">ASTM NetRID DSS: Simple ISA</a><br><a href="../../scenarios/astm/netrid/v22a/dss/token_validation.md">ASTM NetRID DSS: Token Validation</a><br><a href="../../scenarios/astm/netrid/v22a/misbehavior.md">ASTM NetRID SP clients misbehavior handling</a><br><a href="../../scenarios/astm/netrid/v22a/sp_operator_notify_slow_update.md">ASTM NetRID Service Provider operator notification under slow update rate</a><br><a href="../../scenarios/astm/netrid/v22a/networked_uas_disconnect.md">ASTM NetRID networked UAS disconnection</a><br><a href="../../scenarios/astm/netrid/v22a/nominal_behavior.md">ASTM NetRID nominal behavior</a></td>
   </tr>
   <tr>
     <td rowspan="1" style="vertical-align:top;"><a href="../../requirements/interuss/f3548/notification_requirements.md">interuss<br>.f3548<br>.notification_requirements</a></td>
@@ -925,10 +1146,16 @@
     <td><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a></td>
   </tr>
   <tr>
+    <td rowspan="1" style="vertical-align:top;"><a href="../../requirements/interuss/f3548/ovn_request.md">interuss<br>.f3548<br>.ovn_request</a></td>
+    <td><a href="../../requirements/interuss/f3548/ovn_request.md">ImplementAPI</a></td>
+    <td>Implemented</td>
+    <td><a href="../../scenarios/interuss/ovn_request/dss_ovn_request.md">OVN Request Optional Extension to ASTM F3548-21</a></td>
+  </tr>
+  <tr>
     <td rowspan="1" style="vertical-align:top;"><a href="../../requirements/interuss/mock_uss/hosted_instance.md">interuss<br>.mock_uss<br>.hosted_instance</a></td>
     <td><a href="../../requirements/interuss/mock_uss/hosted_instance.md">ExposeInterface</a></td>
     <td>Implemented</td>
-    <td><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a></td>
+    <td><a href="../../scenarios/astm/netrid/v22a/dp_behavior.md">ASTM NetRID Display Provider behavior</a><br><a href="../../scenarios/astm/netrid/v22a/sp_notification_behavior.md">ASTM NetRID Service Provider notification behavior</a><br><a href="../../scenarios/astm/utm/subscription_notifications/receive_notifications_for_awareness/receive_notifications_for_awareness.md">Awareness of relevant operational intents</a><br><a href="../../scenarios/astm/utm/data_exchange_validation/get_op_data_validation.md">Data Validation of GET operational intents by USS</a></td>
   </tr>
   <tr>
     <td rowspan="1" style="vertical-align:top;"><a href="../../requirements/uspace/article8.md">uspace<br>.article8</a></td>

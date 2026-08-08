@@ -16,13 +16,13 @@ Ensures that a DSS properly enforces limitations on created subscriptions
 
 ### planning_area
 
-[`PlanningAreaResource`](../../../../resources/astm/f3548/v21/planning_area.py) describes the 3D volume in which subscriptions will be created.
+[`PlanningAreaResource`](../../../../resources/planning_area.py) describes the 3D volume in which subscriptions will be created.
 
 ## Setup test case
 
-### [Ensure clean workspace test step](clean_workspace.md)
+### Ensure clean workspace test step
 
-This step ensures that no subscription with the known test ID exists in the DSS.
+#### [Clean any existing subscriptions with known test IDs](clean_workspace_subs.md)
 
 ## Subscription Validation test case
 
@@ -50,6 +50,6 @@ or fails to truncate the duration of the subscription to this duration, it is in
 If the DSS under test does not reject a mutation that would cause a subscription to exceed the maximal allowed duration of `DSSMaxSubscriptionDuration`,
 or fails to truncate the duration of the subscription to this duration, it is in violation of **[astm.f3548.v21.DSS0015](../../../../requirements/astm/f3548/v21.md)**.
 
-## [Cleanup](./clean_workspace.md)
+## Cleanup
 
-The cleanup phase of this test scenario removes the subscription with the known test ID if it has not been removed before.
+### [Clean any straggling subscriptions with known test IDs](clean_workspace_subs_during_cleanup.md)

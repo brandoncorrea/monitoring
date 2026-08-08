@@ -1,33 +1,26 @@
 from datetime import datetime, timedelta
-from typing import Optional
 
 from implicitdict import ImplicitDict, StringBasedDateTime
 from uas_standards.astm.f3548.v21.api import (
     OPERATIONS,
-    OperationID,
-    OperationalIntentState,
-    ChangeOperationalIntentReferenceResponse,
-    PutOperationalIntentReferenceParameters,
-    Time,
-    QueryOperationalIntentReferenceParameters,
-    PutConstraintReferenceParameters,
     ChangeConstraintReferenceResponse,
+    OperationID,
+    PutConstraintReferenceParameters,
     QueryConstraintReferenceParameters,
     QueryConstraintReferencesResponse,
+    Time,
 )
 
 from monitoring.monitorlib import fetch
-from monitoring.monitorlib.fetch import QueryType, QueryError
+from monitoring.monitorlib.fetch import QueryError, QueryType
 from monitoring.monitorlib.geotemporal import Volume4D
 from monitoring.monitorlib.infrastructure import UTMClientSession
+from monitoring.uss_qualifier.resources import PlanningAreaResource
 from monitoring.uss_qualifier.resources.astm.f3548.v21.dss import DSSInstance
-from monitoring.uss_qualifier.resources.astm.f3548.v21.planning_area import (
-    PlanningAreaSpecification,
-)
 from monitoring.uss_qualifier.scenarios.astm.utm.dss.authentication.generic import (
     GenericAuthValidator,
 )
-from monitoring.uss_qualifier.scenarios.scenario import TestScenario, PendingCheck
+from monitoring.uss_qualifier.scenarios.scenario import PendingCheck, TestScenario
 
 TIME_TOLERANCE_SEC = 1
 
@@ -39,11 +32,11 @@ class ConstraintRefAuthValidator:
         generic_validator: GenericAuthValidator,
         dss: DSSInstance,
         test_id: str,
-        planning_area: PlanningAreaSpecification,
+        planning_area: PlanningAreaResource,
         planning_area_volume4d: Volume4D,
         no_auth_session: UTMClientSession,
         invalid_token_session: UTMClientSession,
-        test_wrong_scope: Optional[str] = None,
+        test_wrong_scope: str | None = None,
         test_missing_scope: bool = False,
     ):
         """

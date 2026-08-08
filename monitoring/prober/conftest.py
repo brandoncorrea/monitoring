@@ -1,22 +1,22 @@
 import argparse
-from typing import Callable, Optional
+from collections.abc import Callable
 
-from uas_standards.astm import f3411, f3548
-import uas_standards.astm.f3411.v19.constants
-import uas_standards.astm.f3411.v22a.constants
-import uas_standards.astm.f3548.v21.constants
+import pytest
+import uas_standards.astm.f3411.v19.constants as v19_constants
+import uas_standards.astm.f3548.v21.constants as v21_constants
 
-from monitoring.monitorlib.infrastructure import UTMClientSession, AsyncUTMTestSession
-from monitoring.monitorlib import auth, rid_v1, scd
+from monitoring.monitorlib import auth, scd
+from monitoring.monitorlib.infrastructure import (
+    AsyncUTMTestSession,
+    UTMClientSession,
+    utm_client_session_factory,
+)
 from monitoring.prober.infrastructure import (
-    add_test_result,
     IDFactory,
     ResourceType,
     VersionString,
+    add_test_result,
 )
-
-import pytest
-
 
 OPT_RID_AUTH = "rid_auth"
 OPT_RID_V2_AUTH = "rid_v2_auth"
@@ -100,6 +100,15 @@ def pytest_addoption(parser):
         dest="scd_api_version",
     )
 
+    parser.addoption(
+        "--scd-time-based-notification-index",
+        help="True if the DSS under test computes subscription notification indices from time rather than incrementing them",
+        type=str2bool,
+        nargs="?",
+        default=False,
+        dest="scd_time_based_notification_index",
+    )
+
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
@@ -111,8 +120,8 @@ def pytest_runtest_makereport(item, call):
 
 
 def make_session(
-    pytestconfig, endpoint_suffix: str, auth_option: Optional[str] = None
-) -> Optional[UTMClientSession]:
+    pytestconfig, endpoint_suffix: str, auth_option: str | None = None
+) -> UTMClientSession:
     dss_endpoint = pytestconfig.getoption("dss_endpoint")
     if dss_endpoint is None:
         pytest.skip("dss-endpoint option not set")
@@ -121,16 +130,18 @@ def make_session(
     if auth_option:
         auth_spec = pytestconfig.getoption(auth_option)
         if not auth_spec:
-            pytest.skip("%s option not set" % auth_option)
+            pytest.skip(f"{auth_option} option not set")
         auth_adapter = auth.make_auth_adapter(auth_spec)
 
-    s = UTMClientSession(dss_endpoint + endpoint_suffix, auth_adapter)
+    s = utm_client_session_factory.get_session(
+        dss_endpoint + endpoint_suffix, auth_adapter
+    )
     return s
 
 
 def make_session_async(
-    pytestconfig, endpoint_suffix: str, auth_option: Optional[str] = None
-) -> Optional[AsyncUTMTestSession]:
+    pytestconfig, endpoint_suffix: str, auth_option: str | None = None
+) -> AsyncUTMTestSession:
     dss_endpoint = pytestconfig.getoption("dss_endpoint")
     if dss_endpoint is None:
         pytest.skip("dss-endpoint option not set")
@@ -139,7 +150,7 @@ def make_session_async(
     if auth_option:
         auth_spec = pytestconfig.getoption(auth_option)
         if not auth_spec:
-            pytest.skip("%s option not set" % auth_option)
+            pytest.skip(f"{auth_option} option not set")
         auth_adapter = auth.make_auth_adapter(auth_spec)
 
     s = AsyncUTMTestSession(dss_endpoint + endpoint_suffix, auth_adapter)
@@ -198,30 +209,30 @@ def scd_session2(pytestconfig) -> UTMClientSession:
 
 
 @pytest.fixture()
-def subscriber(pytestconfig) -> Optional[str]:
+def subscriber(pytestconfig) -> str | None:
     """Subscriber of USS making UTM API calls"""
     if pytestconfig.getoption(OPT_RID_AUTH):
         session = make_session(pytestconfig, BASE_URL_RID, OPT_RID_AUTH)
-        session.get("/healthy", scope=f3411.v19.constants.Scope.Read)
-        rid_sub = session.auth_adapter.get_sub()
-        if rid_sub:
-            return rid_sub
+        session.get("/healthy", scope=v19_constants.Scope.Read)
+
+        if session.auth_adapter:
+            rid_sub = session.auth_adapter.get_sub()
+            if rid_sub:
+                return rid_sub
     if pytestconfig.getoption(OPT_SCD_AUTH1):
         scd_session = make_session(pytestconfig, BASE_URL_SCD, OPT_SCD_AUTH1)
-        scd_session.get(
-            "/healthy", scope=f3548.v21.constants.Scope.StrategicCoordination
-        )
-        scd_sub = scd_session.auth_adapter.get_sub()
-        if scd_sub:
-            return scd_sub
+        scd_session.get("/healthy", scope=v21_constants.Scope.StrategicCoordination)
+        if scd_session.auth_adapter:
+            scd_sub = scd_session.auth_adapter.get_sub()
+            if scd_sub:
+                return scd_sub
     if pytestconfig.getoption(OPT_SCD_AUTH2):
         scd_session2 = make_session(pytestconfig, BASE_URL_SCD, OPT_SCD_AUTH2)
-        scd_session2.get(
-            "/healthy", scope=f3548.v21.constants.Scope.StrategicCoordination
-        )
-        scd2_sub = scd_session2.auth_adapter.get_sub()
-        if scd2_sub:
-            return scd2_sub
+        scd_session2.get("/healthy", scope=v21_constants.Scope.StrategicCoordination)
+        if scd_session2.auth_adapter:
+            scd2_sub = scd_session2.auth_adapter.get_sub()
+            if scd2_sub:
+                return scd2_sub
     return None
 
 
@@ -257,3 +268,8 @@ def no_auth_session_ridv2(pytestconfig) -> UTMClientSession:
 def scd_api(pytestconfig) -> str:
     api = pytestconfig.getoption("scd_api_version")
     return VersionString(api)
+
+
+@pytest.fixture(scope="session")
+def time_based_notification_index(pytestconfig) -> bool:
+    return pytestconfig.getoption("scd_time_based_notification_index")

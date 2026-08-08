@@ -1,30 +1,29 @@
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
-from datetime import datetime, UTC
 import json
+import os
 import re
-from typing import Dict, List, Optional, Union, Iterator
-from typing import Type
+from collections.abc import Iterator
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import arrow
-
+import yaml
 from implicitdict import StringBasedDateTime
 from loguru import logger
-import yaml
 
 from monitoring.monitorlib.dicts import JSONAddress
 from monitoring.monitorlib.fetch import Query
 from monitoring.monitorlib.inspection import fullname
+from monitoring.monitorlib.temporal import Time, TimeDuringTest
 from monitoring.monitorlib.versioning import repo_url_of
 from monitoring.uss_qualifier.action_generators.action_generator import (
-    ActionGeneratorType,
     ActionGenerator,
     action_generator_type_from_name,
 )
 from monitoring.uss_qualifier.configurations.configuration import (
     ExecutionConfiguration,
+    FullyQualifiedCheck,
     TestSuiteActionSelectionCondition,
 )
 from monitoring.uss_qualifier.fileio import resolve_filename
@@ -33,34 +32,37 @@ from monitoring.uss_qualifier.reports.capabilities import (
 )
 from monitoring.uss_qualifier.reports.report import (
     ActionGeneratorReport,
-    TestScenarioReport,
     FailedCheck,
-    TestSuiteReport,
-    TestSuiteActionReport,
     ParticipantCapabilityEvaluationReport,
     Severity,
     SkippedActionReport,
+    TestScenarioReport,
+    TestSuiteActionReport,
+    TestSuiteReport,
 )
 from monitoring.uss_qualifier.resources.definitions import ResourceID
 from monitoring.uss_qualifier.resources.resource import (
-    ResourceType,
-    make_child_resources,
     MissingResourceError,
+    ResourceType,
     create_resources,
+    make_child_resources,
 )
 from monitoring.uss_qualifier.scenarios.scenario import (
-    TestScenario,
     ScenarioCannotContinueError,
     TestRunCannotContinueError,
+    TestScenario,
+    are_scenario_types_equal,
+    fully_qualified_check_in_collection,
+    get_scenario_type_by_name,
 )
-from monitoring.uss_qualifier.scenarios.scenario import get_scenario_type_by_name
 from monitoring.uss_qualifier.suites.definitions import (
-    TestSuiteActionDeclaration,
-    TestSuiteDefinition,
     ReactionToFailure,
-    ActionType,
+    TestSuiteActionDeclaration,
     TestSuiteDeclaration,
+    TestSuiteDefinition,
 )
+
+TEST_RUN_TIMEOUT_SKIP_REASON = "Maximum test run time has been exceeded"
 
 
 def _print_failed_check(failed_check: FailedCheck) -> None:
@@ -75,40 +77,39 @@ def _print_failed_check(failed_check: FailedCheck) -> None:
         )
 
 
-class TestSuiteAction(object):
+class TestSuiteAction[T: ActionGenerator]:
     declaration: TestSuiteActionDeclaration
-    test_scenario: Optional[TestScenario] = None
-    test_suite: Optional[TestSuite] = None
-    action_generator: Optional[ActionGeneratorType] = None
+    test_scenario: TestScenario | None = None
+    test_suite: TestSuite | None = None
+    action_generator: T | None = None
 
     def __init__(
         self,
         action: TestSuiteActionDeclaration,
-        resources: Dict[ResourceID, ResourceType],
+        resources: dict[ResourceID, ResourceType],
     ):
         self.declaration = action
         resources_for_child = make_child_resources(
             resources,
             action.get_resource_links(),
-            f"Test suite action to run {action.get_action_type()} {action.get_child_type()}",
+            f"Test suite action to run {action.get_action_type_name()} {action.get_child_type()}",
         )
 
-        action_type = action.get_action_type()
-        if action_type == ActionType.TestScenario:
+        if "test_scenario" in action and action.test_scenario:
             self.test_scenario = TestScenario.make_test_scenario(
                 declaration=action.test_scenario, resource_pool=resources_for_child
             )
-        elif action_type == ActionType.TestSuite:
+        elif "test_suite" in action and action.test_suite:
             self.test_suite = TestSuite(
                 declaration=action.test_suite,
                 resources=resources,
             )
-        elif action_type == ActionType.ActionGenerator:
+        elif "action_generator" in action and action.action_generator:
             self.action_generator = ActionGenerator.make_from_definition(
                 definition=action.action_generator, resources=resources_for_child
             )
         else:
-            ActionType.raise_invalid_action_declaration()
+            raise action.invalid_type_error
 
     def get_name(self) -> str:
         if self.test_suite:
@@ -127,7 +128,7 @@ class TestSuiteAction(object):
         skip_report = context.evaluate_skip()
         if skip_report:
             logger.warning(
-                f"Skipping {self.declaration.get_action_type()} '{self.get_name()}' because: {skip_report.reason}"
+                f"Skipping {self.declaration.get_action_type_name()} '{self.get_name()}' because: {skip_report.reason}"
             )
             report = TestSuiteActionReport(skipped_action=skip_report)
         else:
@@ -151,8 +152,16 @@ class TestSuiteAction(object):
     def _run_test_scenario(self, context: ExecutionContext) -> TestScenarioReport:
         scenario = self.test_scenario
 
+        if not scenario:
+            raise Exception("Cannot execute _run_test_scenario when no scenario is set")
+
         logger.info(f'Running "{scenario.documentation.name}" scenario...')
         scenario.on_failed_check = _print_failed_check
+        scenario.time_context[TimeDuringTest.StartOfTestRun] = Time(context.start_time)
+        scenario.time_context[TimeDuringTest.StartOfScenario] = Time(
+            arrow.utcnow().datetime
+        )
+
         try:
             try:
                 scenario.run(context)
@@ -168,24 +177,32 @@ class TestSuiteAction(object):
         except Exception as e:
             scenario.record_execution_error(e)
         report = scenario.get_report()
-        if report.successful:
-            logger.info(f'SUCCESS for "{scenario.documentation.name}" scenario')
+        if "execution_error" in report and report.execution_error:
+            lines = report.execution_error.stacktrace.split("\n")
+            logger.error(
+                'Execution error in scenario "{}":\n{}',
+                scenario.documentation.name,
+                "\n".join("  " + line for line in lines),
+            )
         else:
-            if "execution_error" in report:
-                lines = report.execution_error.stacktrace.split("\n")
-                logger.error(
-                    "Execution error:\n{}", "\n".join("  " + line for line in lines)
-                )
-            logger.warning(f'FAILURE for "{scenario.documentation.name}" scenario')
+            logger.info(f'"{scenario.documentation.name}" scenario completed')
         return report
 
     def _run_test_suite(self, context: ExecutionContext) -> TestSuiteReport:
+        if not self.test_suite:
+            raise Exception("Cannot execute _run_test_suite when no test suite is set")
+
         logger.info(f"Beginning test suite {self.test_suite.definition.name}...")
         report = self.test_suite.run(context)
         logger.info(f"Completed test suite {self.test_suite.definition.name}")
         return report
 
     def _run_action_generator(self, context: ExecutionContext) -> ActionGeneratorReport:
+        if not self.action_generator:
+            raise Exception(
+                "Cannot execute _run_action_generator when no action generator is set"
+            )
+
         report = ActionGeneratorReport(
             actions=[],
             generator_type=self.action_generator.definition.generator_type,
@@ -197,17 +214,16 @@ class TestSuiteAction(object):
         return report
 
 
-class TestSuite(object):
+class TestSuite:
     declaration: TestSuiteDeclaration
     definition: TestSuiteDefinition
     documentation_url: str
-    local_resources: Dict[ResourceID, ResourceType]
-    actions: List[Union[TestSuiteAction, SkippedActionReport]]
+    actions: list[TestSuiteAction | SkippedActionReport]
 
     def __init__(
         self,
         declaration: TestSuiteDeclaration,
-        resources: Dict[ResourceID, ResourceType],
+        resources: dict[ResourceID, ResourceType],
     ):
         # Determine the suite's documentation URL
         if "suite_type" in declaration and declaration.suite_type:
@@ -241,7 +257,9 @@ class TestSuite(object):
         else:
             self.local_resources = {}
         if "local_resources" in self.definition and self.definition.local_resources:
-            local_resources = create_resources(self.definition.local_resources)
+            local_resources = create_resources(
+                self.definition.local_resources, self.declaration.type_name
+            )
             for local_resource_id, resource in local_resources.items():
                 if local_resource_id not in self.local_resources:
                     self.local_resources[local_resource_id] = resource
@@ -265,7 +283,7 @@ class TestSuite(object):
                 raise ValueError(
                     f'Test suite "{self.definition.name}" expected resource {resource_id} to be {resource_type}, but instead it was provided {fullname(self.local_resources[resource_id].__class__)}'
                 )
-        actions: List[Union[TestSuiteAction, SkippedActionReport]] = []
+        actions: list[TestSuiteAction | SkippedActionReport] = []
         for a, action_dec in enumerate(self.definition.actions):
             try:
                 actions.append(
@@ -273,7 +291,7 @@ class TestSuite(object):
                 )
             except MissingResourceError as e:
                 logger.warning(
-                    f"Skipping action {a} ({action_dec.get_action_type()} {action_dec.get_child_type()}) because {str(e)}"
+                    f"Skipping action {a} ({action_dec.get_action_type_name()} {action_dec.get_child_type()}) because {str(e)}"
                 )
                 actions.append(
                     SkippedActionReport(
@@ -294,9 +312,8 @@ class TestSuite(object):
             capability_evaluations=[],
         )
 
-        def actions() -> Iterator[Union[TestSuiteAction, SkippedActionReport]]:
-            for a in self.actions:
-                yield a
+        def actions() -> Iterator[TestSuiteAction | SkippedActionReport]:
+            yield from self.actions
 
         _run_actions(actions(), context, report)
 
@@ -332,14 +349,23 @@ class TestSuite(object):
 
 
 def _run_actions(
-    actions: Iterator[Union[TestSuiteAction, SkippedActionReport]],
+    actions: Iterator[TestSuiteAction | SkippedActionReport],
     context: ExecutionContext,
-    report: Union[TestSuiteReport, ActionGeneratorReport],
+    report: TestSuiteReport | ActionGeneratorReport,
 ) -> None:
     success = True
     for a, action in enumerate(actions):
         if isinstance(action, SkippedActionReport):
             action_report = TestSuiteActionReport(skipped_action=action)
+        elif context.should_stop_early_now():
+            assert context.current_frame
+            action_report = TestSuiteActionReport(
+                skipped_action=SkippedActionReport(
+                    timestamp=StringBasedDateTime(arrow.utcnow().datetime),
+                    reason=TEST_RUN_TIMEOUT_SKIP_REASON,
+                    declaration=context.current_frame.action.declaration,
+                )
+            )
         else:
             action_report = action.run(context)
         report.actions.append(action_report)
@@ -361,11 +387,11 @@ def _run_actions(
 
 
 @dataclass
-class ActionStackFrame(object):
+class ActionStackFrame:
     action: TestSuiteAction
-    parent: Optional[ActionStackFrame]
-    children: List[ActionStackFrame]
-    report: Optional[TestSuiteActionReport] = None
+    parent: ActionStackFrame | None
+    children: list[ActionStackFrame]
+    report: TestSuiteActionReport | None = None
 
     def address(self) -> JSONAddress:
         if self.action.test_scenario is not None:
@@ -394,66 +420,105 @@ class ActionStackFrame(object):
         return f"{self.parent.address()}.actions[{index}].{addr}"
 
 
-class ExecutionContext(object):
+class ExecutionContext:
     start_time: datetime
-    config: Optional[ExecutionConfiguration]
-    top_frame: Optional[ActionStackFrame]
-    current_frame: Optional[ActionStackFrame]
+    config: ExecutionConfiguration | None
+    acceptable_findings: list[FullyQualifiedCheck]
+    top_frame: ActionStackFrame | None
+    current_frame: ActionStackFrame | None
 
-    def __init__(self, config: Optional[ExecutionConfiguration]):
+    def __init__(
+        self,
+        config: ExecutionConfiguration | None,
+        acceptable_findings: list[FullyQualifiedCheck],
+    ):
         self.config = config
+        self.acceptable_findings = acceptable_findings
         self.top_frame = None
         self.current_frame = None
         self.start_time = arrow.utcnow().datetime
 
     def sibling_queries(self) -> Iterator[Query]:
-        if self.current_frame.parent is None:
+        if self.current_frame is None or self.current_frame.parent is None:
             return
         for child in self.current_frame.parent.children:
             if child.report is not None:
-                for q in child.report.queries():
-                    yield q
+                yield from child.report.queries()
 
     def find_test_scenario_reports(
-        self, scenario_type: Type[TestScenario]
-    ) -> List[TestScenarioReport]:
+        self, scenario_type: type[TestScenario]
+    ) -> list[TestScenarioReport]:
         """Find reports for all currently-completed instances of the specified test scenario type."""
-        return self._find_test_scenario_reports(scenario_type, self.top_frame)
+        return [
+            report
+            for report in self.test_scenario_reports()
+            if issubclass(
+                get_scenario_type_by_name(report.scenario_type), scenario_type
+            )
+        ]
 
-    def _find_test_scenario_reports(
-        self, scenario_type: Type[TestScenario], frame: ActionStackFrame
-    ) -> List[TestScenarioReport]:
-        results = []
+    def test_scenario_reports(
+        self, frame: ActionStackFrame | None = None
+    ) -> Iterator[TestScenarioReport]:
+        if not frame:
+            frame = self.top_frame
+            if not frame:
+                return
         if (
             frame.report is not None
             and "test_scenario" in frame.report
             and frame.report.test_scenario is not None
         ):
-            report_scenario_type = get_scenario_type_by_name(
-                frame.report.test_scenario.scenario_type
-            )
-            if issubclass(report_scenario_type, scenario_type):
-                results.append(frame.report.test_scenario)
+            yield frame.report.test_scenario
         for child in frame.children:
-            new_results = self._find_test_scenario_reports(scenario_type, child)
-            results.extend(new_results)
-        return results
+            yield from self.test_scenario_reports(child)
 
-    @property
-    def stop_fast(self) -> bool:
+    def stop_fast(
+        self, test_case_name: str, test_step_name: str, check_name: str
+    ) -> bool:
         if (
             self.config is not None
             and "stop_fast" in self.config
-            and self.config.stop_fast is not None
+            and self.config.stop_fast
         ):
-            return self.config.stop_fast
+            if (
+                "do_not_stop_fast_for_acceptable_findings" in self.config
+                and self.config.do_not_stop_fast_for_acceptable_findings
+            ):
+                # See if there is an exception for the particular check being considered
+                if self.current_frame and self.current_frame.action.test_scenario:
+                    current_check = FullyQualifiedCheck(
+                        scenario_type=self.current_frame.action.test_scenario.declaration.scenario_type,
+                        test_case_name=test_case_name,
+                        test_step_name=test_step_name,
+                        check_name=check_name,
+                    )
+                    if fully_qualified_check_in_collection(
+                        current_check, self.acceptable_findings
+                    ):
+                        return False
+            return True
         return False
+
+    def should_stop_early_now(self) -> bool:
+        if (
+            not self.config
+            or "stop_after" not in self.config
+            or not self.config.stop_after
+        ):
+            return False
+        dt = arrow.utcnow() - self.start_time
+        return dt >= self.config.stop_after.timedelta
 
     def _compute_n_of(
         self, target: TestSuiteAction, condition: TestSuiteActionSelectionCondition
     ) -> int:
         n = 0
-        queue = [self.top_frame]
+        queue: list[ActionStackFrame] = []
+
+        if self.top_frame:
+            queue.append(self.top_frame)
+
         while queue:
             frame = queue.pop(0)
             if self._is_selected_by(frame, condition):
@@ -468,9 +533,9 @@ class ExecutionContext(object):
 
     def _ancestor_selected_by(
         self,
-        frame: Optional[ActionStackFrame],
-        of_generation: Optional[int],
-        which: List[TestSuiteActionSelectionCondition],
+        frame: ActionStackFrame | None,
+        of_generation: int | None,
+        which: list[TestSuiteActionSelectionCondition],
     ) -> bool:
         if frame is None:
             return False
@@ -527,10 +592,15 @@ class ExecutionContext(object):
                     "types" in f.is_test_scenario
                     and f.is_test_scenario.types is not None
                 ):
-                    if (
-                        action.test_scenario.declaration.scenario_type
-                        not in f.is_test_scenario.types
-                    ):
+                    matches_scenario_type = False
+                    for scenario_type in f.is_test_scenario.types:
+                        if are_scenario_types_equal(
+                            scenario_type,
+                            action.test_scenario.declaration.scenario_type,
+                        ):
+                            matches_scenario_type = True
+                            break
+                    if not matches_scenario_type:
                         return False
                 result = True
             else:
@@ -575,7 +645,7 @@ class ExecutionContext(object):
 
         return result
 
-    def evaluate_skip(self) -> Optional[SkippedActionReport]:
+    def evaluate_skip(self) -> SkippedActionReport | None:
         """Decide whether to skip the action in the current_frame or not.
 
         Should be called in between self.begin_action and self.end_action, and before executing the action.
@@ -584,6 +654,9 @@ class ExecutionContext(object):
         """
 
         if not self.config:
+            return None
+
+        if not self.current_frame:
             return None
 
         if "include_action_when" in self.config and self.config.include_action_when:
@@ -608,6 +681,21 @@ class ExecutionContext(object):
                         declaration=self.current_frame.action.declaration,
                     )
 
+        if (
+            "scenarios_filter" in self.config
+            and self.config.scenarios_filter
+            and self.current_frame.action.test_scenario
+        ):
+            scenario_type = (
+                self.current_frame.action.test_scenario.declaration.scenario_type
+            )
+            if not re.search(self.config.scenarios_filter, scenario_type):
+                return SkippedActionReport(
+                    timestamp=StringBasedDateTime(arrow.utcnow()),
+                    reason=f"Scenario type '{scenario_type}' did not match against scenarios_filter regex `{self.config.scenarios_filter}`",
+                    declaration=self.current_frame.action.declaration,
+                )
+
         return None
 
     def begin_action(self, action: TestSuiteAction) -> None:
@@ -618,14 +706,20 @@ class ExecutionContext(object):
             self.current_frame = ActionStackFrame(
                 action=action, parent=self.current_frame, children=[]
             )
-            self.current_frame.parent.children.append(self.current_frame)
+            if self.current_frame.parent:
+                self.current_frame.parent.children.append(self.current_frame)
 
     def end_action(
         self, action: TestSuiteAction, report: TestSuiteActionReport
     ) -> None:
+        if not self.current_frame:
+            raise RuntimeError(
+                "end_action has been called, but there is not current frame"
+            )
+
         if self.current_frame.action is not action:
             raise RuntimeError(
-                f"Action {self.current_frame.action.declaration.get_action_type()} {self.current_frame.action.declaration.get_child_type()} was started, but a different action {action.declaration.get_action_type()} {action.declaration.get_child_type()} was ended"
+                f"Action {self.current_frame.action.declaration.get_action_type_name()} {self.current_frame.action.declaration.get_child_type()} was started, but a different action {action.declaration.get_action_type_name()} {action.declaration.get_child_type()} was ended"
             )
         self.current_frame.report = report
         self.current_frame = self.current_frame.parent

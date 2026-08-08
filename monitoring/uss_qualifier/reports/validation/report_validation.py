@@ -1,40 +1,39 @@
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Iterator, Union, List
 
-from loguru import logger
 import yaml
+from loguru import logger
 
 from monitoring.monitorlib.dicts import JSONAddress
 from monitoring.monitorlib.inspection import fullname
 from monitoring.uss_qualifier.common_data_definitions import Severity
 from monitoring.uss_qualifier.reports.report import (
-    TestRunReport,
-    TestSuiteActionReport,
-    FailedCheck,
-    TestSuiteReport,
     ActionGeneratorReport,
+    FailedCheck,
     SkippedActionReport,
+    TestRunReport,
     TestScenarioReport,
+    TestSuiteActionReport,
+    TestSuiteReport,
 )
 from monitoring.uss_qualifier.reports.validation.definitions import (
-    ValidationConfiguration,
-    ValidationCriterion,
-    ValidationCriterionApplicability,
-    SeverityComparison,
-    PassCondition,
     EachElementCondition,
     ElementGroupCondition,
     NumericComparison,
+    PassCondition,
+    SeverityComparison,
+    ValidationConfiguration,
+    ValidationCriterion,
+    ValidationCriterionApplicability,
 )
-
 
 # ===== Shared logic =====
 
 
 @dataclass
-class TestReportElement(object):
-    element: Union[FailedCheck, SkippedActionReport, TestScenarioReport]
+class TestReportElement:
+    element: FailedCheck | SkippedActionReport | TestScenarioReport
     location: JSONAddress
 
 
@@ -146,10 +145,9 @@ def _get_applicable_elements_from_test_suite(
     location: JSONAddress,
 ) -> Iterator[TestReportElement]:
     for a, action in enumerate(report.actions):
-        for e in _get_applicable_elements_from_action(
+        yield from _get_applicable_elements_from_action(
             applicability, action, JSONAddress(location + f".actions[{a}]")
-        ):
-            yield e
+        )
 
 
 def _get_applicable_elements_from_action_generator(
@@ -158,10 +156,9 @@ def _get_applicable_elements_from_action_generator(
     location: JSONAddress,
 ) -> Iterator[TestReportElement]:
     for a, action in enumerate(report.actions):
-        for e in _get_applicable_elements_from_action(
+        yield from _get_applicable_elements_from_action(
             applicability, action, JSONAddress(location + f".actions[{a}]")
-        ):
-            yield e
+        )
 
 
 def _get_applicable_elements_from_skipped_action(
@@ -179,29 +176,30 @@ def _get_applicable_elements_from_action(
     report: TestSuiteActionReport,
     location: JSONAddress,
 ) -> Iterator[TestReportElement]:
-    test_suite, test_scenario, action_generator = report.get_applicable_report()
-    if test_scenario:
+    if "test_scenario" in report and report.test_scenario:
         return _get_applicable_elements_from_test_scenario(
             applicability,
             report.test_scenario,
             JSONAddress(location + ".test_scenario"),
         )
-    elif test_suite:
+    elif "test_suite" in report and report.test_suite:
         return _get_applicable_elements_from_test_suite(
             applicability, report.test_suite, JSONAddress(location + ".test_suite")
         )
-    elif action_generator:
+    elif "action_generator" in report and report.action_generator:
         return _get_applicable_elements_from_action_generator(
             applicability,
             report.action_generator,
             JSONAddress(location + ".action_generator"),
         )
-    else:
+    elif "skipped_action" in report and report.skipped_action:
         return _get_applicable_elements_from_skipped_action(
             applicability,
             report.skipped_action,
             JSONAddress(location + ".skipped_action"),
         )
+    else:
+        raise report.invalid_type_error
 
 
 # ===== Evaluation of conditions =====
@@ -238,7 +236,7 @@ def _evaluate_element_condition(
 
 
 def _evaluate_elements_condition(
-    condition: ElementGroupCondition, elements: List[TestReportElement]
+    condition: ElementGroupCondition, elements: list[TestReportElement]
 ) -> bool:
     if "count" in condition and condition.count is not None:
         return _compare_number(len(elements), condition.count)
@@ -250,7 +248,7 @@ def _evaluate_elements_condition(
 
 
 def _evaluate_condition(
-    condition: PassCondition, elements: List[TestReportElement]
+    condition: PassCondition, elements: list[TestReportElement]
 ) -> bool:
     if "each_element" in condition and condition.each_element is not None:
         for element in elements:

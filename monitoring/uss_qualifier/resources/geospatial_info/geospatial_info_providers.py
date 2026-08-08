@@ -1,18 +1,18 @@
-from typing import Optional
 from urllib.parse import urlparse
 
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
+from uas_standards.interuss.automated_testing.geospatial_map.v1.constants import (
+    Scope as ScopeGeospatialMap,
+)
+
 from monitoring.monitorlib.clients.geospatial_info.client import GeospatialInfoClient
 from monitoring.monitorlib.clients.geospatial_info.client_geospatial_map import (
     GeospatialMapClient,
 )
-from monitoring.monitorlib.infrastructure import AuthAdapter, UTMClientSession
+from monitoring.monitorlib.infrastructure import AuthAdapter, utm_client_session_factory
 from monitoring.uss_qualifier.configurations.configuration import ParticipantID
 from monitoring.uss_qualifier.resources.communications import AuthAdapterResource
 from monitoring.uss_qualifier.resources.resource import Resource
-from uas_standards.interuss.automated_testing.geospatial_map.v1.constants import (
-    Scope as ScopeGeospatialMap,
-)
 
 
 class GeospatialInfoProviderConfiguration(ImplicitDict):
@@ -22,7 +22,7 @@ class GeospatialInfoProviderConfiguration(ImplicitDict):
     geospatial_map_v1_base_url: Optional[str]
     """Base URL for the geospatial information provider's implementation of the interfaces/automated_testing/geospatial_map/v1/geospatial_map.yaml API"""
 
-    timeout_seconds: Optional[float] = None
+    timeout_seconds: Optional[float | None] = None
     """Number of seconds to allow for requests to this geospatial information provider.  If None, use default."""
 
     def __init__(self, *args, **kwargs):
@@ -37,7 +37,7 @@ class GeospatialInfoProviderConfiguration(ImplicitDict):
 
     def to_client(self, auth_adapter: AuthAdapter) -> GeospatialInfoClient:
         if "geospatial_map_v1_base_url" in self and self.geospatial_map_v1_base_url:
-            session = UTMClientSession(
+            session = utm_client_session_factory.get_session(
                 self.geospatial_map_v1_base_url, auth_adapter, self.timeout_seconds
             )
             return GeospatialMapClient(session, self.participant_id)
@@ -57,8 +57,10 @@ class GeospatialInfoProviderResource(Resource[GeospatialInfoProviderSpecificatio
     def __init__(
         self,
         specification: GeospatialInfoProviderSpecification,
+        resource_origin: str,
         auth_adapter: AuthAdapterResource,
     ):
+        super().__init__(specification, resource_origin)
         if (
             "geospatial_map_v1_base_url" in specification.geospatial_info_provider
             and specification.geospatial_info_provider.geospatial_map_v1_base_url

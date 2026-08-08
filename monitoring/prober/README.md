@@ -44,7 +44,7 @@ make image
 ```shell script
 docker run --rm interuss/monitoring \
     -w /app/monitoring/prober \
-    pytest \
+    uv run pytest \
     --dss-endpoint <URL> \
     [--rid-auth <SPEC>] \
     [--scd-auth1 <SPEC>] \
@@ -57,17 +57,12 @@ requires more setup and may not be fully-reproducible due to system differences
 in Python, etc.
 
 ### First time set up
-```shell script
-sudo apt-get install virtualenv
-virtualenv --python python3 env
-. ./env/bin/activate
-pip install -r requirements.txt
-```
+
+Install UV: https://docs.astral.sh/uv/getting-started/installation/
 
 ### Running the prober
 ```shell
-. ./env/bin/activate
-pytest \
+uv run pytest \
     --dss-endpoint <URL> \
     [--rid-auth <SPEC>] \
     [--scd-auth1 <SPEC>] \
@@ -149,11 +144,14 @@ Specifically:
    E.g.:
    ```python
    from monitoring.prober.infrastructure import register_resource_type
+
    [...]
    CONFLICTING_OI_TYPE = register_resource_type(103, "OI that conflicts with first OI")
    [...]
+
+
    def test_create_conflict(ids):
-     conflicting_id = ids(CONFLICTING_OI_TYPE)
+       conflicting_id = ids(CONFLICTING_OI_TYPE)
    ```
    The resource type code must be unique among all prober tests. To determine
    an appropriate resource type code for a new resource, see the comment above

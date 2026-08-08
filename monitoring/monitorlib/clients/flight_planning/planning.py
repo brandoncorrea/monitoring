@@ -1,21 +1,24 @@
 from __future__ import annotations
-from enum import Enum
-from typing import Optional, List, Dict
 
-from implicitdict import ImplicitDict
+from enum import StrEnum
+
+from implicitdict import ImplicitDict, Optional, StringBasedDateTime
 from uas_standards.astm.f3548.v21 import api as f3548v21
+from uas_standards.interuss.automated_testing.flight_planning.v1 import (
+    api as flight_planning_api,
+)
 from uas_standards.interuss.automated_testing.scd.v1 import api as scd_api
 
 from monitoring.monitorlib.clients.flight_planning.flight_info import (
+    AirspaceUsageState,
     FlightID,
     FlightInfo,
     UasState,
-    AirspaceUsageState,
 )
 from monitoring.monitorlib.fetch import Query
 
 
-class PlanningActivityResult(str, Enum):
+class PlanningActivityResult(StrEnum):
     """The result of the flight planning operation."""
 
     Completed = "Completed"
@@ -31,7 +34,7 @@ class PlanningActivityResult(str, Enum):
     """The USS's implementation does not support the attempted interaction.  For instance, if the request specified a high-priority flight and the USS does not support management of high-priority flights."""
 
 
-class FlightPlanStatus(str, Enum):
+class FlightPlanStatus(StrEnum):
     """Status of a user's flight plan."""
 
     NotPlanned = "NotPlanned"
@@ -50,7 +53,7 @@ class FlightPlanStatus(str, Enum):
     """The flight plan was closed successfully by the USS and is now out of the UTM system."""
 
     @staticmethod
-    def from_flightinfo(info: Optional[FlightInfo]) -> FlightPlanStatus:
+    def from_flightinfo(info: FlightInfo | None) -> FlightPlanStatus:
         if info is None:
             return FlightPlanStatus.NotPlanned
         if info.basic_information.uas_state != UasState.Nominal:
@@ -60,7 +63,7 @@ class FlightPlanStatus(str, Enum):
         return FlightPlanStatus.Planned
 
 
-class AdvisoryInclusion(str, Enum):
+class AdvisoryInclusion(StrEnum):
     """Indication of whether any advisories or conditions were provided to the user along with the result of a flight planning attempt."""
 
     Unknown = "Unknown"
@@ -77,7 +80,7 @@ class PlanningActivityResponse(ImplicitDict):
     flight_id: FlightID
     """Identity of flight for which the planning activity was conducted."""
 
-    queries: List[Query]
+    queries: list[Query]
     """Queries used to accomplish this activity."""
 
     activity_result: PlanningActivityResult
@@ -85,6 +88,13 @@ class PlanningActivityResponse(ImplicitDict):
 
     flight_plan_status: FlightPlanStatus
     """Status of the flight plan following the flight planning activity."""
+
+    as_planned: Optional[FlightInfo]
+    """The flight information, as it was actually planned (after any adjustments or adaptations).
+    
+    If the flight was planned or modified successfully but this field is not populated, the flight information was
+    accepted exactly as provided.
+    """
 
     notes: Optional[str]
     """Any human-readable notes regarding the activity."""
@@ -126,16 +136,16 @@ class PlanningActivityResponse(ImplicitDict):
 
 
 class ClearAreaResponse(ImplicitDict):
-    flights_deleted: List[FlightID]
+    flights_deleted: list[FlightID]
     """List of IDs of flights that were deleted during this area clearing operation."""
 
-    flight_deletion_errors: Dict[FlightID, dict]
+    flight_deletion_errors: dict[FlightID, dict]
     """When an error was encountered deleting a particular flight, information about that error."""
 
-    op_intents_removed: List[f3548v21.EntityOVN]
+    op_intents_removed: list[f3548v21.EntityID]
     """List of IDs of ASTM F3548-21 operational intent references that were removed during this area clearing operation."""
 
-    op_intent_removal_errors: Dict[f3548v21.EntityOVN, dict]
+    op_intent_removal_errors: dict[f3548v21.EntityID, dict]
     """When an error was encountered removing a particular operational intent reference, information about that error."""
 
     error: Optional[dict] = None
@@ -148,3 +158,32 @@ class ClearAreaResponse(ImplicitDict):
             and not self.op_intent_removal_errors
             and self.error is None
         )
+
+
+class Conflict(StrEnum):
+    """Conflict status as indicated in the notification."""
+
+    Unknown = "Unknown"
+    """Notification doesn't contain information regarding conflicts."""
+
+    None_ = "None"
+    """Notification indicates no conflicts."""
+
+    Single = "Single"
+    """Notification indicates the presence of one conflict."""
+
+    Multiple = "Multiple"
+    """Notification indicates the presence of multiple conflicts."""
+
+    def to_api(self) -> flight_planning_api.UserNotificationConflicts:
+        return flight_planning_api.UserNotificationConflicts(self.value)
+
+
+class UserNotification(ImplicitDict):
+    observed_at: StringBasedDateTime
+    conflicts: Conflict
+
+
+class QueryUserNotificationsResponse(ImplicitDict):
+    user_notifications: list[UserNotification]
+    """List of applicable observed user notifications."""

@@ -1,30 +1,41 @@
+import datetime
 import uuid
-from typing import Dict, Optional
-from implicitdict import ImplicitDict
-from monitoring.monitorlib.clients.flight_planning.client import (
-    FlightPlannerClient,
-    PlanningActivityError,
-)
-from monitoring.monitorlib.clients.flight_planning.test_preparation import (
-    TestPreparationActivityResponse,
-)
+
+import arrow
+from implicitdict import ImplicitDict, StringBasedDateTime
+from loguru import logger
+from uas_standards.interuss.automated_testing.flight_planning.v1.api import FlightPlan
 from uas_standards.interuss.automated_testing.scd.v1 import api as scd_api
 from uas_standards.interuss.automated_testing.scd.v1 import (
     constants as scd_api_constants,
 )
 
+from monitoring.monitorlib.clients.flight_planning.client import (
+    FlightPlannerClient,
+    PlanningActivityError,
+)
 from monitoring.monitorlib.clients.flight_planning.flight_info import (
-    FlightInfo,
-    FlightID,
     ExecutionStyle,
+    FlightID,
+    FlightInfo,
     UasState,
 )
 from monitoring.monitorlib.clients.flight_planning.planning import (
+    FlightPlanStatus,
     PlanningActivityResponse,
     PlanningActivityResult,
-    FlightPlanStatus,
+    QueryUserNotificationsResponse,
 )
-from monitoring.monitorlib.fetch import query_and_describe, QueryType
+from monitoring.monitorlib.clients.flight_planning.test_preparation import (
+    TestPreparationActivityResponse,
+)
+from monitoring.monitorlib.fetch import (
+    Query,
+    QueryType,
+    RequestDescription,
+    ResponseDescription,
+    query_and_describe,
+)
 from monitoring.monitorlib.geotemporal import Volume4D
 from monitoring.monitorlib.infrastructure import UTMClientSession
 from monitoring.uss_qualifier.configurations.configuration import ParticipantID
@@ -33,10 +44,10 @@ from monitoring.uss_qualifier.configurations.configuration import ParticipantID
 class SCDFlightPlannerClient(FlightPlannerClient):
     SCD_SCOPE = scd_api_constants.Scope.Inject
     _session: UTMClientSession
-    _plan_statuses: Dict[FlightID, FlightPlanStatus]
+    _plan_statuses: dict[FlightID, FlightPlanStatus]
 
     def __init__(self, session: UTMClientSession, participant_id: ParticipantID):
-        super(SCDFlightPlannerClient, self).__init__(participant_id=participant_id)
+        super().__init__(participant_id=participant_id)
         self._session = session
         self._plan_statuses = {}
 
@@ -45,7 +56,7 @@ class SCDFlightPlannerClient(FlightPlannerClient):
         flight_id: FlightID,
         flight_info: FlightInfo,
         execution_style: ExecutionStyle,
-        additional_fields: Optional[dict] = None,
+        additional_fields: dict | None = None,
     ) -> PlanningActivityResponse:
         if execution_style != ExecutionStyle.IfAllowed:
             raise PlanningActivityError(
@@ -128,6 +139,7 @@ class SCDFlightPlannerClient(FlightPlannerClient):
                 scd_api.InjectFlightResponseResult.Failed: old_state,
                 scd_api.InjectFlightResponseResult.NotSupported: old_state,
             }[resp.result],
+            notes=resp.notes if "notes" in resp else None,
         )
 
         if (
@@ -147,6 +159,20 @@ class SCDFlightPlannerClient(FlightPlannerClient):
             if response.flight_plan_status in created_status:
                 self.created_flight_ids.add(flight_id)
 
+        if query.response.json and "as_planned" in query.response.json:
+            # Make best effort to interpret additional `as_planned` field according to flight_planning API as an ad-hoc
+            # retrofit to the legacy scd injection API
+            try:
+                response.as_planned = FlightInfo.from_flight_plan(
+                    ImplicitDict.parse(query.response.json["as_planned"], FlightPlan)
+                )
+            except ValueError:
+                # Best effort failed so it's ok to ignore additional `as_planned` field
+                logger.warning(
+                    "SCD API response contained unparseable `as_planned` supplemental field"
+                )
+                pass
+
         self._plan_statuses[flight_id] = response.flight_plan_status
         return response
 
@@ -154,7 +180,7 @@ class SCDFlightPlannerClient(FlightPlannerClient):
         self,
         flight_info: FlightInfo,
         execution_style: ExecutionStyle,
-        additional_fields: Optional[dict] = None,
+        additional_fields: dict | None = None,
     ) -> PlanningActivityResponse:
         return self._inject(
             str(uuid.uuid4()), flight_info, execution_style, additional_fields
@@ -165,7 +191,7 @@ class SCDFlightPlannerClient(FlightPlannerClient):
         flight_id: FlightID,
         updated_flight_info: FlightInfo,
         execution_style: ExecutionStyle,
-        additional_fields: Optional[dict] = None,
+        additional_fields: dict | None = None,
     ) -> PlanningActivityResponse:
         return self._inject(
             flight_id, updated_flight_info, execution_style, additional_fields
@@ -214,6 +240,7 @@ class SCDFlightPlannerClient(FlightPlannerClient):
                 scd_api.DeleteFlightResponseResult.Closed: FlightPlanStatus.Closed,
                 scd_api.DeleteFlightResponseResult.Failed: old_state,
             }[resp.result],
+            notes=resp.notes if "notes" in resp else None,
         )
         if resp.result == scd_api.DeleteFlightResponseResult.Closed:
             del self._plan_statuses[flight_id]
@@ -296,3 +323,25 @@ class SCDFlightPlannerClient(FlightPlannerClient):
 
     def get_base_url(self):
         return self._session.get_prefix_url()
+
+    def get_user_notifications(
+        self,
+        after: datetime.datetime,
+        before: datetime.datetime | None = None,
+    ) -> tuple[QueryUserNotificationsResponse | None, Query]:
+        query = Query(
+            request=RequestDescription(
+                method="NONE",
+                url="https://testdummy.interuss.org/interuss/monitoring/monitorlib/clients/flight_planning/client_scd/get_user_notifications",
+                initiated_at=StringBasedDateTime(arrow.utcnow().datetime),
+            ),
+            response=ResponseDescription(
+                code=999,
+                failure="Legacy scd automated testing API does not support user notification retrieval",
+                elapsed_s=0,
+                reported=StringBasedDateTime(arrow.utcnow().datetime),
+            ),
+            participant_id=self.participant_id,
+            query_type=QueryType.InterUSSNone,
+        )
+        return None, query

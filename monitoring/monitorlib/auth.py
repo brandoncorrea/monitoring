@@ -4,7 +4,7 @@ import hashlib
 import re
 import urllib.parse
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import cryptography.exceptions
 import cryptography.hazmat.backends
@@ -35,32 +35,44 @@ class NoAuth(AuthAdapter):
 
     # This is the private key from test-certs/auth2.key.
     dummy_private_key = jwcrypto.jwk.JWK.from_pem(
-        "-----BEGIN RSA PRIVATE KEY-----\n"
-        "MIICWwIBAAKBgHkNtpy3GB0YTCl2VCCd22i0rJwIGBSazD4QRKvH6rch0IP4igb+\n"
-        "02r7t0X//tuj0VbwtJz3cEICP8OGSqrdTSCGj5Y03Oa2gPkx/0c0V8D0eSXS/CUC\n"
-        "0qrYHnAGLqko7eW87HW0rh7nnl2bB4Lu+R8fOmQt5frCJ5eTkzwK5YczAgMBAAEC\n"
-        "gYAtSgMjGKEt6XQ9IucQmN6Iiuf1LFYOB2gYZC+88PuQblc7uJWzTk08vlXwG3l3\n"
-        "JQ/h7gY0n6JhH8RJW4m96TO8TrlHLx5aVcW8E//CtgayMn3vBgXida3wvIlAXT8G\n"
-        "WezsNsWorXLVmz5yov0glu+TIk31iWB5DMs4xXhXdH/t8QJBALQzvF+y5bZEhZin\n"
-        "qTXkiKqMsKsJbXjP1Sp/3t52VnYVfbxN3CCb7yDU9kg5QwNa3ungE3cXXNMUr067\n"
-        "9zIraekCQQCr+NSeWAXIEutWewPIykYMQilVtiJH4oFfoEpxvecVv7ulw6kM+Jsb\n"
-        "o6Pi7x86tMVkwOCzZzy/Uyo/gSHnEZq7AkEAm0hBuU2VuTzOyr8fhvtJ8X2O97QG\n"
-        "C6c8j4Tk7lqXIuZeFRga6la091vMZmxBnPB/SpX28BbHvHUEpBpBZ5AVkQJAX7Lq\n"
-        "7urg3MPafpeaNYSKkovG4NGoJgSgJgzXIJCjJfE6hTZqvrMh7bGUo9aZtFugdT74\n"
-        "TB2pKncnTYuYyDN9vQJACDVr+wvYYA2VdnA9k+/1IyGc1HHd2npQqY9EduCeOGO8\n"
-        "rXQedG6rirVOF6ypkefIayc3usipVvfadpqcS5ERhw==\n"
-        "-----END RSA PRIVATE KEY-----".encode("UTF-8")
+        b"-----BEGIN RSA PRIVATE KEY-----\n"
+        b"MIIEowIBAAKCAQEAtjrMt+vOxuqjOU+hwrVAgHjBMs9nMw1ONSpiLOpUQSnqvBwB\n"
+        b"0Zba+8e2tGJeQDWEf8KoVt3PfMa34EomLhWZGWEosftV8gZSbneDjUnE+kUTXvZm\n"
+        b"MFa2Byc9njsl5N7dOC1pT7qHNJOB9RhK/9ehPl7XczRuIJR7N/ZFk+XZSlFh5wer\n"
+        b"q7ME7GdhBPFaO30KZRmRhgwVtAP2kA8sSrqgxXuuyy808UvT3MkzL63Sv/EzQSs8\n"
+        b"YLVAn/BwiQlmWxKFmtzNk9RJdYkxRJN1E9E2sS2i6b55j94hiPwwQ16GsAAWUT+i\n"
+        b"jezlHuGZU+OLYtYfoHy+4Ku31doQc0ujvtYOJQIDAQABAoIBACTuccLslXGW6BGb\n"
+        b"Y+s0FKh00KLdicq87Za0ykTUENNMDXimLHAvpJ3Wcd7I+NUGg53o83j3Zy+gjm90\n"
+        b"V5yLYAXWvQqlJ1vvkBE3Q4AE7VjTWwOp6DfvuuBkQYap8hoaWLcj7O3tna04H+Ru\n"
+        b"UfTb3J/pVLzSaWdM8FP9I0jAEnOPBwwgmQ74G/NmCZpv39boLJQ2sdqY9gSaQUsn\n"
+        b"4fwKtQQ6yBLDw8mkNnzxnRxXe7FiKjKtnTUp7GhELoQ37XbwJRJTlBA9jirxadss\n"
+        b"4NiHpSq+QhkHdJPMOdE/DTZ0H52mJe92t+EEptJADX4O4b54oNaJ4p99Zk0rlW97\n"
+        b"s3lowdkCgYEAygLJiYBpv/wuJd1peqLoYnOIBriFQi7vSF+Ho4UNnS76IapSZ/qY\n"
+        b"nUGrTYNaNhTg39Gsbpdax7bnaWiTDNzdCiiQxMc5BSR3tDF52tIaOqvVFgd5KRu/\n"
+        b"7pOtH8fToR770KviT85G8Wb+ozFY7F0/yklU+OQEtfmuAVs6bEx4m8cCgYEA5u6e\n"
+        b"e00l01h/SvM7CoYdoOG9N1vyhMYbUBDR6SUIAaR25/UJPH7kPpAqxXKR1BWJh7q+\n"
+        b"1cBF0ZFnQ3xkRsfETcvLPJLAsIMwd1HN2sJ0/tPSgFSw6RTFswa3SlpxON+8shcR\n"
+        b"2617UhFDc/5MfCXiNb8u/4Ng7iacfjVhdLehzrMCgYAX1g5byCgyPBph42dPzisn\n"
+        b"esRhLqKitZEMdCE4HToHAwUGtec1V69sVtRUuBwL55jFMCNthTRz/lP97xXy3ZjD\n"
+        b"WxgB8BP9VFk/jNr5A/OOWrow+D7Gp/yUtR4ncte42kQSUkXI7ukWEPYY4XjBoxsk\n"
+        b"zlRVbepUYpqylEYngzpz/wKBgQCNwSntXDT839T7iATU9/CWAhupMLrUv9qiMkD4\n"
+        b"EXAxuef3iNWLmgS3Vr26iBJ2EmZit8JO6YCyHMQ7i87uF9ArRQ7Tdu3rLAyDIebw\n"
+        b"Au/YQOR1PAeAe+zDcTrv3Eal98kXtMuUgpAxl0FFoXMHviV2go3x8I5+gZsMae4R\n"
+        b"vGsJuwKBgH1KY+N3629mtdyhb1xfoxFRDq0Izyl/OpeWZHe4wd+nklkRsj0CvLHz\n"
+        b"m+F5V4CxlUufLadvg9KFxd48UWTwqjrTysixDN4MUPngFoBSh0i/egq6DJlsEhAL\n"
+        b"0Q9fZLTCV7sKG9FAUCWT6nE+k8K9U0hTCUeyVqx85iTUu10zQrTR\n"
+        b"-----END RSA PRIVATE KEY-----"
     )
 
     EXPIRATION = 3600  # seconds
 
-    def __init__(self, sub: str = "uss_noauth", aud_override: Optional[str] = None):
+    def __init__(self, sub: str = "uss_noauth", aud_override: str | None = None):
         super().__init__()
         self.sub = sub
         self._aud_override = aud_override
 
     # Overrides method in AuthAdapter
-    def issue_token(self, intended_audience: str, scopes: List[str]) -> str:
+    def issue_token(self, intended_audience: str, scopes: list[str]) -> str:
         timestamp = int(
             (datetime.datetime.now(datetime.UTC) - _UNIX_EPOCH).total_seconds()
         )
@@ -94,41 +106,41 @@ class InvalidTokenSignatureAuth(AuthAdapter):
 
     # A random RSA2048 private key
     unknown_private_key = jwcrypto.jwk.JWK.from_pem(
-        "-----BEGIN PRIVATE KEY-----\n"
-        "MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCsa9ZYfRoeA1A5\n"
-        "oUY38payXpOQzjFUVmm2CUh2WxY1HV3d2/0nkWcjHSD5wIKRCqhBQ3T3rj1AJm4f\n"
-        "mUasH0dAurutgggTDTxpX4XiskYdG8NuZfyQxtRMGBivFnbySi3A0FwOWZPW3ZXz\n"
-        "RC2r27URC1IvZc2cpSkbNngK9OUodbxX/pbFU6ltkPbyztcLgdnAcC/R7JfUUmgm\n"
-        "kmBg9ZTyCFB1gsX3Bgx2YSBGyjLejfTUBcySoJuYFPobSKxBpO1r3S0XWCnz4WOu\n"
-        "ho5asoqy23ucI5VXXcOSaNVIBVnJVhFyCum04m8E2BKUegJfsRU3DMmVA2kaZaTL\n"
-        "rcPqDbPzAgMBAAECggEAC5ATyM1i8f5Q4/x/xAK9vmp/ROe/ASPmZPHMbTuAisFU\n"
-        "aSt2l6+1lfI/IuCZIPbw/6dxcaa6rtGk8vOJfMOAOMQND/63YeeyVHK2fNRtxUf2\n"
-        "XDH0tRTQaeX3yc4c3fTBiruuYLv7IR6tDqpU0cCjLOhwc4NFPasJzaxicoGn2IWo\n"
-        "kItqGCBn9qz1Qpxe+GZq4Yzebja2czac0Y4khsvmDcWKuFvaX6rU58iiLEekaHeH\n"
-        "lu288MKYNUqdQ63HNhWhsAm+abVArAgcl2zWPwf5ex6jCyBxsPMRfoCUwjuJzI28\n"
-        "3AgOTrwnbmdrjEiF+2UVreTSHoBnVyMfGhAKZ1a0OQKBgQDZoANU/8jQZBSS4tdL\n"
-        "z5RIBa0pQEvV3mrB4n7rMvSytiYkCTHdD8HUT5PRSSF0fbqF6E3c7Fpq/4wP+Fhv\n"
-        "32+qJR/Y6uW6dMOwWMGAH5NV0+rvHaqCKRVugSvPx2DzZ7pJ0rEpfdCagc8mfIub\n"
-        "f0UBlnp13QVeNEfDPhJdk7HZ7QKBgQDK0z4ljFBNpRImdgn5gssR72697cSZim8E\n"
-        "F/wJinn9dHdCgUB/2hcpB4y2yzomHJAYZVI+I4jT0DryRi0NnlRDljkUXaC4dvlR\n"
-        "RboB8sPYBJ6GrtlAxBxFXYnzsIE3Xqozgt9LNQELhhKJNKSz4qG4AR4fGhwblaY5\n"
-        "ycTYXWaJXwKBgARXD5nzW/Lj/BEN2xNU+XUSP+jRsnF6dRCWzscsBftGbK5NTKRG\n"
-        "+yubxqvm1Hb5Ru4CuwLL5+W4YPe0kTbx8s0m3mK6FIjKaVir/HfsqUiN6GKKaesc\n"
-        "nKPOiawkIsfX6rwsKoJUUwOx0QrIcxRPznWApcKR/NhrHH9FTqJ1HpflAoGANp1B\n"
-        "G703lmC/jWm1b+E/Kxos2KmgibOUBycqL6uBA7WLs3W4V3TzTZIB2urIQqDoUBlg\n"
-        "Vukcm+RzKu+ojAU5LWXTAt/fOiyXH8JFvuaOw6kiwqNsTps//ZGdZuf9M1qjO/Ge\n"
-        "jNK98EtuzFFHlESPRUvPv5I5RVg7hU4GWjh0NsMCgYAqVoB5x4+ugae+eZgSLfwG\n"
-        "YWSOiHQhEqqLWAp3MHbuwDVNnpy1KNWh7A/f8Hd3xgPKQIGCl74dBQ+6pv08Dxyt\n"
-        "az+aNXi/CmaEb3v6abaKdF7uNJCpKUnYJ3lpLrrd9HsLbhszIhs1iPbJK38SDEm0\n"
-        "xgbwpLAv3YW+usS9x8LAPw==\n"
-        "-----END PRIVATE KEY-----".encode("UTF-8")
+        b"-----BEGIN PRIVATE KEY-----\n"
+        b"MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCsa9ZYfRoeA1A5\n"
+        b"oUY38payXpOQzjFUVmm2CUh2WxY1HV3d2/0nkWcjHSD5wIKRCqhBQ3T3rj1AJm4f\n"
+        b"mUasH0dAurutgggTDTxpX4XiskYdG8NuZfyQxtRMGBivFnbySi3A0FwOWZPW3ZXz\n"
+        b"RC2r27URC1IvZc2cpSkbNngK9OUodbxX/pbFU6ltkPbyztcLgdnAcC/R7JfUUmgm\n"
+        b"kmBg9ZTyCFB1gsX3Bgx2YSBGyjLejfTUBcySoJuYFPobSKxBpO1r3S0XWCnz4WOu\n"
+        b"ho5asoqy23ucI5VXXcOSaNVIBVnJVhFyCum04m8E2BKUegJfsRU3DMmVA2kaZaTL\n"
+        b"rcPqDbPzAgMBAAECggEAC5ATyM1i8f5Q4/x/xAK9vmp/ROe/ASPmZPHMbTuAisFU\n"
+        b"aSt2l6+1lfI/IuCZIPbw/6dxcaa6rtGk8vOJfMOAOMQND/63YeeyVHK2fNRtxUf2\n"
+        b"XDH0tRTQaeX3yc4c3fTBiruuYLv7IR6tDqpU0cCjLOhwc4NFPasJzaxicoGn2IWo\n"
+        b"kItqGCBn9qz1Qpxe+GZq4Yzebja2czac0Y4khsvmDcWKuFvaX6rU58iiLEekaHeH\n"
+        b"lu288MKYNUqdQ63HNhWhsAm+abVArAgcl2zWPwf5ex6jCyBxsPMRfoCUwjuJzI28\n"
+        b"3AgOTrwnbmdrjEiF+2UVreTSHoBnVyMfGhAKZ1a0OQKBgQDZoANU/8jQZBSS4tdL\n"
+        b"z5RIBa0pQEvV3mrB4n7rMvSytiYkCTHdD8HUT5PRSSF0fbqF6E3c7Fpq/4wP+Fhv\n"
+        b"32+qJR/Y6uW6dMOwWMGAH5NV0+rvHaqCKRVugSvPx2DzZ7pJ0rEpfdCagc8mfIub\n"
+        b"f0UBlnp13QVeNEfDPhJdk7HZ7QKBgQDK0z4ljFBNpRImdgn5gssR72697cSZim8E\n"
+        b"F/wJinn9dHdCgUB/2hcpB4y2yzomHJAYZVI+I4jT0DryRi0NnlRDljkUXaC4dvlR\n"
+        b"RboB8sPYBJ6GrtlAxBxFXYnzsIE3Xqozgt9LNQELhhKJNKSz4qG4AR4fGhwblaY5\n"
+        b"ycTYXWaJXwKBgARXD5nzW/Lj/BEN2xNU+XUSP+jRsnF6dRCWzscsBftGbK5NTKRG\n"
+        b"+yubxqvm1Hb5Ru4CuwLL5+W4YPe0kTbx8s0m3mK6FIjKaVir/HfsqUiN6GKKaesc\n"
+        b"nKPOiawkIsfX6rwsKoJUUwOx0QrIcxRPznWApcKR/NhrHH9FTqJ1HpflAoGANp1B\n"
+        b"G703lmC/jWm1b+E/Kxos2KmgibOUBycqL6uBA7WLs3W4V3TzTZIB2urIQqDoUBlg\n"
+        b"Vukcm+RzKu+ojAU5LWXTAt/fOiyXH8JFvuaOw6kiwqNsTps//ZGdZuf9M1qjO/Ge\n"
+        b"jNK98EtuzFFHlESPRUvPv5I5RVg7hU4GWjh0NsMCgYAqVoB5x4+ugae+eZgSLfwG\n"
+        b"YWSOiHQhEqqLWAp3MHbuwDVNnpy1KNWh7A/f8Hd3xgPKQIGCl74dBQ+6pv08Dxyt\n"
+        b"az+aNXi/CmaEb3v6abaKdF7uNJCpKUnYJ3lpLrrd9HsLbhszIhs1iPbJK38SDEm0\n"
+        b"xgbwpLAv3YW+usS9x8LAPw==\n"
+        b"-----END PRIVATE KEY-----"
     )
 
     def __init__(self, sub: str = "uss_unsigned"):
         super().__init__()
         self.sub = sub
 
-    def issue_token(self, intended_audience: str, scopes: List[str]) -> str:
+    def issue_token(self, intended_audience: str, scopes: list[str]) -> str:
         timestamp = int(
             (datetime.datetime.now(datetime.UTC) - _UNIX_EPOCH).total_seconds()
         )
@@ -162,7 +174,7 @@ class DummyOAuth(AuthAdapter):
         self._oauth_session = requests.Session()
 
     # Overrides method in AuthAdapter
-    def issue_token(self, intended_audience: str, scopes: List[str]) -> str:
+    def issue_token(self, intended_audience: str, scopes: list[str]) -> str:
         url = "{}?grant_type=client_credentials&scope={}&intended_audience={}&issuer=dummy&sub={}".format(
             self._oauth_token_endpoint,
             urllib.parse.quote(" ".join(scopes)),
@@ -190,7 +202,7 @@ class _SessionIssuer:
         self._oauth_token_endpoint = token_endpoint
         self._oauth_session = session
 
-    def issue_token(self, intended_audience: str, scopes: List[str]) -> str:
+    def issue_token(self, intended_audience: str, scopes: list[str]) -> str:
         url = "{}?grant_type=client_credentials&scope={}&intended_audience={}".format(
             self._oauth_token_endpoint,
             urllib.parse.quote(" ".join(scopes)),
@@ -220,7 +232,7 @@ class ServiceAccount(AuthAdapter):
         self._session_issuer = _SessionIssuer(token_endpoint, oauth_session)
 
     # Overrides method in AuthAdapter
-    def issue_token(self, intended_audience: str, scopes: List[str]) -> str:
+    def issue_token(self, intended_audience: str, scopes: list[str]) -> str:
         return self._session_issuer.issue_token(intended_audience, scopes)
 
 
@@ -248,7 +260,7 @@ class ServiceAccountImpersonation(AuthAdapter):
         self._session_issuer = _SessionIssuer(token_endpoint, oauth_session)
 
     # Overrides method in AuthAdapter
-    def issue_token(self, intended_audience: str, scopes: List[str]) -> str:
+    def issue_token(self, intended_audience: str, scopes: list[str]) -> str:
         return self._session_issuer.issue_token(intended_audience, scopes)
 
 
@@ -266,8 +278,8 @@ class UsernamePassword(AuthAdapter):
         self._client_id = client_id
 
     # Overrides method in AuthAdapter
-    def issue_token(self, intended_audience: str, scopes: List[str]) -> str:
-        scopes.append("aud:{}".format(intended_audience))
+    def issue_token(self, intended_audience: str, scopes: list[str]) -> str:
+        scopes.append(f"aud:{intended_audience}")
         response = requests.post(
             self._oauth_token_endpoint,
             data={
@@ -289,7 +301,7 @@ class UsernamePassword(AuthAdapter):
 
 def _load_keypair(
     key_path: str, cert_url: str, backend: Any
-) -> Tuple[jwcrypto.jwk.JWK, jwcrypto.jwk.JWK]:
+) -> tuple[jwcrypto.jwk.JWK, jwcrypto.jwk.JWK]:
     # Retrieve certificate to validate match with private key
     response = requests.get(cert_url)
     assert response.status_code == 200
@@ -305,7 +317,7 @@ def _load_keypair(
     )
 
     # Generate public key directly from private key
-    with open(key_path, "r") as f:
+    with open(key_path) as f:
         key_content = f.read().encode("utf-8")
     if key_path[-4:].lower() == ".key" or key_path[-4:].lower() == ".pem":
         private_key = cryptography.hazmat.primitives.serialization.load_pem_private_key(
@@ -330,7 +342,7 @@ def _load_keypair(
 
 
 def _make_jws(
-    token_headers: Dict[str, str],
+    token_headers: dict[str, str],
     payload: str,
     private_jwk: jwcrypto.jwk.JWK,
     public_jwk: jwcrypto.jwk.JWK,
@@ -374,7 +386,7 @@ class SignedRequest(AuthAdapter):
         client_id: str,
         key_path: str,
         cert_url: str,
-        key_id: Optional[str] = None,
+        key_id: str | None = None,
         signature_style: str = "UPP2",
     ):
         """Create an AuthAdapter that retrieves tokens via message signing.
@@ -402,9 +414,7 @@ class SignedRequest(AuthAdapter):
         self._signature_style = signature_style
         if signature_style not in ("UPP2", "UFT"):
             raise ValueError(
-                "signature_style must be either `UPP2` or `UFT`; found `{}`".format(
-                    signature_style
-                )
+                f"signature_style must be either `UPP2` or `UFT`; found `{signature_style}`"
             )
 
         self._private_jwk, self._public_jwk = _load_keypair(
@@ -418,7 +428,7 @@ class SignedRequest(AuthAdapter):
             self._kid = self._public_jwk.thumbprint()
 
     # Overrides method in AuthAdapter
-    def issue_token(self, intended_audience: str, scopes: List[str]) -> str:
+    def issue_token(self, intended_audience: str, scopes: list[str]) -> str:
         # Construct request body
         query = {
             "grant_type": "client_credentials",
@@ -438,7 +448,7 @@ class SignedRequest(AuthAdapter):
         }
 
         # Add signature header(s) and associated information
-        request_headers: Dict[str, str] = {}
+        request_headers: dict[str, str] = {}
         if self._signature_style == "UPP2":
             signature = _make_jws(
                 token_headers, payload, self._private_jwk, self._public_jwk
@@ -467,18 +477,18 @@ class SignedRequest(AuthAdapter):
                 "@query": "?",
                 "authorization": "",
                 "content-type": "application/x-www-form-urlencoded",
-                "content-digest": "sha-512=:{}:".format(content_digest),
+                "content-digest": f"sha-512=:{content_digest}:",
                 "x-utm-jws-header": ", ".join(
-                    '{}="{}"'.format(k, v) for k, v in token_headers.items()
+                    f'{k}="{v}"' for k, v in token_headers.items()
                 ),
                 "@signature-params": "({});created={}".format(
-                    " ".join('"{}"'.format(c) for c in components),
+                    " ".join(f'"{c}"' for c in components),
                     int(datetime.datetime.now(datetime.UTC).timestamp()),
                 ),
             }
             components.append("@signature-params")
             signature_base = "\n".join(
-                '"{}": {}'.format(c, signature_content[c]) for c in components
+                f'"{c}": {signature_content[c]}' for c in components
             )
             signature = _make_signature(
                 signature_base, self._private_jwk, self._public_jwk
@@ -487,13 +497,13 @@ class SignedRequest(AuthAdapter):
             for k, v in signature_content.items():
                 if k[0] != "@":
                     request_headers[k] = v
-            request_headers[
-                "x-utm-message-signature"
-            ] = "utm-message-signature=:{}:".format(signature)
-            request_headers[
-                "x-utm-message-signature-input"
-            ] = "utm-message-signature={}".format(
-                signature_content["@signature-params"]
+            request_headers["x-utm-message-signature"] = (
+                f"utm-message-signature=:{signature}:"
+            )
+            request_headers["x-utm-message-signature-input"] = (
+                "utm-message-signature={}".format(
+                    signature_content["@signature-params"]
+                )
             )
         else:
             raise ValueError("Invalid signature style")
@@ -529,7 +539,7 @@ class ClientIdClientSecret(AuthAdapter):
         self._send_request_as_data = send_request_as_data
 
     # Overrides method in AuthAdapter
-    def issue_token(self, intended_audience: str, scopes: List[str]) -> str:
+    def issue_token(self, intended_audience: str, scopes: list[str]) -> str:
         payload = {
             "grant_type": "client_credentials",
             "client_id": self._client_id,
@@ -549,6 +559,24 @@ class ClientIdClientSecret(AuthAdapter):
         return response.json()["access_token"]
 
 
+class Keycloak(ClientIdClientSecret):
+    """Auth adpater for Keycloak. Assume Keycloak is configured to add the correct audience in the token via a client scope, named as the intended audience"""
+
+    def __init__(
+        self,
+        token_endpoint: str,
+        client_id: str,
+        client_secret: str,
+    ):
+        super().__init__(token_endpoint, client_id, client_secret, True)
+
+    def issue_token(self, intended_audience: str, scopes: list[str]) -> str:
+        if intended_audience not in scopes:
+            scopes.append(intended_audience)
+
+        return super().issue_token(intended_audience, scopes)
+
+
 class FlightPassport(ClientIdClientSecret):
     """Auth adpater for Flight Passport OAUTH server (https://www.github.com/openskies-sh/flight_passport)"""
 
@@ -561,16 +589,14 @@ class FlightPassport(ClientIdClientSecret):
     ):
         send_request_as_data = send_request_as_data.lower() == "true"
 
-        super(FlightPassport, self).__init__(
-            token_endpoint, client_id, client_secret, send_request_as_data
-        )
+        super().__init__(token_endpoint, client_id, client_secret, send_request_as_data)
 
         self._send_request_as_data = send_request_as_data
 
 
 class AccessTokenError(RuntimeError):
     def __init__(self, msg):
-        super(AccessTokenError, self).__init__(msg)
+        super().__init__(msg)
 
 
 def all_subclasses(cls):
@@ -604,7 +630,7 @@ def make_auth_adapter(spec: AuthSpec) -> AuthAdapter:
     adapter_name = m.group(1)
     adapter_classes = {cls.__name__: cls for cls in all_subclasses(AuthAdapter)}
     if adapter_name not in adapter_classes:
-        raise ValueError("Auth adapter `%s` does not exist" % adapter_name)
+        raise ValueError(f"Auth adapter `{adapter_name}` does not exist")
     Adapter = adapter_classes[adapter_name]
 
     adapter_param_string = m.group(2)
@@ -613,11 +639,7 @@ def make_auth_adapter(spec: AuthSpec) -> AuthAdapter:
     kwargs = {}
     for param_string in param_strings:
         if "=" in param_string:
-            kv = param_string.split("=")
-            if len(kv) != 2:
-                raise ValueError(
-                    "Auth adapter specification contained a parameter with more than one `=` character"
-                )
+            kv = param_string.split("=", 1)
             kwargs[kv[0].strip()] = kv[1].strip()
         else:
             args.append(param_string)

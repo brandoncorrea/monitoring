@@ -1,23 +1,20 @@
-from datetime import datetime, timedelta, UTC
-from typing import Dict, List, Set
+from datetime import UTC, datetime, timedelta
 
 from uas_standards.astm.f3548.v21.api import (
-    Subscription,
-    SubscriptionID,
     EntityID,
     OperationalIntentReference,
     OperationalIntentState,
     SubscriberToNotify,
+    Subscription,
+    SubscriptionID,
 )
 from uas_standards.astm.f3548.v21.constants import Scope
 
-from monitoring.monitorlib.delay import sleep
 from monitoring.monitorlib.fetch import QueryError
-from monitoring.monitorlib.geotemporal import Volume4D
-from monitoring.monitorlib.temporal import Time
+from monitoring.monitorlib.testing import make_fake_url
 from monitoring.prober.infrastructure import register_resource_type
 from monitoring.uss_qualifier.configurations.configuration import ParticipantID
-from monitoring.uss_qualifier.resources.astm.f3548.v21 import PlanningAreaResource
+from monitoring.uss_qualifier.resources import PlanningAreaResource
 from monitoring.uss_qualifier.resources.astm.f3548.v21.dss import (
     DSSInstanceResource,
     DSSInstancesResource,
@@ -28,9 +25,7 @@ from monitoring.uss_qualifier.scenarios.astm.utm.dss import test_step_fragments
 from monitoring.uss_qualifier.scenarios.astm.utm.dss.fragments.sub.crud import (
     sub_create_query,
 )
-from monitoring.uss_qualifier.scenarios.scenario import (
-    TestScenario,
-)
+from monitoring.uss_qualifier.scenarios.scenario import TestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
 SUBSCRIPTION_EXPIRY_DELAY_SEC = 5
@@ -48,17 +43,19 @@ class SubscriptionInteractions(TestScenario):
 
     _background_sub_id: SubscriptionID
 
-    _oir_ids: List[EntityID]
-    _sub_ids: List[SubscriptionID]
+    _oir_ids: list[EntityID]
+    _sub_ids: list[SubscriptionID]
 
-    _current_subs: Dict[SubscriptionID, Subscription]
-    _current_oirs: Dict[EntityID, OperationalIntentReference]
+    _current_subs: dict[SubscriptionID, Subscription]
+    _current_oirs: dict[EntityID, OperationalIntentReference]
 
     # Reference times for the subscriptions and operational intents
     _time_start: datetime
     _time_end: datetime
 
     _manager: str
+
+    _planning_area: PlanningAreaResource
 
     def __init__(
         self,
@@ -82,7 +79,7 @@ class SubscriptionInteractions(TestScenario):
         }
         self._dss = dss.get_instance(scopes)
         self._pid = [self._dss.participant_id]
-        self._planning_area = planning_area.specification
+        self._planning_area = planning_area
 
         self._secondary_instances = [
             dss.get_instance(scopes) for dss in other_instances.dss_instances
@@ -127,7 +124,6 @@ class SubscriptionInteractions(TestScenario):
         self.end_test_scenario()
 
     def _step_create_background_sub(self):
-
         self.begin_test_step("Create background subscription")
 
         sub_now_params = self._planning_area.get_new_subscription_params(
@@ -164,7 +160,7 @@ class SubscriptionInteractions(TestScenario):
                     )
 
         def _implicit_subs_check(
-            _participants: List[ParticipantID],
+            _participants: list[ParticipantID],
             _notif_ids: set[str],
             _query_timestamp: datetime,
         ):
@@ -184,17 +180,17 @@ class SubscriptionInteractions(TestScenario):
                         )
 
         self.begin_test_step("Create an OIR at every DSS in sequence")
-        possible_culprits: List[ParticipantID] = []
+        possible_culprits: list[ParticipantID] = []
         for i, dss in enumerate([self._dss] + self._secondary_instances):
             oir_id = self._oir_ids[i]
             oir = self._planning_area.get_new_operational_intent_ref_params(
                 key=[current_oir.ovn for current_oir in self._current_oirs.values()],
                 state=OperationalIntentState.Accepted,
-                uss_base_url="https://example.interuss.org/oir_base_url",
+                uss_base_url=make_fake_url("oir_base_url"),
                 time_start=datetime.now(UTC),
                 time_end=self._time_end + timedelta(minutes=10),
                 subscription_id=None,
-                implicit_sub_base_url="https://example.interuss.org/sub_base_url",
+                implicit_sub_base_url=make_fake_url("sub_base_url"),
             )
 
             with self.check(
@@ -237,7 +233,9 @@ class SubscriptionInteractions(TestScenario):
             oir = self._planning_area.get_new_operational_intent_ref_params(
                 key=[current_oir.ovn for current_oir in self._current_oirs.values()],
                 state=OperationalIntentState.Accepted,
-                uss_base_url="https://example.interuss.org/oir_base_url_bis",  # dummy modification of the OIR
+                uss_base_url=make_fake_url(
+                    "oir_base_url_bis"
+                ),  # dummy modification of the OIR
                 time_start=datetime.now(UTC),
                 time_end=self._time_end + timedelta(minutes=10),
                 subscription_id=self._current_oirs[oir_id].subscription_id,
@@ -325,7 +323,7 @@ class SubscriptionInteractions(TestScenario):
                     "Get Subscription by ID",
                     other_dss.participant_id,
                 ) as check:
-                    if not other_dss_sub.success:
+                    if not (other_dss_sub.success or other_dss_sub.was_not_found):
                         check.record_failed(
                             summary="Get subscription query failed",
                             details=f"Failed to retrieved a subscription from DSS with code {other_dss_sub.status_code}: {other_dss_sub.error_message}",
@@ -375,7 +373,7 @@ class SubscriptionInteractions(TestScenario):
                     )
             self._current_subs.pop(sub_id)
 
-        sleep(
+        self.sleep(
             timedelta(seconds=WAIT_FOR_EXPIRY_SEC),
             "waiting for subscriptions to expire",
         )
@@ -384,10 +382,8 @@ class SubscriptionInteractions(TestScenario):
             sub_id = self._sub_ids[i]
             for other_dss in {self._dss, *self._secondary_instances} - {dss}:
                 other_dss_subs = other_dss.query_subscriptions(
-                    Volume4D(
-                        volume=self._planning_area.volume,
-                        time_start=Time(self._time_start),
-                        time_end=Time(self._time_end),
+                    self._planning_area.resolved_volume4d_with_times(
+                        self._time_start, self._time_end
                     ).to_f3548v21()
                 )
                 self.record_query(other_dss_subs)
@@ -428,17 +424,31 @@ class SubscriptionInteractions(TestScenario):
         self._current_subs = {}
         self._current_oirs = {}
 
-        self._ensure_clean_workspace_step()
+        self._ensure_clean_primary_workspace_step()
+        self._verify_clean_secondaries_step()
 
         self.end_test_case()
 
-    def _ensure_clean_workspace_step(self):
-        self.begin_test_step("Ensure clean workspace")
+    def _ensure_clean_primary_workspace_step(self):
+        self.begin_test_step("Ensure clean workspace on primary DSS")
         self._clean_workspace()
         self.end_test_step()
 
+    def _verify_clean_secondaries_step(self):
+        self.begin_test_step("Verify secondary DSS instances are clean")
+        for dss in self._secondary_instances:
+            for oir_id in self._oir_ids:
+                test_step_fragments.verify_op_intent_does_not_exist(self, dss, oir_id)
+
+            for sub_id in self._sub_ids:
+                test_step_fragments.verify_subscription_does_not_exist(
+                    self, dss, sub_id
+                )
+
+        self.end_test_step()
+
     def _clean_workspace(self):
-        extents = Volume4D(volume=self._planning_area.volume)
+        extents = self._planning_area.resolved_volume4d_with_times(None, None)
         test_step_fragments.cleanup_active_oirs(
             self,
             self._dss,
@@ -462,7 +472,7 @@ class SubscriptionInteractions(TestScenario):
         self.end_cleanup()
 
 
-def to_sub_ids(subscribers: List[SubscriberToNotify]) -> Set[SubscriptionID]:
+def to_sub_ids(subscribers: list[SubscriberToNotify]) -> set[SubscriptionID]:
     """Flatten the passed list of subscribers to notify to a set of subscription IDs"""
     sub_ids = set()
     for subscriber in subscribers:

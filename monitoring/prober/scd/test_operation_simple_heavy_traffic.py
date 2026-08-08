@@ -1,12 +1,12 @@
 """Basic Operation tests with hundreds of operations created SEQUENTIALLY in the SAME area:
 
-  - make sure operations do not exist with get or query
-  - create 100 operations sequentially, with each covers non-overlapping area that are close to others
-  - get by IDs
-  - search with earliest_time and latest_time
-  - mutate
-  - delete
-  - confirm deletion by get and query
+- make sure operations do not exist with get or query
+- create 100 operations sequentially, with each covers non-overlapping area that are close to others
+- get by IDs
+- search with earliest_time and latest_time
+- mutate
+- delete
+- confirm deletion by get and query
 """
 
 import datetime
@@ -14,19 +14,15 @@ import datetime
 from monitoring.monitorlib import scd
 from monitoring.monitorlib.geo import Circle
 from monitoring.monitorlib.geotemporal import Volume4D
-from monitoring.monitorlib.scd import SCOPE_SC
 from monitoring.monitorlib.infrastructure import default_scope
-from monitoring.monitorlib.testing import assert_datetimes_are_equal
-from monitoring.prober.infrastructure import (
-    for_api_versions,
-    register_resource_type,
-)
+from monitoring.monitorlib.scd import SCOPE_SC
+from monitoring.monitorlib.testing import assert_datetimes_are_equal, make_fake_url
+from monitoring.prober.infrastructure import for_api_versions, register_resource_type
 from monitoring.prober.scd import actions
 
-
-BASE_URL = "https://example.interuss.org/uss"
+BASE_URL = make_fake_url()
 OP_TYPES = [
-    register_resource_type(10 + i, "Operational intent {}".format(i)) for i in range(20)
+    register_resource_type(10 + i, f"Operational intent {i}") for i in range(20)
 ]
 
 ovn_map = {}
@@ -65,7 +61,7 @@ def test_ensure_clean_workspace(ids, scd_api, scd_session):
 @default_scope(SCOPE_SC)
 def test_ops_do_not_exist_get(ids, scd_api, scd_session):
     for op_id in map(ids, OP_TYPES):
-        resp = scd_session.get("/operation_references/{}".format(op_id))
+        resp = scd_session.get(f"/operation_references/{op_id}")
         assert resp.status_code == 404, resp.content
 
 
@@ -98,7 +94,7 @@ def test_create_ops(ids, scd_api, scd_session):
         req["key"] = list(ovn_map.values())
 
         resp = scd_session.put(
-            "/operational_intent_references/{}".format(op_id), json=req, scope=SCOPE_SC
+            f"/operational_intent_references/{op_id}", json=req, scope=SCOPE_SC
         )
         assert resp.status_code == 201, resp.content
 
@@ -126,7 +122,7 @@ def test_create_ops(ids, scd_api, scd_session):
 def test_get_ops_by_ids(ids, scd_api, scd_session):
     for op_id in map(ids, OP_TYPES):
         resp = scd_session.get(
-            "/operational_intent_references/{}".format(op_id), scope=SCOPE_SC
+            f"/operational_intent_references/{op_id}", scope=SCOPE_SC
         )
         assert resp.status_code == 200, resp.content
 
@@ -235,7 +231,7 @@ def test_get_ops_by_search_latest_time_excluded(ids, scd_api, scd_session):
 def test_mutate_ops(ids, scd_api, scd_session):
     for idx, op_id in enumerate(map(ids, OP_TYPES)):
         # GET current op
-        resp = scd_session.get("/operational_intent_references/{}".format(op_id))
+        resp = scd_session.get(f"/operational_intent_references/{op_id}")
         assert resp.status_code == 200, resp.content
         existing_op = resp.json().get("operational_intent_reference", None)
         assert existing_op is not None
@@ -259,7 +255,7 @@ def test_mutate_ops(ids, scd_api, scd_session):
             "extents": req["extents"],
             "old_version": existing_op["version"],
             "state": "Activated",
-            "uss_base_url": "https://example.interuss.org/uss2",
+            "uss_base_url": make_fake_url("uss2"),
             "subscription_id": existing_op["subscription_id"],
         }
 
@@ -273,7 +269,7 @@ def test_mutate_ops(ids, scd_api, scd_session):
         data = resp.json()
         op = data["operational_intent_reference"]
         assert op["id"] == op_id
-        assert op["uss_base_url"] == "https://example.interuss.org/uss2"
+        assert op["uss_base_url"] == make_fake_url("uss2")
         assert op["uss_availability"] == "Unknown"
         assert op["version"] != existing_op["version"]
         assert op["subscription_id"] == existing_op["subscription_id"]
@@ -286,7 +282,7 @@ def test_mutate_ops(ids, scd_api, scd_session):
 def test_delete_op(ids, scd_api, scd_session):
     for op_id in map(ids, OP_TYPES):
         resp = scd_session.delete(
-            "/operational_intent_references/{}/{}".format(op_id, ovn_map[op_id])
+            f"/operational_intent_references/{op_id}/{ovn_map[op_id]}"
         )
         assert resp.status_code == 200, resp.content
 
@@ -295,7 +291,7 @@ def test_delete_op(ids, scd_api, scd_session):
 @default_scope(SCOPE_SC)
 def test_get_deleted_ops_by_ids(ids, scd_api, scd_session):
     for op_id in map(ids, OP_TYPES):
-        resp = scd_session.get("/operational_intent_references/{}".format(op_id))
+        resp = scd_session.get(f"/operational_intent_references/{op_id}")
         assert resp.status_code == 404, resp.content
 
 

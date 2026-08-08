@@ -1,21 +1,21 @@
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Any
 
 from uas_standards.astm.f3548.v21.api import (
+    ConstraintReference,
     EntityID,
     PutConstraintReferenceParameters,
-    ConstraintReference,
 )
 from uas_standards.astm.f3548.v21.constants import Scope
 
-from monitoring.monitorlib.fetch import QueryError, Query
-from monitoring.monitorlib.geotemporal import Volume4D, Volume4DCollection
+from monitoring.monitorlib.fetch import Query, QueryError
+from monitoring.monitorlib.geotemporal import Volume4DCollection
 from monitoring.prober.infrastructure import register_resource_type
-from monitoring.uss_qualifier.resources.astm.f3548.v21 import PlanningAreaResource
+from monitoring.uss_qualifier.resources import PlanningAreaResource
 from monitoring.uss_qualifier.resources.astm.f3548.v21.dss import (
+    DSSInstance,
     DSSInstanceResource,
     DSSInstancesResource,
-    DSSInstance,
 )
 from monitoring.uss_qualifier.resources.communications import ClientIdentityResource
 from monitoring.uss_qualifier.resources.interuss.id_generator import IDGeneratorResource
@@ -27,8 +27,8 @@ from monitoring.uss_qualifier.scenarios.astm.utm.dss.validators.oir_validator im
     TIME_TOLERANCE_SEC,
 )
 from monitoring.uss_qualifier.scenarios.scenario import (
-    TestScenario,
     ScenarioCannotContinueError,
+    TestScenario,
 )
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
@@ -45,13 +45,13 @@ class CRSynchronization(TestScenario):
      - deletion of an entity on a secondary DSS when it was created on the primary
     """
 
-    SUB_TYPE = register_resource_type(
-        390, "Operational Intent Reference for synchronization checks"
+    CR_TYPE = register_resource_type(
+        390, "Constraint Reference for synchronization checks"
     )
 
     _dss: DSSInstance
 
-    _secondary_dss_instances: List[DSSInstance]
+    _secondary_dss_instances: list[DSSInstance]
 
     # Base identifier for the OIR that will be created
     _cr_id: EntityID
@@ -60,9 +60,11 @@ class CRSynchronization(TestScenario):
     _cr_params: PutConstraintReferenceParameters
 
     # Keep track of the current OIR state
-    _current_cr: Optional[ConstraintReference]
+    _current_cr: ConstraintReference | None
 
     _expected_manager: str
+
+    _planning_area: PlanningAreaResource
 
     def __init__(
         self,
@@ -84,7 +86,6 @@ class CRSynchronization(TestScenario):
         """
         super().__init__()
         scopes_primary = {
-            Scope.StrategicCoordination: "cleanup leftover subscriptions and operational intent references",
             Scope.ConstraintManagement: "create and delete constraint references",
         }
         scopes_secondaries = {
@@ -99,18 +100,19 @@ class CRSynchronization(TestScenario):
             for sec_dss in other_instances.dss_instances
         ]
 
-        self._cr_id = id_generator.id_factory.make_id(self.SUB_TYPE)
+        self._cr_id = id_generator.id_factory.make_id(self.CR_TYPE)
         self._expected_manager = client_identity.subject()
-        self._planning_area = planning_area.specification
+        self._planning_area = planning_area
 
         # Build a ready-to-use 4D volume with no specified time for searching
         # the currently active CRs
-        self._planning_area_volume4d = Volume4D(
-            volume=self._planning_area.volume,
+        self._planning_area_volume4d = self._planning_area.resolved_volume4d_with_times(
+            None, None
         )
 
-    def run(self, context: ExecutionContext):
+        self._current_cr = None
 
+    def run(self, context: ExecutionContext):
         # Check that we actually have at least one other DSS to test against:
         if not self._secondary_dss_instances:
             raise ScenarioCannotContinueError(
@@ -170,9 +172,6 @@ class CRSynchronization(TestScenario):
 
     def _setup_case(self):
         self.begin_test_case("Setup")
-        # Multiple runs of the scenario seem to rely on the same instance of it:
-        # thus we need to reset the state of the scenario before running it.
-        self._current_cr = None
         # We need times that are close to 'now': the params are set
         # at the beginning of each scenario run.
         self._cr_params = self._planning_area.get_new_constraint_ref_params(
@@ -180,12 +179,11 @@ class CRSynchronization(TestScenario):
             time_end=datetime.now() + timedelta(minutes=20),
         )
         self.begin_test_step("Ensure clean workspace")
-        self._ensure_clean_workspace_step()
+        self._ensure_clean_primary_workspace_step()
         self.end_test_step()
         self.end_test_case()
 
-    def _ensure_clean_workspace_step(self):
-
+    def _ensure_clean_primary_workspace_step(self):
         # Delete any active CRs we might own
         test_step_fragments.cleanup_active_constraint_refs(
             self,
@@ -194,15 +192,17 @@ class CRSynchronization(TestScenario):
             self._expected_manager,
         )
 
-        # Make sure the OIR ID we are going to use is available
+        # Make sure the CR ID we are going to use is available
         test_step_fragments.cleanup_constraint_ref(self, self._dss, self._cr_id)
-        # Drop any active subs we might own and that could interfere
-        test_step_fragments.cleanup_active_subs(
-            self, self._dss, self._planning_area_volume4d.to_f3548v21()
-        )
+
+    def _verify_clean_secondaries_step(self):
+        self.begin_test_step("Verify secondary DSS instances are clean")
+        for dss in self._secondary_dss_instances:
+            test_step_fragments.verify_constraint_does_not_exist(self, dss, self._cr_id)
+
+        self.end_test_step()
 
     def _create_cr_with_params(self, creation_params: PutConstraintReferenceParameters):
-
         with self.check(
             "Create constraint reference query succeeds", [self._primary_pid]
         ) as check:
@@ -316,7 +316,7 @@ class CRSynchronization(TestScenario):
                 "Propagated constraint reference general area is synchronized",
                 involved_participants,
             ) as check:
-                cr: Optional[ConstraintReference] = next(
+                cr: ConstraintReference | None = next(
                     (_cr for _cr in crs if _cr.id == self._cr_id), None
                 )
                 if cr is None:
@@ -341,9 +341,10 @@ class CRSynchronization(TestScenario):
         q: Query,
         expected_cr_params: PutConstraintReferenceParameters,
         main_check_name: str,
-        involved_participants: List[str],
+        involved_participants: list[str],
         from_search: bool = False,
     ):
+        check_args: dict[str, Any] = {}
         with self.check(main_check_name, involved_participants) as main_check:
             with self.check(
                 "Propagated constraint reference contains the correct manager",
@@ -593,5 +594,5 @@ class CRSynchronization(TestScenario):
 
     def cleanup(self):
         self.begin_cleanup()
-        self._ensure_clean_workspace_step()
+        self._ensure_clean_primary_workspace_step()
         self.end_cleanup()

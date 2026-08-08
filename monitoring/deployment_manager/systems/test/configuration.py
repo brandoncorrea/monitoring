@@ -1,5 +1,4 @@
-from typing import Optional
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
 
 
 class TestV1(ImplicitDict):

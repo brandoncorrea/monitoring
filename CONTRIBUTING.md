@@ -4,6 +4,10 @@ Welcome to this repository and thank you for your interest in contributing to it
 
 Contributions should follow [the general InterUSS contributions process](https://github.com/interuss/tsc/blob/main/repo_contributions.md).  Additional information specific to this repository is provided below.
 
+## Issues requiring more information
+
+When more information is needed from an issue's author to continue investigation/consideration of the issue, a maintainer may apply the `more-informationed-needed` label following a comment requesting the additional information.  [no-response](https://github.com/lee-dohm/no-response?tab=readme-ov-file#action-flow) will automatically close the issue if no additional information is provided.  New information (in the form of a comment on the issue) should remove the label and reopen the issue if it was closed.
+
 ## Formatting and verification
 
 This repository has a very strict Python linter, as well as very strict expected formats for a number of other artifacts such as Markdown files.  Correct formatting can be verified with `make lint` from the repository root.  But, in most cases manual formatting is not necessary to resolve issues -- instead, `make format` from the repository root should automatically reformat Python and most other mere-formatting issues without changing functionality.  Because `make lint` is part of the integration tests, `make format` should generally be run before integration tests.
@@ -47,3 +51,11 @@ If the test scenario is long, note that the documentation does not need to be cr
 ### Scenario implementation
 
 Once all necessary prerequisites (e.g., resources) are available and the test scenario documentation is complete, actually writing the code of the test scenario should be fairly straightforward.  Before creating a PR, the test scenario code must at least have been successfully tested by the developer.  Ideally, a test configuration included in the CI (see list of configurations tested in [uss_qualifier's run_locally.sh](monitoring/uss_qualifier/run_locally.sh)) should run the test scenario.  If the test scenario is not run as part of the CI, the PR author must clearly indicate why they are sure the test scenario has been implemented correctly.
+
+See more information about test scenarios and their implementation in [test scenario documentation](./monitoring/uss_qualifier/scenarios/README.md).
+
+#### Fake URLs
+
+In some tests, fake URLs must be provided (for instance, the base URL when creating an operational intent reference in a DSS instance when the details for that operational intent reference will not actually be served by any USS).  In all cases when such fake URLs are provided, they should use the value obtained (or would be obtained) from `make_fake_url` in [monitorlib/testing.py](./monitoring/monitorlib/testing.py).  If the fake URL is specified in a data file rather than a Python file, it should follow the format of `https://testdummy.interuss.org/interuss` followed by the path of the file (minus extension) relative to the repository root; e.g., `https://testdummy.interuss.org/interuss/monitoring/uss_qualifier/configurations/dev/f3548_self_contained` if the URL was defined in [uss_qualifier/configurations/dev/f3548_self_contained.yaml](./monitoring/uss_qualifier/configurations/dev/f3548_self_contained.yaml).  One or more suffix paths can be appended if multiple different fake URLs are needed in the same originating file; e.g., `https://testdummy.interuss.org/interuss/monitoring/uss_qualifier/configurations/dev/f3548_self_contained/planning_area/original`
+
+This convention allows a user to more easily determine where a stray resource/link (e.g., operational intent reference) originated if/when it is encountered outside its intended test.

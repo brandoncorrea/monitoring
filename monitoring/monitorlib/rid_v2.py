@@ -1,14 +1,8 @@
 import datetime
-from typing import List, Optional
 
 import s2sphere
 from implicitdict import ImplicitDict, StringBasedDateTime
-from uas_standards.astm.f3411.v22a.api import (
-    Time,
-    Altitude,
-    LatLngPoint,
-    Volume4D,
-)
+from uas_standards.astm.f3411.v22a.api import Altitude, LatLngPoint, Time, Volume4D
 
 from . import rid_v1 as rid_v1
 
@@ -30,11 +24,11 @@ def make_lat_lng_point_from_s2(point: s2sphere.LatLng) -> LatLngPoint:
 
 
 def make_volume_4d(
-    vertices: List[s2sphere.LatLng],
+    vertices: list[s2sphere.LatLng],
     alt_lo: float,
     alt_hi: float,
-    start_time: Optional[datetime.datetime],
-    end_time: Optional[datetime.datetime],
+    start_time: datetime.datetime | None,
+    end_time: datetime.datetime | None,
 ) -> Volume4D:
     return ImplicitDict.parse(
         {

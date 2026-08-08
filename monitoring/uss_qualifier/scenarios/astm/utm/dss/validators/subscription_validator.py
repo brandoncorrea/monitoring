@@ -1,15 +1,12 @@
 from datetime import datetime
-from typing import Optional, List
 
-from uas_standards.astm.f3548.v21.api import SubscriptionID, Subscription
+from uas_standards.astm.f3548.v21.api import Subscription, SubscriptionID
 
 from monitoring.monitorlib import schema_validation
 from monitoring.monitorlib.fetch.scd import FetchedSubscription, FetchedSubscriptions
 from monitoring.monitorlib.mutate.scd import MutatedSubscription
 from monitoring.monitorlib.schema_validation import F3548_21
-from monitoring.uss_qualifier.resources.astm.f3548.v21.subscription_params import (
-    SubscriptionParams,
-)
+from monitoring.monitorlib.subscription_params import SubscriptionParams
 from monitoring.uss_qualifier.scenarios.astm.utm.dss.validators import (
     fail_with_schema_errors,
 )
@@ -37,16 +34,16 @@ class SubscriptionValidator:
     Scenario in which this validator is being used. Will be used to register checks.
     """
 
-    _sub_params: Optional[SubscriptionParams]
-    _pid: List[str]
+    _sub_params: SubscriptionParams | None
+    _pid: list[str]
     """Participant ID(s) to use for the checks"""
 
     def __init__(
         self,
         main_check: PendingCheck,
         scenario: TestScenario,
-        participant_id: List[str],
-        sub_params: Optional[SubscriptionParams],
+        participant_id: list[str],
+        sub_params: SubscriptionParams | None,
     ):
         self._main_check = main_check
         self._scenario = scenario
@@ -80,8 +77,8 @@ class SubscriptionValidator:
         dss_sub: Subscription,
         t_dss: datetime,
         is_implicit: bool,
-        previous_version: Optional[str],
-        expected_version: Optional[str],
+        previous_version: str | None,
+        expected_version: str | None,
     ) -> None:
         """
         Args:
@@ -99,7 +96,7 @@ class SubscriptionValidator:
             if dss_sub.id != expected_sub_id:
                 self._fail_sub_check(
                     check,
-                    summary=f"Returned subscription ID is incorrect",
+                    summary="Returned subscription ID is incorrect",
                     details=f"Expected subscription ID {expected_sub_id} but got {dss_sub.id}",
                     t_dss=t_dss,
                 )
@@ -116,16 +113,17 @@ class SubscriptionValidator:
                     t_dss=t_dss,
                 )
 
-        with self._scenario.check(
-            "Returned USS base URL has correct base URL", self._pid
-        ) as check:
-            if dss_sub.uss_base_url != self._sub_params.base_url:
-                self._fail_sub_check(
-                    check,
-                    summary="Returned USS Base URL does not match provided one",
-                    details=f"Provided: {self._sub_params.base_url}, Returned: {dss_sub.uss_base_url}",
-                    t_dss=t_dss,
-                )
+        if self._sub_params:
+            with self._scenario.check(
+                "Returned USS base URL has correct base URL", self._pid
+            ) as check:
+                if dss_sub.uss_base_url != self._sub_params.base_url:
+                    self._fail_sub_check(
+                        check,
+                        summary="Returned USS Base URL does not match provided one",
+                        details=f"Provided: {self._sub_params.base_url}, Returned: {dss_sub.uss_base_url}",
+                        t_dss=t_dss,
+                    )
 
         with self._scenario.check(
             "Returned subscription has a start time", self._pid
@@ -151,39 +149,44 @@ class SubscriptionValidator:
 
         # When expect_start_time and expect_end_time have not been defined, there is no clear specification on
         # what the returned times should be, so we only check them when we have requested them.
-        if self._sub_params.start_time is not None:
-            with self._scenario.check(
-                "Returned start time is correct", self._pid
-            ) as check:
-                if (
-                    abs(
-                        dss_sub.time_start.value.datetime - self._sub_params.start_time
-                    ).total_seconds()
-                    > TIME_TOLERANCE_SEC
-                ):
-                    self._fail_sub_check(
-                        check,
-                        summary="Returned start time does not match provided one",
-                        details=f"Provided: {self._sub_params.start_time}, Returned: {dss_sub.time_start}",
-                        t_dss=t_dss,
-                    )
+        if self._sub_params:
+            if (
+                self._sub_params.start_time is not None
+                and dss_sub.time_start is not None
+            ):
+                with self._scenario.check(
+                    "Returned start time is correct", self._pid
+                ) as check:
+                    if (
+                        abs(
+                            dss_sub.time_start.value.datetime
+                            - self._sub_params.start_time
+                        ).total_seconds()
+                        > TIME_TOLERANCE_SEC
+                    ):
+                        self._fail_sub_check(
+                            check,
+                            summary="Returned start time does not match provided one",
+                            details=f"Provided: {self._sub_params.start_time}, Returned: {dss_sub.time_start}",
+                            t_dss=t_dss,
+                        )
 
-        if self._sub_params.end_time is not None:
-            with self._scenario.check(
-                "Returned end time is correct", self._pid
-            ) as check:
-                if (
-                    abs(
-                        dss_sub.time_end.value.datetime - self._sub_params.end_time
-                    ).total_seconds()
-                    > TIME_TOLERANCE_SEC
-                ):
-                    self._fail_sub_check(
-                        check,
-                        summary="Returned end time does not match provided one",
-                        details=f"Provided: {self._sub_params.end_time}, Returned: {dss_sub.time_end}",
-                        t_dss=t_dss,
-                    )
+            if self._sub_params.end_time is not None and dss_sub.time_end is not None:
+                with self._scenario.check(
+                    "Returned end time is correct", self._pid
+                ) as check:
+                    if (
+                        abs(
+                            dss_sub.time_end.value.datetime - self._sub_params.end_time
+                        ).total_seconds()
+                        > TIME_TOLERANCE_SEC
+                    ):
+                        self._fail_sub_check(
+                            check,
+                            summary="Returned end time does not match provided one",
+                            details=f"Provided: {self._sub_params.end_time}, Returned: {dss_sub.time_end}",
+                            t_dss=t_dss,
+                        )
 
         with self._scenario.check(
             "Returned subscription has a version", self._pid
@@ -244,33 +247,34 @@ class SubscriptionValidator:
                         t_dss=t_dss,
                     )
 
-        with self._scenario.check(
-            "Operational intents notification flag is as requested", self._pid
-        ) as check:
-            if (
-                dss_sub.notify_for_operational_intents
-                != self._sub_params.notify_for_op_intents
-            ):
-                self._fail_sub_check(
-                    check,
-                    summary="Operational intents notification flag is not as requested",
-                    details=f"Provided: {self._sub_params.notify_for_op_intents}, Returned: {dss_sub.notify_for_operational_intents}",
-                    t_dss=t_dss,
-                )
+        if self._sub_params:
+            with self._scenario.check(
+                "Operational intents notification flag is as requested", self._pid
+            ) as check:
+                if (
+                    dss_sub.notify_for_operational_intents
+                    != self._sub_params.notify_for_op_intents
+                ):
+                    self._fail_sub_check(
+                        check,
+                        summary="Operational intents notification flag is not as requested",
+                        details=f"Provided: {self._sub_params.notify_for_op_intents}, Returned: {dss_sub.notify_for_operational_intents}",
+                        t_dss=t_dss,
+                    )
 
-        with self._scenario.check(
-            "Constraints notification flag is as requested", self._pid
-        ) as checK:
-            if (
-                dss_sub.notify_for_constraints
-                != self._sub_params.notify_for_constraints
+            with self._scenario.check(
+                "Constraints notification flag is as requested", self._pid
             ):
-                self._fail_sub_check(
-                    check,
-                    summary="Constraints notification flag is not as requested",
-                    details=f"Provided: {self._sub_params.notify_for_constraints}, Returned: {dss_sub.notify_for_constraints}",
-                    t_dss=t_dss,
-                )
+                if (
+                    dss_sub.notify_for_constraints
+                    != self._sub_params.notify_for_constraints
+                ):
+                    self._fail_sub_check(
+                        check,
+                        summary="Constraints notification flag is not as requested",
+                        details=f"Provided: {self._sub_params.notify_for_constraints}, Returned: {dss_sub.notify_for_constraints}",
+                        t_dss=t_dss,
+                    )
 
     def _validate_put_sub_response_schema(
         self, new_sub: MutatedSubscription, t_dss: datetime, action: str
@@ -296,8 +300,9 @@ class SubscriptionValidator:
         self, expected_sub_id: SubscriptionID, new_sub: MutatedSubscription
     ) -> None:
         """Validate a subscription that was just explicitly created, meaning
-        we don't have a previous version to compare to, and we expect it to not be an implicit one."""
-        (t_dss, sub) = (new_sub.request.timestamp, new_sub.subscription)
+        we don't have a previous version to compare to, and we expect it to not be an implicit one.
+        """
+        (t_dss, _sub) = (new_sub.request.timestamp, new_sub.subscription)
 
         # Validate the response schema
         self._validate_put_sub_response_schema(new_sub, t_dss, "create")
@@ -377,6 +382,7 @@ class SubscriptionValidator:
         fetched_sub: FetchedSubscription,
         expected_version: str,
         is_implicit: bool,
+        validate_schema: bool = True,
     ) -> None:
         """Validate a subscription that was directly queried by its ID.
         Callers must specify if this is an implicit subscription or not."""
@@ -384,16 +390,17 @@ class SubscriptionValidator:
         (t_dss, sub) = (fetched_sub.request.timestamp, fetched_sub.subscription)
 
         # Validate the response schema
-        with self._scenario.check(
-            "Get subscription response format conforms to spec", self._pid
-        ) as check:
-            errors = schema_validation.validate(
-                F3548_21.OpenAPIPath,
-                F3548_21.GetSubscriptionResponse,
-                fetched_sub.response.json,
-            )
-            if errors:
-                fail_with_schema_errors(check, errors, t_dss)
+        if validate_schema:
+            with self._scenario.check(
+                "Get subscription response format conforms to spec", self._pid
+            ) as check:
+                errors = schema_validation.validate(
+                    F3548_21.OpenAPIPath,
+                    F3548_21.GetSubscriptionResponse,
+                    fetched_sub.response.json,
+                )
+                if errors:
+                    fail_with_schema_errors(check, errors, t_dss)
 
         # Validate the subscription itself
         self._validate_sub(
@@ -417,7 +424,8 @@ class SubscriptionValidator:
         """Validate a subscription that was retrieved through search.
         Note that the callers need to pass the entire response from the DSS, as the schema check
         will be performed on the entire response, not just the subscription itself.
-        However, only the expected subscription is checked for the correctness of its contents."""
+        However, only the expected subscription is checked for the correctness of its contents.
+        """
 
         (t_dss, subs) = (
             searched_subscriptions.request.timestamp,

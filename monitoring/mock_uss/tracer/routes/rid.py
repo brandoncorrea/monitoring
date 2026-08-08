@@ -1,24 +1,23 @@
 import os
-from typing import Tuple
 
 import arrow
 import flask
+from implicitdict import ImplicitDict, StringBasedDateTime
 from loguru import logger
 from termcolor import colored
-
-from implicitdict import ImplicitDict, StringBasedDateTime
-from monitoring.mock_uss import webapp
-from monitoring.mock_uss.tracer import context
-from monitoring.mock_uss.tracer.log_types import RIDISANotification
-from monitoring.mock_uss.tracer.template import _print_time_range
-from monitoring.monitorlib import fetch
-from monitoring.monitorlib.rid import RIDVersion
 from uas_standards.astm.f3411.v19.api import (
     PutIdentificationServiceAreaNotificationParameters as PutIdentificationServiceAreaNotificationParametersV19,
 )
 from uas_standards.astm.f3411.v22a.api import (
     PutIdentificationServiceAreaNotificationParameters as PutIdentificationServiceAreaNotificationParametersV22a,
 )
+
+from monitoring.mock_uss.app import webapp
+from monitoring.mock_uss.tracer import context
+from monitoring.mock_uss.tracer.log_types import RIDISANotification
+from monitoring.mock_uss.tracer.template import _print_time_range
+from monitoring.monitorlib import fetch
+from monitoring.monitorlib.rid import RIDVersion
 
 RESULT = ("", 204)
 
@@ -29,7 +28,7 @@ RESULT = ("", 204)
 )
 def tracer_rid_isa_notification_v19(
     observation_area_id: str, isa_id: str
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     return tracer_rid_isa_notification(isa_id, observation_area_id, RIDVersion.f3411_19)
 
 
@@ -39,7 +38,7 @@ def tracer_rid_isa_notification_v19(
 )
 def tracer_rid_isa_notification_v22a(
     observation_area_id: str, isa_id: str
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     return tracer_rid_isa_notification(
         isa_id, observation_area_id, RIDVersion.f3411_22a
     )
@@ -47,7 +46,7 @@ def tracer_rid_isa_notification_v22a(
 
 def tracer_rid_isa_notification(
     isa_id: str, observation_area_id: str, rid_version: RIDVersion
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     """Implements RID ISA notification receiver."""
     logger.debug(f"Handling tracer_rid_isa_notification from {os.getpid()}")
     req = fetch.describe_flask_request(flask.request)

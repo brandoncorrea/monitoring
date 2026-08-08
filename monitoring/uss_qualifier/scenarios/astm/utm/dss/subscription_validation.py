@@ -1,25 +1,21 @@
-from datetime import datetime, timedelta, UTC
-from typing import Dict, Any
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from uas_standards.astm.f3548.v21.constants import (
-    Scope,
     DSSMaxSubscriptionDurationHours,
+    Scope,
 )
 
 from monitoring.monitorlib.geotemporal import Volume4D
 from monitoring.monitorlib.mutate.scd import MutatedSubscription
 from monitoring.prober.infrastructure import register_resource_type
 from monitoring.uss_qualifier.resources.astm.f3548.v21.dss import DSSInstanceResource
-from monitoring.uss_qualifier.resources.astm.f3548.v21.planning_area import (
-    PlanningAreaResource,
-    PlanningAreaSpecification,
-)
 from monitoring.uss_qualifier.resources.interuss.id_generator import IDGeneratorResource
-from monitoring.uss_qualifier.scenarios.astm.utm.dss import test_step_fragments
-from monitoring.uss_qualifier.scenarios.scenario import (
-    TestScenario,
-    PendingCheck,
+from monitoring.uss_qualifier.resources.planning_area import (
+    PlanningAreaResource,
 )
+from monitoring.uss_qualifier.scenarios.astm.utm.dss import test_step_fragments
+from monitoring.uss_qualifier.scenarios.scenario import PendingCheck, TestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
 _SECONDS_PER_HOUR = 60 * 60
@@ -42,11 +38,11 @@ class SubscriptionValidation(TestScenario):
     _sub_id: str
     """Base identifier for the subscriptions that will be created"""
 
-    _planning_area: PlanningAreaSpecification
+    _planning_area: PlanningAreaResource
 
     _planning_area_volume4d: Volume4D
 
-    _sub_generation_kwargs: Dict[str, Any]
+    _sub_generation_kwargs: dict[str, Any]
     """
         Parameters used to create subscriptions.
         `subscription_id`: ID of F3548-21 subscription to create/modify.
@@ -74,12 +70,12 @@ class SubscriptionValidation(TestScenario):
         self._dss = dss.get_instance(scopes)
         self._pid = [self._dss.participant_id]
         self._sub_id = id_generator.id_factory.make_id(self.SUB_TYPE)
-        self._planning_area = planning_area.specification
+        self._planning_area = planning_area
 
         # Build a ready-to-use 4D volume with no specified time for searching
         # the currently active subscriptions
-        self._planning_area_volume4d = Volume4D(
-            volume=self._planning_area.volume,
+        self._planning_area_volume4d = self._planning_area.resolved_volume4d_with_times(
+            None, None
         )
 
         self._sub_generation_kwargs = dict(

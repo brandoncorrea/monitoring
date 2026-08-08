@@ -1,20 +1,18 @@
-from typing import List, Optional
-
-from uas_standards.astm.f3548.v21.api import (
-    UssAvailabilityState,
-)
+from uas_standards.astm.f3548.v21.api import UssAvailabilityState
 from uas_standards.astm.f3548.v21.constants import Scope
 
 from monitoring.monitorlib.fetch import QueryError
 from monitoring.uss_qualifier.resources.astm.f3548.v21.dss import (
+    DSSInstance,
     DSSInstanceResource,
     DSSInstancesResource,
-    DSSInstance,
 )
 from monitoring.uss_qualifier.resources.communications import ClientIdentityResource
-from monitoring.uss_qualifier.scenarios.scenario import (
-    TestScenario,
+from monitoring.uss_qualifier.scenarios.astm.utm.dss.test_step_fragments import (
+    get_uss_availability,
+    set_uss_availability,
 )
+from monitoring.uss_qualifier.scenarios.scenario import TestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
 
@@ -32,11 +30,11 @@ class USSAvailabilitySynchronization(TestScenario):
 
     _dss: DSSInstance
 
-    _dss_read_instances: List[DSSInstance]
+    _dss_read_instances: list[DSSInstance]
 
     _uss_id: str
 
-    _current_version: Optional[str] = None
+    _current_version: str = ""
 
     def __init__(
         self,
@@ -67,7 +65,7 @@ class USSAvailabilitySynchronization(TestScenario):
         self._uss_id = client_identity.subject()
 
     def run(self, context: ExecutionContext):
-        self._current_version = None
+        self._current_version = ""
 
         self.begin_test_scenario(context)
 
@@ -117,6 +115,8 @@ class USSAvailabilitySynchronization(TestScenario):
 
         self.end_test_case()
 
+        self.end_test_scenario()
+
     def _step_unknown_uss_reported_as_unknown(self):
         unknown_uss_id = "ThisIdShouldNotExistOnTheDSS"
         with self.check(
@@ -151,55 +151,31 @@ class USSAvailabilitySynchronization(TestScenario):
         )
 
     def _step_update_to_unknown(self):
-        with self.check(
-            "USS Availability can be updated", self._dss.participant_id
-        ) as check:
-            try:
-                self._current_version, q = self._dss.set_uss_availability(
-                    self._uss_id, None, self._current_version
-                )
-                self.record_query(q)
-            except QueryError as qe:
-                self.record_queries(qe.queries)
-                check.record_failed(
-                    summary="Failed to set USS availability to Unknown",
-                    details=qe.msg,
-                    query_timestamps=qe.query_timestamps,
-                )
+        self._current_version = set_uss_availability(
+            self,
+            self._dss,
+            self._uss_id,
+            UssAvailabilityState.Unknown,
+            self._current_version,
+        )
 
     def _step_update_to_down(self):
-        with self.check(
-            "USS Availability can be updated", self._dss.participant_id
-        ) as check:
-            try:
-                self._current_version, q = self._dss.set_uss_availability(
-                    self._uss_id, False, self._current_version
-                )
-                self.record_query(q)
-            except QueryError as qe:
-                self.record_queries(qe.queries)
-                check.record_failed(
-                    summary="Failed to set USS availability to Down",
-                    details=qe.msg,
-                    query_timestamps=qe.query_timestamps,
-                )
+        self._current_version = set_uss_availability(
+            self,
+            self._dss,
+            self._uss_id,
+            UssAvailabilityState.Down,
+            self._current_version,
+        )
 
     def _step_update_to_normal(self):
-        with self.check(
-            "USS Availability can be updated", self._dss.participant_id
-        ) as check:
-            try:
-                self._current_version, q = self._dss.set_uss_availability(
-                    self._uss_id, True, self._current_version
-                )
-                self.record_query(q)
-            except QueryError as qe:
-                self.record_queries(qe.queries)
-                check.record_failed(
-                    summary="Failed to set USS availability to Normal",
-                    details=qe.msg,
-                    query_timestamps=qe.query_timestamps,
-                )
+        self._current_version = set_uss_availability(
+            self,
+            self._dss,
+            self._uss_id,
+            UssAvailabilityState.Normal,
+            self._current_version,
+        )
 
     def _ensure_test_uss_availability_unknown(self, check_consistency: bool = True):
         """
@@ -208,31 +184,19 @@ class USSAvailabilitySynchronization(TestScenario):
         We want to both start and end this scenario with this state.
         """
 
-        with self.check(
-            "USS Availability can be requested", self._dss.participant_id
-        ) as check:
-            try:
-                availability, q = self._dss.get_uss_availability(
-                    self._uss_id, Scope.AvailabilityArbitration
-                )
-                self.record_query(q)
-            except QueryError as qe:
-                self.record_queries(qe.queries)
-                check.record_failed(
-                    summary="Failed to get USS availability",
-                    details=qe.msg,
-                    query_timestamps=qe.query_timestamps,
-                )
-                return
-
-        self._current_version = availability.version
+        availability, version = get_uss_availability(
+            self, self._dss, self._uss_id, Scope.AvailabilityArbitration
+        )
+        self._current_version = version
 
         # If the state is not currently unknown, we set it to unknown
-        if availability.status.availability != UssAvailabilityState.Unknown:
+        if availability != UssAvailabilityState.Unknown:
             with self.check("USS Availability can be set to Unknown") as check:
                 try:
                     self._current_version, q = self._dss.set_uss_availability(
-                        self._uss_id, None, self._current_version
+                        self._uss_id,
+                        UssAvailabilityState.Unknown,
+                        self._current_version,
                     )
                     self.record_query(q)
                 except QueryError as qe:
@@ -258,38 +222,27 @@ class USSAvailabilitySynchronization(TestScenario):
         expected_availability: UssAvailabilityState,
         expected_version: str,
     ):
-        with self.check("USS Availability can be requested", participants) as check:
-            try:
-                availability, q = dss.get_uss_availability(
-                    uss_id, Scope.StrategicCoordination
-                )
-                self.record_query(q)
-            except QueryError as qe:
-                self.record_queries(qe.queries)
-                check.record_failed(
-                    summary="Failed to get USS availability",
-                    details=qe.msg,
-                    query_timestamps=qe.query_timestamps,
-                )
-                return
+        availability, version = get_uss_availability(
+            self, dss, uss_id, Scope.StrategicCoordination
+        )
 
         with self.check(
             "USS Availability is consistent across every DSS instance", participants
         ) as check:
-            if availability.status.availability != expected_availability:
+            if availability != expected_availability:
                 check.record_failed(
                     summary="USS availability not as expected on secondary DSS",
-                    details=f"Expected {expected_availability}, got {availability.status.availability}",
+                    details=f"Expected {expected_availability}, got {availability}",
                 )
 
         with self.check(
             "USS Availability version is consistent across every DSS instance",
             participants,
         ) as check:
-            if availability.version != expected_version:
+            if version != expected_version:
                 check.record_failed(
                     summary="USS availability version not as expected on secondary DSS",
-                    details=f"Expected {expected_version}, got {availability.version}",
+                    details=f"Expected {expected_version}, got {version}",
                 )
 
     def _query_and_expect_on_secondaries(

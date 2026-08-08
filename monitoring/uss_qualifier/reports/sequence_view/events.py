@@ -1,32 +1,27 @@
 from __future__ import annotations
 
-import math
 import html
+import math
 from datetime import datetime
-from typing import List, Dict, Tuple, Optional
 
 from implicitdict import ImplicitDict
 
-from monitoring.uss_qualifier.configurations.configuration import (
-    ParticipantID,
-)
+from monitoring.uss_qualifier.configurations.configuration import ParticipantID
 from monitoring.uss_qualifier.reports.report import (
-    TestScenarioReport,
     Severity,
+    TestScenarioReport,
     TestStepReport,
 )
 from monitoring.uss_qualifier.reports.sequence_view.summary_types import (
-    TestedScenario,
-    Indexer,
-    Event,
-    NoteEvent,
     Epoch,
-    TestedParticipant,
-    EventType,
-    TestedStep,
+    Event,
+    Indexer,
+    NoteEvent,
     TestedCase,
+    TestedParticipant,
+    TestedScenario,
+    TestedStep,
 )
-
 
 UNATTRIBUTED_PARTICIPANT = "unattributed"
 
@@ -34,9 +29,9 @@ UNATTRIBUTED_PARTICIPANT = "unattributed"
 def _note_events(
     note_parent: ImplicitDict,
     indexer: Indexer,
-    after: Optional[datetime] = None,
-    before: Optional[datetime] = None,
-) -> List[Event]:
+    after: datetime | None = None,
+    before: datetime | None = None,
+) -> list[Event]:
     if "notes" not in note_parent or not note_parent.notes:
         return []
     events = []
@@ -68,10 +63,10 @@ def _step_events(
     step: TestStepReport,
     note_parent: ImplicitDict,
     indexer: Indexer,
-    scenario_participants: Dict[ParticipantID, TestedParticipant],
-    all_events: List[Event],
-    after: Optional[datetime],
-) -> Tuple[TestedStep, datetime]:
+    scenario_participants: dict[ParticipantID, TestedParticipant],
+    all_events: list[Event],
+    after: datetime | None,
+) -> tuple[TestedStep, datetime | None]:
     events = []
 
     # Create events for this step's passed checks
@@ -88,7 +83,7 @@ def _step_events(
         )
         for pid in participants:
             p = scenario_participants.get(pid, TestedParticipant())
-            p.has_successes = True
+            p.has_passes = True
             scenario_participants[pid] = p
 
     # Create events for this step's queries
@@ -120,7 +115,7 @@ def _step_events(
                 found = False
                 for e in all_events:
                     if (
-                        e.type == EventType.Query
+                        e.query is not None
                         and e.query.request.initiated_at == query_timestamp
                     ):
                         query_events.append(e)
@@ -193,7 +188,7 @@ def compute_tested_scenario(
     epochs = []
     all_events = []
     indexer = Indexer(index=1)
-    scenario_participants: Dict[ParticipantID, TestedParticipant] = {}
+    scenario_participants: dict[ParticipantID, TestedParticipant] = {}
 
     # Add any notes that occurred before the first test step
     latest_step_time = (
@@ -283,6 +278,11 @@ def compute_tested_scenario(
         scenario_index=action_indexer.index,
         participants=scenario_participants,
         execution_error=report.execution_error if "execution_error" in report else None,
+        resource_origins=(
+            report.resource_origins
+            if "resource_origins" in report and report.resource_origins is not None
+            else {}
+        ),
     )
     action_indexer.index += 1
     return scenario

@@ -36,11 +36,19 @@ Optional scopes that will allow the scenario to provide additional coverage:
 
 ### planning_area
 
-[`PlanningAreaResource`](../../../../../resources/astm/f3548/v21/planning_area.py) describes the 3D volume in which entities will be created.
+[`PlanningAreaResource`](../../../../../resources/planning_area.py) describes the 3D volume in which entities will be created.
 
 ## Setup test case
 
-### [Ensure clean workspace test step](../clean_workspace.md)
+To perform this scenario, the area must be clear of test entities with the IDs we intend to use.
+
+### Ensure clean workspace test step
+
+#### [Clean any existing OIRs with known test IDs](../clean_workspace_op_intents.md)
+
+#### [Clean any existing subscriptions with known test IDs](../clean_workspace_subs.md)
+
+#### [Clean any existing constraint references with known test IDs](../clean_workspace_constraints.md)
 
 This step ensures that the availability for the test identifier is set to `Unknown`.
 
@@ -540,10 +548,16 @@ it is in violation of **[astm.f3548.v21.DSS0005,4](../../../../../requirements/a
 
 Check response format of a search.
 
-## [Cleanup](../clean_workspace.md)
+## Cleanup
 
-### [Availability can be requested](../fragments/availability/read.md)
+### [Clean any existing OIRs with known test IDs](../clean_workspace_op_intents_during_cleanup.md)
 
-### [Availability can be set](../fragments/availability/update.md)
+### [Clean any existing subscriptions with known test IDs](../clean_workspace_subs_during_cleanup.md)
+
+### [Clean any existing constraint references with known test IDs](../clean_workspace_constraints_during_cleanup.md)
+
+### [Availability can be requested](../fragments/availability/read_during_cleanup.md)
+
+### [Availability can be set](../fragments/availability/update_during_cleanup.md)
 
 The cleanup phase of this test scenario removes the subscription with the known test ID if it has not been removed before.

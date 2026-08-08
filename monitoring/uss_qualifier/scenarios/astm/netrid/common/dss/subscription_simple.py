@@ -1,22 +1,19 @@
 import re
 from datetime import datetime, timedelta
-from typing import Dict, Any, List
+from typing import Any
 
 import s2sphere
 
 from monitoring.monitorlib.fetch.rid import Subscription
 from monitoring.monitorlib.mutate.rid import ChangedSubscription
 from monitoring.prober.infrastructure import register_resource_type
-from monitoring.uss_qualifier.common_data_definitions import Severity
-from monitoring.uss_qualifier.resources import VerticesResource
 from monitoring.uss_qualifier.resources.astm.f3411.dss import DSSInstanceResource
 from monitoring.uss_qualifier.resources.communications import ClientIdentityResource
 from monitoring.uss_qualifier.resources.interuss.id_generator import IDGeneratorResource
 from monitoring.uss_qualifier.resources.netrid.service_area import ServiceAreaResource
+from monitoring.uss_qualifier.resources.volume import VolumeResource
 from monitoring.uss_qualifier.scenarios.astm.netrid.dss_wrapper import DSSWrapper
-from monitoring.uss_qualifier.scenarios.scenario import (
-    GenericTestScenario,
-)
+from monitoring.uss_qualifier.scenarios.scenario import GenericTestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
 TIME_TOLERANCE_SEC = 1
@@ -33,26 +30,26 @@ class SubscriptionSimple(GenericTestScenario):
     # The value for 'owner' we'll expect the DSS to set on subscriptions
     _client_identity: ClientIdentityResource
 
-    _test_subscription_ids: List[str]
+    _test_subscription_ids: list[str]
 
     # Base parameters used for subscription creation variations
-    _default_creation_params: Dict[str, Any]
+    _default_creation_params: dict[str, Any]
 
     # Effective parameters used for each subscription, indexed by subscription ID
-    _sub_params_by_sub_id: Dict[str, Dict[str, Any]]
+    _sub_params_by_sub_id: dict[str, dict[str, Any]]
 
     # Keep track of the latest subscription returned by the DSS
-    _current_subscriptions: Dict[str, Subscription]
+    _current_subscriptions: dict[str, Subscription]
 
     # An area designed to be too big to be allowed to search by the DSS
-    _problematically_big_area: List[s2sphere.LatLng]
+    _problematically_big_area: list[s2sphere.LatLng]
 
     def __init__(
         self,
         dss: DSSInstanceResource,
         id_generator: IDGeneratorResource,
         isa: ServiceAreaResource,
-        problematically_big_area: VerticesResource,
+        problematically_big_area: VolumeResource,
         client_identity: ClientIdentityResource,
     ):
         """
@@ -68,8 +65,8 @@ class SubscriptionSimple(GenericTestScenario):
         self._dss = dss.dss_instance
         self._dss_wrapper = DSSWrapper(self, self._dss)
         self._base_sub_id = id_generator.id_factory.make_id(self.SUB_TYPE)
-        self._isa = isa.specification
-        self._isa_area = [vertex.as_s2sphere() for vertex in self._isa.footprint]
+        self._isa = isa
+        self._isa_area = isa.s2_vertices()
         # List of vertices that has the same first and last point:
         # Used to validate some special-case handling by the DSS
         self._isa_area_loop = self._isa_area.copy()
@@ -80,12 +77,14 @@ class SubscriptionSimple(GenericTestScenario):
             self._base_sub_id[:-1] + f"{i}" for i in range(4)
         ]
 
-        self._problematically_big_area = [
-            vertex.as_s2sphere()
-            for vertex in problematically_big_area.specification.vertices
-        ]
+        self._problematically_big_area = (
+            problematically_big_area.specification.s2_vertices()
+        )
 
         self._client_identity = client_identity
+
+        self._current_subscriptions = {}
+        self._sub_params_by_sub_id = {}
 
     def run(self, context: ExecutionContext):
         self._initialize_creation_params()
@@ -134,11 +133,6 @@ class SubscriptionSimple(GenericTestScenario):
 
     def _setup_case(self):
         self.begin_test_case("Setup")
-
-        # Multiple runs of the scenario seem to rely on the same instance of it:
-        # thus we need to reset the state of the scenario before running it.
-        self._current_subscriptions = {}
-        self._sub_params_by_sub_id = {}
 
         self._ensure_clean_workspace_step()
 
@@ -220,7 +214,7 @@ class SubscriptionSimple(GenericTestScenario):
         all_set_params["sub_id"] = self._test_subscription_ids[3]
         self._create_sub_with_params(all_set_params)
 
-    def _create_sub_with_params(self, creation_params: Dict[str, Any]):
+    def _create_sub_with_params(self, creation_params: dict[str, Any]):
         with self.check(
             "Create subscription", [self._dss_wrapper.participant_id]
         ) as check:
@@ -243,16 +237,15 @@ class SubscriptionSimple(GenericTestScenario):
             if notif_index is not None and notif_index != 0:
                 check.record_failed(
                     f"Returned notification index was {notif_index} instead of 0",
-                    Severity.High,
                     details="A subscription is expected to have a notification index of 0 when it is created"
                     f"Parameters used: {creation_params}",
                     query_timestamps=[newly_created.query.request.timestamp],
                 )
 
         # Store the version of the subscription
-        self._current_subscriptions[
-            creation_params["sub_id"]
-        ] = newly_created.subscription
+        self._current_subscriptions[creation_params["sub_id"]] = (
+            newly_created.subscription
+        )
         # Store the parameters we used for that subscription
         self._sub_params_by_sub_id[creation_params["sub_id"]] = creation_params
 
@@ -260,7 +253,7 @@ class SubscriptionSimple(GenericTestScenario):
         self,
         sub_id: str,
         creation_resp_under_test: ChangedSubscription,
-        creation_params: Dict[str, Any],
+        creation_params: dict[str, Any],
         was_mutated: bool,
     ):
         """
@@ -278,7 +271,6 @@ class SubscriptionSimple(GenericTestScenario):
             if not creation_resp_under_test.subscription:
                 check.record_failed(
                     "Response to subscription creation did not contain a subscription",
-                    Severity.High,
                     details="A subscription is expected to be returned in the response to a subscription creation request."
                     f"Parameters used: {creation_params}",
                     query_timestamps=[creation_resp_under_test.query.request.timestamp],
@@ -401,8 +393,7 @@ class SubscriptionSimple(GenericTestScenario):
                 if sub_id not in subs_in_area.subscriptions:
                     check.record_failed(
                         "Created subscription is not present in search results",
-                        Severity.High,
-                        f"The subscription {sub_id} was expected to be found in the search results, but these only contained the following subscriptions: {subs_in_area.subscriptions.keys()}",
+                        details=f"The subscription {sub_id} was expected to be found in the search results, but these only contained the following subscriptions: {subs_in_area.subscriptions.keys()}",
                         query_timestamps=[subs_in_area.query.request.timestamp],
                     )
 
@@ -504,8 +495,7 @@ class SubscriptionSimple(GenericTestScenario):
                 if sub_id in subs_in_area.subscriptions:
                     check.record_failed(
                         "A deleted subscription is still present in search results",
-                        Severity.High,
-                        f"The subscription {sub_id} was deleted, and thus not expected to be found in the search results."
+                        details=f"The subscription {sub_id} was deleted, and thus not expected to be found in the search results."
                         f"Subscription IDs returned in search results: {subs_in_area.subscriptions.keys()}",
                         query_timestamps=[subs_in_area.query.request.timestamp],
                     )
@@ -526,9 +516,9 @@ class SubscriptionSimple(GenericTestScenario):
         self,
         sub_id: str,
         sub_under_test: Subscription,
-        creation_params: Dict[str, Any],
+        creation_params: dict[str, Any],
         was_mutated: bool,
-        query_timestamps: List[datetime],
+        query_timestamps: list[datetime],
     ):
         """Compare the passed subscription with the data we specified when creating it"""
         self._validate_subscription(
@@ -548,7 +538,6 @@ class SubscriptionSimple(GenericTestScenario):
             ):
                 check.record_failed(
                     "Returned notification index is lower than 0",
-                    Severity.High,
                     f"Returned: {sub_under_test.notification_index} when 0 or more was expected"
                     f"Parameters used: {creation_params}",
                     query_timestamps=query_timestamps,
@@ -558,9 +547,9 @@ class SubscriptionSimple(GenericTestScenario):
         self,
         sub_id: str,
         sub_under_test: Subscription,
-        creation_params: Dict[str, Any],
+        creation_params: dict[str, Any],
         was_mutated: bool,
-        query_timestamps: List[datetime],
+        query_timestamps: list[datetime],
     ):
         """
         Validate the subscription against the parameters used to create it.
@@ -581,7 +570,6 @@ class SubscriptionSimple(GenericTestScenario):
             if not sub_under_test.id:
                 check.record_failed(
                     "Returned subscription had no ID",
-                    Severity.High,
                     details="A subscription is expected to have an ID",
                     query_timestamps=query_timestamps,
                 )
@@ -592,8 +580,7 @@ class SubscriptionSimple(GenericTestScenario):
             if sub_under_test.id != sub_id:
                 check.record_failed(
                     "Returned subscription ID does not match provided one",
-                    Severity.High,
-                    f"Provided: {sub_id}, Returned: {sub_under_test.id}",
+                    details=f"Provided: {sub_id}, Returned: {sub_under_test.id}",
                     query_timestamps=query_timestamps,
                 )
 
@@ -603,7 +590,6 @@ class SubscriptionSimple(GenericTestScenario):
             if not sub_under_test.owner:
                 check.record_failed(
                     "Returned subscription had no owner",
-                    Severity.High,
                     details="A subscription is expected to have an owner",
                     query_timestamps=query_timestamps,
                 )
@@ -615,8 +601,7 @@ class SubscriptionSimple(GenericTestScenario):
             if sub_under_test.owner != client_sub:
                 check.record_failed(
                     "Returned subscription owner does not match provided one",
-                    Severity.High,
-                    f"Provided: {client_sub}, Returned: {sub_under_test.owner}",
+                    details=f"Provided: {client_sub}, Returned: {sub_under_test.owner}",
                     query_timestamps=query_timestamps,
                 )
 
@@ -626,7 +611,6 @@ class SubscriptionSimple(GenericTestScenario):
             if not sub_under_test.isa_url:
                 check.record_failed(
                     "Returned subscription had no ISA URL",
-                    Severity.High,
                     details="A subscription is expected to have an ISA URL",
                     query_timestamps=query_timestamps,
                 )
@@ -637,8 +621,7 @@ class SubscriptionSimple(GenericTestScenario):
             if not sub_under_test.isa_url.startswith(self._isa.base_url):
                 check.record_failed(
                     "Returned USS Base URL does not match provided one",
-                    Severity.High,
-                    f"Provided: {self._isa.base_url}, Returned: {sub_under_test.isa_url}",
+                    details=f"Provided: {self._isa.base_url}, Returned: {sub_under_test.isa_url}",
                     query_timestamps=query_timestamps,
                 )
 
@@ -648,7 +631,6 @@ class SubscriptionSimple(GenericTestScenario):
             if not sub_under_test.time_start:
                 check.record_failed(
                     "Returned subscription had no start time",
-                    Severity.High,
                     details="A subscription is expected to have a start time",
                     query_timestamps=query_timestamps,
                 )
@@ -659,7 +641,6 @@ class SubscriptionSimple(GenericTestScenario):
             if not sub_under_test.time_end:
                 check.record_failed(
                     "Returned subscription had no end time",
-                    Severity.High,
                     details="A subscription is expected to have an end time",
                     query_timestamps=query_timestamps,
                 )
@@ -676,8 +657,7 @@ class SubscriptionSimple(GenericTestScenario):
                 ):
                     check.record_failed(
                         "Returned start time does not match provided one",
-                        Severity.High,
-                        f"Provided: {expect_start_time}, Returned: {sub_under_test.time_start}",
+                        details=f"Provided: {expect_start_time}, Returned: {sub_under_test.time_start}",
                         query_timestamps=query_timestamps,
                     )
 
@@ -693,7 +673,6 @@ class SubscriptionSimple(GenericTestScenario):
                 ):
                     check.record_failed(
                         "Returned end time does not match provided one",
-                        Severity.High,
                         f"Provided: {expect_end_time}, Returned: {sub_under_test.time_end}",
                         query_timestamps=query_timestamps,
                     )
@@ -704,7 +683,6 @@ class SubscriptionSimple(GenericTestScenario):
             if not sub_under_test.version:
                 check.record_failed(
                     "Returned subscription had no version",
-                    Severity.High,
                     details="A subscription is expected to have a version",
                     query_timestamps=query_timestamps,
                 )
@@ -716,8 +694,7 @@ class SubscriptionSimple(GenericTestScenario):
             if not re.match(r"[a-z0-9]{10,}$", sub_under_test.version):
                 check.record_failed(
                     "Returned subscription version does not match expected format",
-                    Severity.High,
-                    f"Returned: {sub_under_test.version}, this does not match"
+                    details=f"Returned: {sub_under_test.version}, this does not match"
                     + "[a-z0-9]{10,}$",
                     query_timestamps=query_timestamps,
                 )
@@ -734,8 +711,7 @@ class SubscriptionSimple(GenericTestScenario):
                 ):
                     check.record_failed(
                         "Returned subscription version was not updated",
-                        Severity.High,
-                        f"Returned: {sub_under_test.version}, Expected: {self._current_subscriptions[sub_under_test.id]}",
+                        details=f"Returned: {sub_under_test.version}, Expected: {self._current_subscriptions[sub_under_test.id]}",
                         query_timestamps=query_timestamps,
                     )
         elif sub_id in self._current_subscriptions.keys():
@@ -749,8 +725,7 @@ class SubscriptionSimple(GenericTestScenario):
                 ):
                     check.record_failed(
                         "Returned subscription version was updated",
-                        Severity.High,
-                        f"Returned: {sub_under_test.version}, Expected: {self._current_subscriptions[sub_under_test.id]}.",
+                        details=f"Returned: {sub_under_test.version}, Expected: {self._current_subscriptions[sub_under_test.id]}.",
                         query_timestamps=query_timestamps,
                     )
 

@@ -1,37 +1,34 @@
-from typing import List
-
 from pykml.factory import KML_ElementMaker as kml
-
-from monitoring.monitorlib.geotemporal import Volume4D
-from monitoring.monitorlib.kml.generation import (
-    GREEN,
-    TRANSLUCENT_GRAY,
-    TRANSLUCENT_GREEN,
-    YELLOW,
-    RED,
-    make_placemark_from_volume,
-    TRANSPARENT,
-    TRANSLUCENT_YELLOW,
-    TRANSLUCENT_RED,
-    TRANSLUCENT_LIGHTGRAY,
-    TRANSLUCENT_LIGHTGREEN,
-)
-from monitoring.monitorlib.scd import priority_of
 from uas_standards.astm.f3548.v21.api import (
     OperationalIntent,
     QueryOperationalIntentReferenceParameters,
     QueryOperationalIntentReferenceResponse,
 )
 
+from monitoring.monitorlib.geotemporal import Volume4D
+from monitoring.monitorlib.kml.generation import (
+    GREEN,
+    RED,
+    TRANSLUCENT_GREEN,
+    TRANSLUCENT_LIGHTGRAY,
+    TRANSLUCENT_LIGHTGREEN,
+    TRANSLUCENT_RED,
+    TRANSLUCENT_YELLOW,
+    TRANSPARENT,
+    YELLOW,
+    make_placemark_from_volume,
+)
+from monitoring.monitorlib.scd import priority_of
 
-def full_op_intent(op_intent: OperationalIntent) -> kml.Folder:
+
+def full_op_intent(op_intent: OperationalIntent):
     """Render operational intent information into Placemarks in a KML folder."""
     ref = op_intent.reference
     details = op_intent.details
     name = f"{ref.manager}'s P{priority_of(details)} {ref.state.value} {ref.id}[{ref.version}] @ {ref.ovn}"
     folder = kml.Folder(kml.name(name))
     if "volumes" in details:
-        for i, v4_f3548 in enumerate(details.volumes):
+        for i, v4_f3548 in enumerate(details.volumes or []):
             v4 = Volume4D.from_f3548v21(v4_f3548)
             folder.append(
                 make_placemark_from_volume(
@@ -41,7 +38,7 @@ def full_op_intent(op_intent: OperationalIntent) -> kml.Folder:
                 )
             )
     if "off_nominal_volumes" in details:
-        for i, v4_f3548 in enumerate(details.off_nominal_volumes):
+        for i, v4_f3548 in enumerate(details.off_nominal_volumes or []):
             v4 = Volume4D.from_f3548v21(v4_f3548)
             folder.append(
                 make_placemark_from_volume(
@@ -56,8 +53,12 @@ def full_op_intent(op_intent: OperationalIntent) -> kml.Folder:
 def op_intent_refs_query(
     req: QueryOperationalIntentReferenceParameters,
     resp: QueryOperationalIntentReferenceResponse,
-) -> kml.Placemark:
+):
     """Render the area of interest and response from an operational intent references query into a KML Placemark."""
+
+    if not req.area_of_interest:
+        raise ValueError("req.area_of_interest is not defined")
+
     v4 = Volume4D.from_f3548v21(req.area_of_interest)
     items = "".join(
         f"<li>{oi.manager}'s {oi.state.value} {oi.id}[{oi.version}]</li>"
@@ -71,7 +72,7 @@ def op_intent_refs_query(
     )
 
 
-def f3548v21_styles() -> List[kml.Style]:
+def f3548v21_styles() -> list:
     """Provides KML styles according to F3548-21 operational intent states."""
     return [
         kml.Style(

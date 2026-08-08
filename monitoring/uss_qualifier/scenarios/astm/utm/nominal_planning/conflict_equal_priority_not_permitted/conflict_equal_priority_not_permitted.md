@@ -83,6 +83,7 @@ Otherwise, the FlightIntentsResource must provide the following flight intents:
   </tr>
 </table>
 
+
 Because the scenario involves activation of intents, the start times of all activated intents must be during the time
 the test scenario is executed (not before). Additionally, their end times must leave sufficient time for the execution
 of the test scenario.
@@ -96,7 +97,6 @@ CMSA role in order to transition to the `Nonconforming` state in order to create
 
 ### dss
 DSSInstanceResource that provides access to a DSS instance where flight creation/sharing can be verified.
-
 
 ## Prerequisites check test case
 
@@ -131,7 +131,6 @@ per **[astm.f3548.v21.SCD0035](../../../../../requirements/astm/f3548/v21.md)**.
 #### [Validate Flight 1 not shared](../../validate_not_shared_operational_intent.md)
 Flight 1 should not have been shared with the interoperability ecosystem since it was rejected.
 
-
 ## Attempt to activate flight into conflict test case
 ![Test case summary illustration](assets/attempt_to_activate_flight_into_conflict.svg)
 
@@ -145,7 +144,6 @@ per **[astm.f3548.v21.SCD0045](../../../../../requirements/astm/f3548/v21.md)**.
 #### [Validate Flight 1 not shared](../../validate_not_shared_operational_intent.md)
 Flight 1 should not have been shared with the interoperability ecosystem since it was rejected.
 
-
 ## Attempt to modify planned flight into conflict test case
 ![Test case summary illustration](assets/attempt_to_modify_planned_flight_into_conflict.svg)
 
@@ -154,11 +152,11 @@ Flight 1 should not have been shared with the interoperability ecosystem since i
 #### [Plan Flight 1c](../../../../flight_planning/plan_flight_intent.md)
 The smaller Flight 1c form (which doesn't conflict with Flight 2) should be successfully planned by the tested USS.
 
-#### ℹ️ Validate tested USS intersection algorithm check
+#### ⚠️ Validate tested USS intersection algorithm check
 Because Flight 2 is nearby Flight 1c, successful planning of Flight 1c indicates the tested USS is complying with the portion of
 **[astm.f3548.v21.GEN0500](../../../../../requirements/astm/f3548/v21.md)** that requires a USS to indicate two 4D volumes are non-intersecting when they are separated by more than 1 cm.
 
-This check does not fail if the planning is rejected.
+This check is not relevant if the planning is rejected.
 
 #### [Validate Flight 1c sharing](../../validate_shared_operational_intent.md)
 
@@ -191,10 +189,15 @@ directly activate the flight without planning it beforehand.
 The test driver attempts to enlarge Flight 1c so that it conflicts with Flight 2.
 Both flights are activated at the point where that change is requested. However, because the conflict did not
 exist when the modification was initiated, it should be rejected per **[astm.f3548.v21.SCD0050](../../../../../requirements/astm/f3548/v21.md)**.
+In addition, Flight 1c should not have been removed, because doing so would leave an aircraft in flight without any flight plan.
 
-#### [Validate Flight 1c not modified](../../validate_shared_operational_intent.md)
-Because the modification attempt was invalid, either Flight 1c should not have been modified (because the USS kept the
-original accepted request), or it should have been removed (because the USS rejected the replacement plan provided).
+#### [Validate Flight 1c not modified](../../validate_not_shared_operational_intent.md)
+Because the modification attempt was invalid, Flight 1c should not have been modified.
+
+### [Delete Flight 1c if USS did not support its modification test step](../../../../flight_planning/delete_flight_intent.md)
+If, during the previous step, the USS indicated that it does not support modifications, then it will not be able to
+modify Flight 1c into Flight 1 during the next test case. As such, the test driver deletes Flight 1c from the system so
+that Flight 1 can be created directly activated during the next test case.
 
 ### [Delete Flight 2 test step](../../../../flight_planning/delete_flight_intent.md)
 To prepare for the next test case, Flight 2 must be removed from the system.
@@ -231,6 +234,10 @@ per **[interuss.automated_testing.flight_planning.ExpectedBehavior](../../../../
 If the USS rejects the transition, this check will fail.
 If the USS indicates that the operation is not supported, the USS does not support the CMSA role, and as such the scenario execution will stop without failing.
 
+#### 🛑 Injection fidelity check
+
+The requested flight should have been updated essentially as requested.  The system may adapt requested parameters as necessary, but may not change the test-critical attributes of the flight when fulfilling the planning request per **[interuss.automated_testing.flight_planning.ExpectedBehavior](../../../../../requirements/interuss/automated_testing/flight_planning.md)**.
+
 #### 🛑 Failure check
 All flight intent data provided was complete and correct. It should have been processed successfully, allowing the USS
 to reject or accept the flight. If the USS indicates that the injection attempt failed, this check will fail per
@@ -242,27 +249,34 @@ to reject or accept the flight. If the USS indicates that the injection attempt 
 Before execution of this step, Flight 1 is activated (onto time range A) and Flight 2 is non-conforming (onto time range
 A), and both are in conflict. The test driver modifies Flight 1 in a way that still conflicts with Flight 2 by extending
 its time range A.
-This modification results in a conflict between the two equal priority flight that already existed before the
+This modification results in a conflict between the two equal priority flights that already existed before the
 modification was initiated. While this modification is expected to be accepted by the tested USS in general, the
 rejection of the modification does not constitute a violation of a requirement. However, the modification request must
 not result in a failure per **[interuss.automated_testing.flight_planning.ExpectedBehavior](../../../../../requirements/interuss/automated_testing/flight_planning.md)**.
+Nor should Flight 1 have been removed, because doing so would leave an aircraft in flight without any flight plan.
 
-#### 🛑 Successful modification or rejection check
-All flight intent data provided is correct and the USS should have either successfully modified the flight or rejected
-properly the modification per **[interuss.automated_testing.flight_planning.ExpectedBehavior](../../../../../requirements/interuss/automated_testing/flight_planning.md)**.
-If the USS indicates that the injection attempt failed, this check will fail.
+#### 🛑 Successful flight intent handling check
+All flight intent data provided is correct and the USS should have either:
+- successfully modified the flight; or
+- properly rejected the modification; or
+- indicated that it does not support modification
+per **[interuss.automated_testing.flight_planning.ExpectedBehavior](../../../../../requirements/interuss/automated_testing/flight_planning.md)**.
+In any other case, this check will fail.
 
 #### 🛑 Failure check
 All flight intent data provided was complete and correct. It should have been processed successfully, allowing the USS
 to reject or accept the flight. If the USS indicates that the injection attempt failed, this check will fail per
 **[interuss.automated_testing.flight_planning.ExpectedBehavior](../../../../../requirements/interuss/automated_testing/flight_planning.md)**.
 
-#### [Validate Flight 1 sharing](../../validate_shared_operational_intent.md)
-This step validates that the response of the USS is consistent with the flight shared, i.e. either it was properly
-modified, or the USS considered the attempt invalid. In the latter case, because the modification attempt was invalid,
-either Flight 1 should not have been modified (because the USS kept the original accepted request), or it should have
-been removed (because the USS rejected the replacement plan provided).
+#### [Validate Flight 1 sharing if USS accepted its modification](../../validate_shared_operational_intent.md)
+This step validates that the response of the USS is consistent with the flight shared if the USS accepted the
+modification, i.e. whether Flight 1 was properly modified.
+
+#### [Validate Flight 1 not modified if USS rejected its modification](../../validate_not_shared_operational_intent.md)
+This step validates that the response of the USS is consistent with the flight shared if the USS rejected the
+modification, i.e. whether Flight 1 was not modified.
 
 ## Cleanup
+
 ### ⚠️ Successful flight deletion check
 **[interuss.automated_testing.flight_planning.DeleteFlightSuccess](../../../../../requirements/interuss/automated_testing/flight_planning.md)**

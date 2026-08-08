@@ -1,11 +1,25 @@
-from typing import List, Optional, Tuple
+from implicitdict import ImplicitDict
+from uas_standards.astm.f3548.v21 import api
+from uas_standards.astm.f3548.v21.api import OperationalIntentState
 
 from monitoring.monitorlib import fetch, scd
 from monitoring.monitorlib.clients import call_query_hooks
-from monitoring.monitorlib.fetch import QueryError, Query, QueryType
+from monitoring.monitorlib.fetch import Query, QueryError, QueryType
 from monitoring.monitorlib.infrastructure import UTMClientSession
-from implicitdict import ImplicitDict
-from uas_standards.astm.f3548.v21 import api
+
+
+def _scopes_for_state(state: OperationalIntentState) -> list[str]:
+    """
+    The scope required to set an OIR's state depends on the state itself: Contingent and Nonconforming
+    require the CMSA scope in addition to SC.
+    """
+    scopes = [scd.SCOPE_SC]
+    if (
+        state == OperationalIntentState.Contingent
+        or state == OperationalIntentState.Nonconforming
+    ):
+        scopes.append(scd.SCOPE_CM_SA)
+    return scopes
 
 
 # === DSS operations defined in ASTM API ===
@@ -13,7 +27,7 @@ from uas_standards.astm.f3548.v21 import api
 
 def query_operational_intent_references(
     utm_client: UTMClientSession, area_of_interest: api.Volume4D
-) -> List[api.OperationalIntentReference]:
+) -> list[api.OperationalIntentReference]:
     url = "/dss/v1/operational_intent_references/query"
     subject = f"queryOperationalIntentReferences from {url}"
     req = api.QueryOperationalIntentReferenceParameters(
@@ -49,11 +63,12 @@ def create_operational_intent_reference(
     id: str,
     req: api.PutOperationalIntentReferenceParameters,
 ) -> api.ChangeOperationalIntentReferenceResponse:
-    url = "/dss/v1/operational_intent_references/{}".format(id)
+    url = f"/dss/v1/operational_intent_references/{id}"
     subject = f"createOperationalIntentReference to {url}"
     query = fetch.query_and_describe(
-        utm_client, "PUT", url, json=req, scopes=[scd.SCOPE_SC, scd.SCOPE_CM_SA]
+        utm_client, "PUT", url, json=req, scopes=_scopes_for_state(req.state)
     )
+
     if query.status_code != 200 and query.status_code != 201:
         raise QueryError(
             msg="{} failed {}:\n{}".format(
@@ -81,10 +96,10 @@ def update_operational_intent_reference(
     ovn: str,
     req: api.PutOperationalIntentReferenceParameters,
 ) -> api.ChangeOperationalIntentReferenceResponse:
-    url = "/dss/v1/operational_intent_references/{}/{}".format(id, ovn)
+    url = f"/dss/v1/operational_intent_references/{id}/{ovn}"
     subject = f"updateOperationalIntentReference to {url}"
     query = fetch.query_and_describe(
-        utm_client, "PUT", url, json=req, scopes=[scd.SCOPE_SC, scd.SCOPE_CM_SA]
+        utm_client, "PUT", url, json=req, scopes=_scopes_for_state(req.state)
     )
     if query.status_code != 200 and query.status_code != 201:
         raise QueryError(
@@ -139,7 +154,7 @@ def delete_operational_intent_reference(
 
 def get_operational_intent_details(
     utm_client: UTMClientSession, uss_base_url: str, id: str
-) -> Tuple[api.OperationalIntent, Query]:
+) -> tuple[api.OperationalIntent, Query]:
     url = f"{uss_base_url}/uss/v1/operational_intents/{id}"
     subject = f"getOperationalIntentDetails from {url}"
     query = fetch.query_and_describe(
@@ -204,8 +219,8 @@ def notify_operational_intent_details_changed(
 def notify_subscribers(
     utm_client: UTMClientSession,
     id: str,
-    operational_intent: Optional[api.OperationalIntent],
-    subscribers: List[api.SubscriberToNotify],
+    operational_intent: api.OperationalIntent | None,
+    subscribers: list[api.SubscriberToNotify],
 ):
     for subscriber in subscribers:
         kwargs = {

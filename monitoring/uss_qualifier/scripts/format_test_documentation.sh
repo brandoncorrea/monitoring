@@ -15,13 +15,14 @@ cd "${BASEDIR}/../../.." || exit 1
 
 (
 cd monitoring || exit 1
-make image
+make image-dev
 )
 
 # shellcheck disable=SC2086
 docker run --name test_documentation_formatter \
   --rm \
+  -u "$(id -u):$(id -g)" \
   -v "$(pwd):/app" \
   -e MONITORING_GITHUB_ROOT=${MONITORING_GITHUB_ROOT:-} \
-  interuss/monitoring \
+  interuss/monitoring-dev \
   uss_qualifier/scripts/in_container/format_test_documentation.sh

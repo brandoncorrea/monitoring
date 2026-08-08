@@ -1,44 +1,35 @@
-from typing import List, Dict
-
-import arrow
-
 from monitoring.monitorlib.clients.flight_planning.client import FlightPlannerClient
 from monitoring.monitorlib.clients.flight_planning.flight_info import (
     AirspaceUsageState,
-    UasState,
     FlightInfo,
+    UasState,
 )
 from monitoring.monitorlib.clients.flight_planning.flight_info_template import (
     FlightInfoTemplate,
 )
 from monitoring.monitorlib.clients.flight_planning.planning import (
-    PlanningActivityResult,
     FlightPlanStatus,
+    PlanningActivityResult,
 )
-from monitoring.monitorlib.temporal import TimeDuringTest, Time
+from monitoring.uss_qualifier.resources.flight_planning import FlightIntentsResource
 from monitoring.uss_qualifier.resources.flight_planning.flight_intent_validation import (
     ExpectedFlightIntent,
     validate_flight_intent_templates,
 )
-from monitoring.uss_qualifier.suites.suite import ExecutionContext
-from monitoring.uss_qualifier.resources.flight_planning import (
-    FlightIntentsResource,
-)
 from monitoring.uss_qualifier.resources.flight_planning.flight_planners import (
     FlightPlannerResource,
 )
-from monitoring.uss_qualifier.scenarios.scenario import TestScenario
 from monitoring.uss_qualifier.scenarios.flight_planning.test_steps import (
-    submit_flight,
     cleanup_flights,
     plan_flight,
+    submit_flight,
 )
+from monitoring.uss_qualifier.scenarios.scenario import TestScenario
+from monitoring.uss_qualifier.suites.suite import ExecutionContext
 
 
 class Validation(TestScenario):
-    times: Dict[TimeDuringTest, Time]
-
-    invalid_flight_intents: List[FlightInfoTemplate]
+    invalid_flight_intents: list[FlightInfoTemplate]
     valid_flight_intent: FlightInfoTemplate
     ussp: FlightPlannerClient
 
@@ -91,15 +82,9 @@ class Validation(TestScenario):
                 self.invalid_flight_intents.append(templates[efi.intent_id])
 
     def resolve_flight(self, flight_template: FlightInfoTemplate) -> FlightInfo:
-        self.times[TimeDuringTest.TimeOfEvaluation] = Time(arrow.utcnow().datetime)
-        return flight_template.resolve(self.times)
+        return flight_template.resolve(self.time_context.evaluate_now())
 
     def run(self, context: ExecutionContext):
-        self.times = {
-            TimeDuringTest.StartOfTestRun: Time(context.start_time),
-            TimeDuringTest.StartOfScenario: Time(arrow.utcnow().datetime),
-        }
-
         self.begin_test_scenario(context)
 
         self.record_note("Planner", self.ussp.participant_id)
@@ -124,7 +109,7 @@ class Validation(TestScenario):
         for flight_intent_template in self.invalid_flight_intents:
             flight_intent = self.resolve_flight(flight_intent_template)
 
-            resp, _ = submit_flight(
+            submit_flight(
                 scenario=self,
                 success_check="Incorrectly planned",
                 expected_results={
@@ -142,11 +127,12 @@ class Validation(TestScenario):
     def _plan_valid_flight(self) -> bool:
         valid_flight_intent = self.resolve_flight(self.valid_flight_intent)
 
-        resp, _ = plan_flight(
+        resp, _, as_planned = plan_flight(
             self,
             self.ussp,
             valid_flight_intent,
         )
+        # TODO(#1326): Validate that flight as planned still allows this scenario to proceed
         if resp is None:
             return False
 

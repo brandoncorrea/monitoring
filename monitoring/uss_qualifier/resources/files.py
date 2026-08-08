@@ -1,8 +1,8 @@
 import hashlib
 import json
-from typing import Optional
 
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
+
 from monitoring.uss_qualifier import fileio
 from monitoring.uss_qualifier.fileio import FileReference
 

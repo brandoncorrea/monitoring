@@ -1,20 +1,19 @@
 from __future__ import annotations
 
 import datetime
-from typing import Dict, List, Optional, Any, Union
+from typing import Any
 
 import s2sphere
-import uas_standards.astm.f3411.v19.api
-import uas_standards.astm.f3411.v19.constants
-import uas_standards.astm.f3411.v22a.api
-import uas_standards.astm.f3411.v22a.constants
-import yaml
-from implicitdict import ImplicitDict, StringBasedDateTime
+from implicitdict import ImplicitDict, Optional, StringBasedDateTime
+from uas_standards.ansi_cta_2063_a import SerialNumber
 from uas_standards.astm.f3411 import v19, v22a
-from uas_standards.astm.f3411.v22a.api import RIDHeight
-from yaml.representer import Representer
+from uas_standards.astm.f3411.v22a.api import (
+    HorizontalAccuracy,
+    RIDHeight,
+    VerticalAccuracy,
+)
 
-from monitoring.monitorlib import fetch, rid_v1, rid_v2, geo
+from monitoring.monitorlib import fetch, geo, rid_v1, rid_v2
 from monitoring.monitorlib.fetch import Query, QueryType
 from monitoring.monitorlib.infrastructure import UTMClientSession
 from monitoring.monitorlib.rid import RIDVersion
@@ -38,7 +37,7 @@ class ISA(ImplicitDict):
     @property
     def raw(
         self,
-    ) -> Union[v19.api.IdentificationServiceArea, v22a.api.IdentificationServiceArea]:
+    ) -> v19.api.IdentificationServiceArea | v22a.api.IdentificationServiceArea:
         if self.rid_version == RIDVersion.f3411_19:
             return self.v19_value
         elif self.rid_version == RIDVersion.f3411_22a:
@@ -124,7 +123,7 @@ class ISA(ImplicitDict):
         session: UTMClientSession,
         area: s2sphere.LatLngRect,
         include_recent_positions: bool = True,
-        participant_id: Optional[str] = None,
+        participant_id: str | None = None,
     ) -> FetchedUSSFlights:
         return uss_flights(
             self.flights_url,
@@ -153,18 +152,44 @@ class Position(ImplicitDict):
 
     height: Optional[RIDHeight]
 
+    accuracy_v: Optional[
+        VerticalAccuracy
+    ]  # Note: we use the enum defined in the v2 API as it is equivalent (and thus compatible) to the v19 one
+    """Vertical error that is likely to be present in this reported position"""
+
+    accuracy_h: Optional[
+        HorizontalAccuracy
+    ]  # Note: we use the enum defined in the v2 API as it is equivalent (and thus compatible) to the v19 one
+    """Horizontal error that is likely to be present in this reported position."""
+
     @staticmethod
     def from_v19_rid_aircraft_position(
-        p: v19.api.RIDAircraftPosition, t: v19.api.StringBasedDateTime
+        p: v19.api.RIDAircraftPosition,
+        t: v19.api.StringBasedDateTime,
+        h: v19.api.RIDHeight | None,
     ) -> Position:
-        return Position(lat=p.lat, lng=p.lng, alt=p.alt, time=t.datetime, height=None)
+        return Position(
+            lat=p.lat,
+            lng=p.lng,
+            alt=p.alt,
+            time=t.datetime,
+            height=h,
+            accuracy_v=p.accuracy_v if "accuracy_v" in p else None,
+            accuracy_h=p.accuracy_h if "accuracy_h" in p else None,
+        )
 
     @staticmethod
     def from_v22a_rid_aircraft_position(
         p: v22a.api.RIDAircraftPosition, t: v22a.api.StringBasedDateTime
     ) -> Position:
         return Position(
-            lat=p.lat, lng=p.lng, alt=p.alt, time=t.datetime, height=p.get("height")
+            lat=p.lat,
+            lng=p.lng,
+            alt=p.alt,
+            time=t.datetime,
+            height=p.get("height"),
+            accuracy_v=p.accuracy_v if "accuracy_v" in p else None,
+            accuracy_h=p.accuracy_h if "accuracy_h" in p else None,
         )
 
 
@@ -186,7 +211,7 @@ class Flight(ImplicitDict):
     @property
     def raw(
         self,
-    ) -> Union[v19.api.RIDFlight, v22a.api.RIDFlight]:
+    ) -> v19.api.RIDFlight | v22a.api.RIDFlight:
         if self.rid_version == RIDVersion.f3411_19:
             return self.v19_value
         elif self.rid_version == RIDVersion.f3411_22a:
@@ -203,12 +228,13 @@ class Flight(ImplicitDict):
     @property
     def most_recent_position(
         self,
-    ) -> Optional[Position]:
+    ) -> Position | None:
         if "current_state" in self.raw and self.raw.current_state:
             if self.rid_version == RIDVersion.f3411_19:
                 return Position.from_v19_rid_aircraft_position(
                     self.v19_value.current_state.position,
                     self.v19_value.current_state.timestamp,
+                    self.height,
                 )
             elif self.rid_version == RIDVersion.f3411_22a:
                 return Position.from_v22a_rid_aircraft_position(
@@ -223,10 +249,10 @@ class Flight(ImplicitDict):
             return None
 
     @property
-    def recent_positions(self) -> List[Position]:
+    def recent_positions(self) -> list[Position]:
         if self.rid_version == RIDVersion.f3411_19:
             return [
-                Position.from_v19_rid_aircraft_position(p.position, p.time)
+                Position.from_v19_rid_aircraft_position(p.position, p.time, self.height)
                 for p in self.v19_value.recent_positions
             ]
         elif self.rid_version == RIDVersion.f3411_22a:
@@ -240,7 +266,7 @@ class Flight(ImplicitDict):
             )
 
     @property
-    def operational_status(self) -> Optional[str]:
+    def operational_status(self) -> str | None:
         if self.rid_version == RIDVersion.f3411_19:
             if not self.v19_value.has_field_with_value(
                 "current_state"
@@ -263,7 +289,7 @@ class Flight(ImplicitDict):
             )
 
     @property
-    def track(self) -> Optional[float]:
+    def track(self) -> float | None:
         if self.rid_version == RIDVersion.f3411_19:
             if not self.v19_value.has_field_with_value(
                 "current_state"
@@ -282,7 +308,7 @@ class Flight(ImplicitDict):
             )
 
     @property
-    def speed(self) -> Optional[float]:
+    def speed(self) -> float | None:
         if self.rid_version == RIDVersion.f3411_19:
             if not self.v19_value.has_field_with_value(
                 "current_state"
@@ -301,7 +327,7 @@ class Flight(ImplicitDict):
             )
 
     @property
-    def timestamp(self) -> Optional[StringBasedDateTime]:
+    def timestamp(self) -> StringBasedDateTime | None:
         if self.rid_version == RIDVersion.f3411_19:
             if not self.v19_value.has_field_with_value("current_state"):
                 return None
@@ -315,7 +341,93 @@ class Flight(ImplicitDict):
                 f"Cannot retrieve speed using RID version {self.rid_version}"
             )
 
-    def errors(self) -> List[str]:
+    @property
+    def timestamp_accuracy(self) -> float | None:
+        if self.rid_version == RIDVersion.f3411_19:
+            if not self.v19_value.has_field_with_value("current_state"):
+                return None
+            return self.v19_value.current_state.timestamp_accuracy
+        elif self.rid_version == RIDVersion.f3411_22a:
+            if not self.v22a_value.has_field_with_value("current_state"):
+                return None
+            return self.v22a_value.current_state.timestamp_accuracy
+        else:
+            raise NotImplementedError(
+                f"Cannot retrieve speed using RID version {self.rid_version}"
+            )
+
+    @property
+    def speed_accuracy(
+        self,
+    ) -> v19.api.SpeedAccuracy | v22a.api.SpeedAccuracy | None:
+        if self.rid_version == RIDVersion.f3411_19:
+            if not self.v19_value.has_field_with_value("current_state"):
+                return None
+            return self.v19_value.current_state.speed_accuracy
+        elif self.rid_version == RIDVersion.f3411_22a:
+            if not self.v22a_value.has_field_with_value("current_state"):
+                return None
+            return self.v22a_value.current_state.speed_accuracy
+        else:
+            raise NotImplementedError(
+                f"Cannot retrieve speed accuracy using RID version {self.rid_version}"
+            )
+
+    @property
+    def vertical_speed(self) -> float | None:
+        if self.rid_version == RIDVersion.f3411_19:
+            if not self.v19_value.has_field_with_value("current_state"):
+                return None
+            return self.v19_value.current_state.vertical_speed
+        elif self.rid_version == RIDVersion.f3411_22a:
+            if not self.v22a_value.has_field_with_value("current_state"):
+                return None
+            return self.v22a_value.current_state.vertical_speed
+        else:
+            raise NotImplementedError(
+                f"Cannot retrieve vertical speed using RID version {self.rid_version}"
+            )
+
+    @property
+    def aircraft_type(
+        self,
+    ) -> v19.api.RIDAircraftType | v22a.api.UAType | None:
+        if self.rid_version == RIDVersion.f3411_19:
+            if not self.v19_value.has_field_with_value("aircraft_type"):
+                return None
+            return self.v19_value.aircraft_type
+        elif self.rid_version == RIDVersion.f3411_22a:
+            if not self.v22a_value.has_field_with_value("aircraft_type"):
+                return None
+            return self.v22a_value.aircraft_type
+        else:
+            raise NotImplementedError(
+                f"Cannot retrieve aircraft_type using RID version {self.rid_version}"
+            )
+
+    @property
+    def height(
+        self,
+    ) -> v19.api.RIDHeight | v22a.api.RIDHeight | None:
+        if self.rid_version == RIDVersion.f3411_19:
+            if not self.v19_value.has_field_with_value(
+                "current_state"
+            ) or not self.v19_value.current_state.has_field_with_value("height"):
+                return None
+            return self.v19_value.current_state.height
+        elif self.rid_version == RIDVersion.f3411_22a:
+            if (
+                not self.most_recent_position
+                or not self.most_recent_position.has_field_with_value("height")
+            ):
+                return None
+            return self.most_recent_position.height
+        else:
+            raise NotImplementedError(
+                f"Cannot retrieve aircraft_type using RID version {self.rid_version}"
+            )
+
+    def errors(self) -> list[str]:
         try:
             rid_version = self.rid_version
         except ValueError as e:
@@ -389,7 +501,7 @@ class FlightDetails(ImplicitDict):
     @property
     def raw(
         self,
-    ) -> Union[v19.api.RIDFlightDetails, v22a.api.RIDFlightDetails]:
+    ) -> v19.api.RIDFlightDetails | v22a.api.RIDFlightDetails:
         if self.rid_version == RIDVersion.f3411_19:
             return self.v19_value
         elif self.rid_version == RIDVersion.f3411_22a:
@@ -415,7 +527,7 @@ class FlightDetails(ImplicitDict):
             )
 
     @property
-    def arbitrary_uas_id(self) -> Optional[str]:
+    def arbitrary_uas_id(self) -> str | None:
         """Returns a UAS id as a plain string without type hint.
         If multiple are provided:
         For v19, registration_number is returned if set, else it falls back to the serial_number.
@@ -444,9 +556,25 @@ class FlightDetails(ImplicitDict):
             )
 
     @property
+    def eu_classification(
+        self,
+    ) -> v22a.api.UAClassificationEU | None:
+        if self.rid_version == RIDVersion.f3411_19:
+            return None
+        elif self.rid_version == RIDVersion.f3411_22a:
+            if self.v22a_value.has_field_with_value("eu_classification"):
+                return self.v22a_value.eu_classification
+            else:
+                return None
+        else:
+            raise NotImplementedError(
+                f"Cannot retrieve UA classification using RID version {self.rid_version}"
+            )
+
+    @property
     def operator_location(
         self,
-    ) -> Optional[geo.LatLngPoint]:
+    ) -> geo.LatLngPoint | None:
         if self.rid_version == RIDVersion.f3411_19:
             if not self.v19_value.has_field_with_value("operator_location"):
                 return None
@@ -467,7 +595,7 @@ class FlightDetails(ImplicitDict):
     @property
     def operator_altitude(
         self,
-    ) -> Optional[geo.Altitude]:
+    ) -> geo.Altitude | None:
         if self.rid_version == RIDVersion.f3411_19:
             return None
         elif self.rid_version == RIDVersion.f3411_22a:
@@ -487,7 +615,7 @@ class FlightDetails(ImplicitDict):
     @property
     def operator_altitude_type(
         self,
-    ) -> Optional[str]:
+    ) -> str | None:
         if self.rid_version == RIDVersion.f3411_19:
             return None
         elif self.rid_version == RIDVersion.f3411_22a:
@@ -503,6 +631,42 @@ class FlightDetails(ImplicitDict):
                 f"Cannot retrieve operator_altitude_type using RID version {self.rid_version}"
             )
 
+    @property
+    def serial_number(
+        self,
+    ) -> SerialNumber | None:
+        if self.rid_version == RIDVersion.f3411_19:
+            return self.v19_value.serial_number
+        elif self.rid_version == RIDVersion.f3411_22a:
+            if self.v22a_value.has_field_with_value(
+                "uas_id"
+            ) and self.v22a_value.uas_id.has_field_with_value("serial_number"):
+                return self.v22a_value.uas_id.serial_number
+            else:
+                return None
+        else:
+            raise NotImplementedError(
+                f"Cannot retrieve UAS ID serial number using RID version {self.rid_version}"
+            )
+
+    @property
+    def registration_id(
+        self,
+    ) -> SerialNumber | None:
+        if self.rid_version == RIDVersion.f3411_19:
+            return self.v19_value.registration_number
+        elif self.rid_version == RIDVersion.f3411_22a:
+            if self.v22a_value.has_field_with_value(
+                "uas_id"
+            ) and self.v22a_value.uas_id.has_field_with_value("registration_id"):
+                return self.v22a_value.uas_id.registration_id
+            else:
+                return None
+        else:
+            raise NotImplementedError(
+                f"Cannot retrieve UAS ID registration id using RID version {self.rid_version}"
+            )
+
 
 class Subscription(ImplicitDict):
     """Version-independent representation of a F3411 subscription."""
@@ -511,7 +675,7 @@ class Subscription(ImplicitDict):
     v22a_value: Optional[v22a.api.Subscription] = None
 
     @property
-    def duration(self) -> Optional[datetime.timedelta]:
+    def duration(self) -> datetime.timedelta | None:
         if self.v19_value is not None:
             if (
                 self.v19_value.time_end is not None
@@ -549,7 +713,7 @@ class Subscription(ImplicitDict):
     @property
     def raw(
         self,
-    ) -> Union[v19.api.Subscription, v22a.api.Subscription]:
+    ) -> v19.api.Subscription | v22a.api.Subscription:
         if self.rid_version == RIDVersion.f3411_19:
             return self.v19_value
         elif self.rid_version == RIDVersion.f3411_22a:
@@ -568,7 +732,7 @@ class Subscription(ImplicitDict):
         return self.raw.version
 
     @property
-    def time_start(self) -> datetime:
+    def time_start(self) -> datetime.datetime:
         if self.rid_version == RIDVersion.f3411_19:
             return self.v19_value.time_start.datetime
         elif self.rid_version == RIDVersion.f3411_22a:
@@ -579,7 +743,7 @@ class Subscription(ImplicitDict):
             )
 
     @property
-    def time_end(self) -> datetime:
+    def time_end(self) -> datetime.datetime:
         if self.rid_version == RIDVersion.f3411_19:
             return self.v19_value.time_end.datetime
         elif self.rid_version == RIDVersion.f3411_22a:
@@ -659,11 +823,11 @@ class RIDQuery(ImplicitDict):
         return not self.errors
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self) -> list[str]:
         raise NotImplementedError("RIDQuery.errors must be overriden")
 
     @property
-    def participant_id(self) -> Optional[str]:
+    def participant_id(self) -> str | None:
         if self.rid_version == RIDVersion.f3411_19:
             if "participant_id" in self.v19_query:
                 return self.v19_query.participant_id
@@ -685,7 +849,7 @@ class RIDQuery(ImplicitDict):
         elif self.v22a_query is not None:
             self.v22a_query.participant_id = participant_id
         else:
-            raise NotImplementedError(f"Cannot set participant_id")
+            raise NotImplementedError("Cannot set participant_id")
 
 
 class FetchedISA(RIDQuery):
@@ -710,7 +874,7 @@ class FetchedISA(RIDQuery):
         )
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self) -> list[str]:
         if self.status_code == 404:
             return ["ISA not present in DSS"]
         if self.status_code != 200:
@@ -743,7 +907,7 @@ class FetchedISA(RIDQuery):
         return []
 
     @property
-    def isa(self) -> Optional[ISA]:
+    def isa(self) -> ISA | None:
         if not self.success:
             return None
         if self.rid_version == RIDVersion.f3411_19:
@@ -761,7 +925,7 @@ def isa(
     rid_version: RIDVersion,
     session: UTMClientSession,
     dss_base_url: str = "",
-    participant_id: Optional[str] = None,
+    participant_id: str | None = None,
 ) -> FetchedISA:
     if rid_version == RIDVersion.f3411_19:
         op = v19.api.OPERATIONS[v19.api.OperationID.GetIdentificationServiceArea]
@@ -817,7 +981,7 @@ class FetchedISAs(RIDQuery):
         )
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self) -> list[str]:
         # Overall errors
         if self.status_code != 200:
             return [f"Failed to search ISAs in DSS ({self.status_code})"]
@@ -850,7 +1014,7 @@ class FetchedISAs(RIDQuery):
         return []
 
     @property
-    def isas(self) -> Dict[str, ISA]:
+    def isas(self) -> dict[str, ISA]:
         if not self.success:
             return {}
         if self.rid_version == RIDVersion.f3411_19:
@@ -867,7 +1031,7 @@ class FetchedISAs(RIDQuery):
             )
 
     @property
-    def flights_urls(self) -> Dict[str, str]:
+    def flights_urls(self) -> dict[str, str]:
         """Returns map of flights URL to owning USS"""
         if not self.success:
             return {}
@@ -892,13 +1056,13 @@ class FetchedISAs(RIDQuery):
 
 
 def isas(
-    area: List[s2sphere.LatLng],
-    start_time: Optional[datetime.datetime],
-    end_time: Optional[datetime.datetime],
+    area: list[s2sphere.LatLng],
+    start_time: datetime.datetime | None,
+    end_time: datetime.datetime | None,
     rid_version: RIDVersion,
     session: UTMClientSession,
     dss_base_url: str = "",
-    participant_id: Optional[str] = None,
+    participant_id: str | None = None,
 ) -> FetchedISAs:
     url_time_params = ""
     if start_time is not None:
@@ -962,9 +1126,9 @@ class FetchedUSSFlights(RIDQuery):
         )
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self) -> list[str]:
         if self.status_code != 200:
-            return ["Failed to get flights ({})".format(self.status_code)]
+            return [f"Failed to get flights ({self.status_code})"]
         if self.query.response.json is None:
             return ["Flights response did not include valid JSON"]
 
@@ -989,7 +1153,7 @@ class FetchedUSSFlights(RIDQuery):
         return self.query.request.url.split("?")[0]
 
     @property
-    def flights(self) -> List[Flight]:
+    def flights(self) -> list[Flight]:
         if not self.success:
             return []
         if self.rid_version == RIDVersion.f3411_19:
@@ -1008,7 +1172,7 @@ def uss_flights(
     include_recent_positions: bool,
     rid_version: RIDVersion,
     session: UTMClientSession,
-    participant_id: Optional[str] = None,
+    participant_id: str | None = None,
 ) -> FetchedUSSFlights:
     if rid_version == RIDVersion.f3411_19:
         query = fetch.query_and_describe(
@@ -1016,15 +1180,10 @@ def uss_flights(
             "GET",
             flights_url,
             params={
-                "view": "{},{},{},{}".format(
-                    area.lat_lo().degrees,
-                    area.lng_lo().degrees,
-                    area.lat_hi().degrees,
-                    area.lng_hi().degrees,
+                "view": f"{area.lat_lo().degrees},{area.lng_lo().degrees},{area.lat_hi().degrees},{area.lng_hi().degrees}",
+                "include_recent_positions": (
+                    "true" if include_recent_positions else "false"
                 ),
-                "include_recent_positions": "true"
-                if include_recent_positions
-                else "false",
             },
             scope=v19.constants.Scope.Read,
             query_type=QueryType.F3411v19USSSearchFlights,
@@ -1033,12 +1192,7 @@ def uss_flights(
         return FetchedUSSFlights(v19_query=query)
     elif rid_version == RIDVersion.f3411_22a:
         params = {
-            "view": "{},{},{},{}".format(
-                area.lat_lo().degrees,
-                area.lng_lo().degrees,
-                area.lat_hi().degrees,
-                area.lng_hi().degrees,
-            ),
+            "view": f"{area.lat_lo().degrees},{area.lng_lo().degrees},{area.lat_hi().degrees},{area.lng_hi().degrees}",
         }
         if include_recent_positions:
             params["recent_positions_duration"] = "60"
@@ -1048,7 +1202,7 @@ def uss_flights(
             flights_url,
             params=params,
             scope=v22a.constants.Scope.DisplayProvider,
-            query_type=QueryType.F3411v19USSSearchFlights,
+            query_type=QueryType.F3411v22aUSSSearchFlights,
             participant_id=participant_id,
         )
         return FetchedUSSFlights(v22a_query=query)
@@ -1080,9 +1234,9 @@ class FetchedUSSFlightDetails(RIDQuery):
         )
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self) -> list[str]:
         if self.status_code != 200:
-            return ["Failed to get flight details ({})".format(self.status_code)]
+            return [f"Failed to get flight details ({self.status_code})"]
         if self.query.response.json is None:
             return ["Flight details response did not include valid JSON"]
 
@@ -1116,7 +1270,7 @@ class FetchedUSSFlightDetails(RIDQuery):
         return "/".join(self.query.request.url.split("/")[0:-2])
 
     @property
-    def details(self) -> Optional[FlightDetails]:
+    def details(self) -> FlightDetails | None:
         if not self.success:
             return None
         if self.rid_version == RIDVersion.f3411_19:
@@ -1135,7 +1289,7 @@ def flight_details(
     enhanced_details: bool,
     rid_version: RIDVersion,
     session: UTMClientSession,
-    participant_id: Optional[str] = None,
+    participant_id: str | None = None,
 ) -> FetchedUSSFlightDetails:
     url = f"{flights_url}/{flight_id}/details"
     if rid_version == RIDVersion.f3411_19:
@@ -1173,11 +1327,11 @@ def flight_details(
 
 class FetchedFlights(ImplicitDict):
     dss_isa_query: FetchedISAs
-    uss_flight_queries: Dict[str, FetchedUSSFlights]
-    uss_flight_details_queries: Dict[str, FetchedUSSFlightDetails]
+    uss_flight_queries: dict[str, FetchedUSSFlights]
+    uss_flight_details_queries: dict[str, FetchedUSSFlightDetails]
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self) -> list[str]:
         if not self.dss_isa_query.success:
             return self.dss_isa_query.errors
         result = []
@@ -1188,14 +1342,14 @@ class FetchedFlights(ImplicitDict):
         return result
 
     @property
-    def queries(self) -> List[Query]:
+    def queries(self) -> list[Query]:
         result = [self.dss_isa_query.query]
         result.extend(q.query for q in self.uss_flight_queries.values())
         result.extend(q.query for q in self.uss_flight_details_queries.values())
         return result
 
     @property
-    def flights(self) -> List[Flight]:
+    def flights(self) -> list[Flight]:
         all_flights = []
         for q in self.uss_flight_queries.values():
             all_flights.extend(q.flights)
@@ -1214,7 +1368,7 @@ def all_flights(
     session: UTMClientSession,
     dss_base_url: str = "",
     enhanced_details: bool = False,
-    dss_participant_id: Optional[str] = None,
+    dss_participant_id: str | None = None,
 ) -> FetchedFlights:
     t = datetime.datetime.now(datetime.UTC)
     isa_list = isas(
@@ -1227,8 +1381,8 @@ def all_flights(
         participant_id=dss_participant_id,
     )
 
-    uss_flight_queries: Dict[str, FetchedUSSFlights] = {}
-    uss_flight_details_queries: Dict[str, FetchedUSSFlightDetails] = {}
+    uss_flight_queries: dict[str, FetchedUSSFlights] = {}
+    uss_flight_details_queries: dict[str, FetchedUSSFlightDetails] = {}
     for flights_url in isa_list.flights_urls:
         flights_for_url = uss_flights(
             flights_url,
@@ -1283,11 +1437,11 @@ class FetchedSubscription(RIDQuery):
         )
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self) -> list[str]:
         if self.status_code == 404:
             return ["Subscription not present in DSS"]
         if self.status_code != 200:
-            return ["Failed to get Subscription ({})".format(self.status_code)]
+            return [f"Failed to get Subscription ({self.status_code})"]
         if self.query.response.json is None:
             return ["Subscription response did not include valid JSON"]
 
@@ -1310,7 +1464,7 @@ class FetchedSubscription(RIDQuery):
         return []
 
     @property
-    def subscription(self) -> Optional[Subscription]:
+    def subscription(self) -> Subscription | None:
         if not self.success:
             return None
         if self.rid_version == RIDVersion.f3411_19:
@@ -1328,7 +1482,7 @@ def subscription(
     rid_version: RIDVersion,
     session: UTMClientSession,
     dss_base_url: str = "",
-    participant_id: Optional[str] = None,
+    participant_id: str | None = None,
 ) -> FetchedSubscription:
     if rid_version == RIDVersion.f3411_19:
         op = v19.api.OPERATIONS[v19.api.OperationID.GetSubscription]
@@ -1384,7 +1538,7 @@ class FetchedSubscriptions(RIDQuery):
         )
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self) -> list[str]:
         # Overall errors
         if self.status_code != 200:
             return [f"Failed to search subscriptions in DSS ({self.status_code})"]
@@ -1413,7 +1567,7 @@ class FetchedSubscriptions(RIDQuery):
         return []
 
     @property
-    def subscriptions(self) -> Dict[str, Subscription]:
+    def subscriptions(self) -> dict[str, Subscription]:
         if not self.success:
             return {}
         if self.rid_version == RIDVersion.f3411_19:
@@ -1433,11 +1587,11 @@ class FetchedSubscriptions(RIDQuery):
 
 
 def subscriptions(
-    area: List[s2sphere.LatLng],
+    area: list[s2sphere.LatLng],
     rid_version: RIDVersion,
     session: UTMClientSession,
     dss_base_url: str = "",
-    participant_id: Optional[str] = None,
+    participant_id: str | None = None,
 ) -> FetchedSubscriptions:
     if rid_version == RIDVersion.f3411_19:
         op = v19.api.OPERATIONS[v19.api.OperationID.SearchSubscriptions]
@@ -1469,12 +1623,3 @@ def subscriptions(
         raise NotImplementedError(
             f"Cannot query DSS for subscriptions using RID version {rid_version}"
         )
-
-
-yaml.add_representer(FetchedISA, Representer.represent_dict)
-yaml.add_representer(FetchedISAs, Representer.represent_dict)
-yaml.add_representer(FetchedUSSFlights, Representer.represent_dict)
-yaml.add_representer(FetchedUSSFlightDetails, Representer.represent_dict)
-yaml.add_representer(FetchedFlights, Representer.represent_dict)
-yaml.add_representer(FetchedSubscription, Representer.represent_dict)
-yaml.add_representer(FetchedSubscriptions, Representer.represent_dict)

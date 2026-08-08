@@ -1,6 +1,4 @@
-from typing import Optional, List
-
-from implicitdict import ImplicitDict
+from implicitdict import ImplicitDict, Optional
 
 from monitoring.monitorlib.fetch import Query
 
@@ -18,8 +16,8 @@ class ClearAreaResponse(ImplicitDict):
 
 
 class TestPreparationActivityResponse(ImplicitDict):
-    errors: Optional[List[str]] = None
+    errors: Optional[list[str]] = None
     """If any errors occurred during this activity, a list of those errors."""
 
-    queries: List[Query]
+    queries: list[Query]
     """Queries used to accomplish this activity."""

@@ -1,20 +1,20 @@
 import json
-from typing import List
+
 from implicitdict import ImplicitDict, StringBasedDateTime
-from monitoring.uss_qualifier.common_data_definitions import Severity
+from uas_standards.eurocae_ed269 import UASZoneVersion
+
 from monitoring.uss_qualifier.resources.eurocae.ed269.source_document import (
     SourceDocument,
 )
 from monitoring.uss_qualifier.scenarios.scenario import TestScenario
 from monitoring.uss_qualifier.suites.suite import ExecutionContext
-from uas_standards.eurocae_ed269 import UASZoneVersion
 
 
 # TODO: When the format is confirmed, this should be moved to uas_standards.eurocae_ed269
 class ED269SchemaFile(ImplicitDict):
     formatVersion: str
     createdAt: StringBasedDateTime
-    UASZoneList: List[UASZoneVersion]
+    UASZoneList: list[UASZoneVersion]
 
 
 class SourceDataModelValidation(TestScenario):
@@ -44,7 +44,6 @@ class SourceDataModelValidation(TestScenario):
             except json.decoder.JSONDecodeError as e:
                 check.record_failed(
                     summary="Unable to deserialize the document as JSON",
-                    severity=Severity.High,
                     details=str(e),
                 )
 
@@ -57,7 +56,6 @@ class SourceDataModelValidation(TestScenario):
                 except ValueError as e:
                     check.record_failed(
                         summary="Invalid format error",
-                        severity=Severity.High,
                         details=str(e),
                     )
 

@@ -1,10 +1,11 @@
-import flask
+import os
 
-from monitoring.mock_uss import webapp
+import flask
+from loguru import logger
+
+from monitoring.mock_uss.app import webapp
 from monitoring.mock_uss.msgsigning import config
 from monitoring.mock_uss.msgsigning.database import db
-from loguru import logger
-import os
 
 
 @webapp.route(
@@ -15,7 +16,7 @@ def get_public_key():
         webapp.config.get(config.KEY_CERT_BASE_PATH), db.value.public_key_name
     )
 
-    logger.info("Retrieving public key file from {}".format(public_key_file_location))
+    logger.info(f"Retrieving public key file from {public_key_file_location}")
 
     return flask.send_file(public_key_file_location)
 

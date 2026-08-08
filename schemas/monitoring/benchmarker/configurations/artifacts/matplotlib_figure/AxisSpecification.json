@@ -1,0 +1,46 @@
+{
+  "$id": "https://github.com/interuss/monitoring/blob/main/schemas/monitoring/benchmarker/configurations/artifacts/matplotlib_figure/AxisSpecification.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "monitoring.benchmarker.configurations.artifacts.matplotlib_figure.AxisSpecification, as defined in monitoring/benchmarker/configurations/artifacts/matplotlib_figure.py",
+  "properties": {
+    "$ref": {
+      "description": "Path to content that replaces the $ref",
+      "type": "string"
+    },
+    "label": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "max_value": {
+      "description": "If specified, the maximum value of this axis.",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "max_value_expr": {
+      "description": "If specified, an expression for the maximum value of this axis.\n\nTakes precedence over max_value.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "min_value": {
+      "description": "If specified, the minimum value of this axis.",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "min_value_expr": {
+      "description": "If specified, an expression for the minimum value of this axis.\n\nTakes precedence over min_value.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "type": "object"
+}
