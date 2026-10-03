@@ -1,0 +1,20 @@
+{
+  "test_run_information": {
+    "test_run_id": "fc29204ae6a28708d2176d2efb2c3d8faa8dbc57e776cdc92fd72fb7fe247875",
+    "start_time": "2026-10-03 18:35:14 UTC",
+    "end_time": "2026-10-03 18:36:33 UTC",
+    "baseline": "b0a0fc71ef9677fe5f74c02446fcf108574b31d1e3e67c779ba27bcd1f2c8de3",
+    "environment": "2aa22f9a216f17d1170ea1b9a03f610dd4e10d48711b87fdc2594dd126dd2cbe"
+  },
+  "participant_verifications": {
+    "uss1": {
+      "status": "NotFullyVerified",
+      "system_version": "0.0.0+d158d40"
+    },
+    "uss2": {
+      "status": "Pass",
+      "system_version": "0.0.0+d158d40"
+    }
+  },
+  "artifact_configuration": "gate3"
+}
